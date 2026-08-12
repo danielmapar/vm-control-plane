@@ -19,10 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	VMService_CreateVm_FullMethodName = "/vmc.v1.VMService/CreateVm"
-	VMService_DeleteVm_FullMethodName = "/vmc.v1.VMService/DeleteVm"
-	VMService_GetVm_FullMethodName    = "/vmc.v1.VMService/GetVm"
-	VMService_ListVms_FullMethodName  = "/vmc.v1.VMService/ListVms"
+	VMService_CreateVm_FullMethodName      = "/vmc.v1.VMService/CreateVm"
+	VMService_UpdateVmPower_FullMethodName = "/vmc.v1.VMService/UpdateVmPower"
+	VMService_DeleteVm_FullMethodName      = "/vmc.v1.VMService/DeleteVm"
+	VMService_GetVm_FullMethodName         = "/vmc.v1.VMService/GetVm"
+	VMService_ListVms_FullMethodName       = "/vmc.v1.VMService/ListVms"
 )
 
 // VMServiceClient is the client API for VMService service.
@@ -37,6 +38,10 @@ const (
 // different request is FAILED_PRECONDITION (plan D3).
 type VMServiceClient interface {
 	CreateVm(ctx context.Context, in *CreateVmRequest, opts ...grpc.CallOption) (*Operation, error)
+	// UpdateVmPower is the ONLY mutable-spec verb in v0.1 (plan D3): it bumps
+	// spec_generation and desired_revision under a resource_version
+	// precondition; everything else about a VM is immutable after create.
+	UpdateVmPower(ctx context.Context, in *UpdateVmPowerRequest, opts ...grpc.CallOption) (*Operation, error)
 	DeleteVm(ctx context.Context, in *DeleteVmRequest, opts ...grpc.CallOption) (*Operation, error)
 	GetVm(ctx context.Context, in *GetVmRequest, opts ...grpc.CallOption) (*VirtualMachine, error)
 	ListVms(ctx context.Context, in *ListVmsRequest, opts ...grpc.CallOption) (*ListVmsResponse, error)
@@ -54,6 +59,16 @@ func (c *vMServiceClient) CreateVm(ctx context.Context, in *CreateVmRequest, opt
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Operation)
 	err := c.cc.Invoke(ctx, VMService_CreateVm_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *vMServiceClient) UpdateVmPower(ctx context.Context, in *UpdateVmPowerRequest, opts ...grpc.CallOption) (*Operation, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Operation)
+	err := c.cc.Invoke(ctx, VMService_UpdateVmPower_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +117,10 @@ func (c *vMServiceClient) ListVms(ctx context.Context, in *ListVmsRequest, opts 
 // different request is FAILED_PRECONDITION (plan D3).
 type VMServiceServer interface {
 	CreateVm(context.Context, *CreateVmRequest) (*Operation, error)
+	// UpdateVmPower is the ONLY mutable-spec verb in v0.1 (plan D3): it bumps
+	// spec_generation and desired_revision under a resource_version
+	// precondition; everything else about a VM is immutable after create.
+	UpdateVmPower(context.Context, *UpdateVmPowerRequest) (*Operation, error)
 	DeleteVm(context.Context, *DeleteVmRequest) (*Operation, error)
 	GetVm(context.Context, *GetVmRequest) (*VirtualMachine, error)
 	ListVms(context.Context, *ListVmsRequest) (*ListVmsResponse, error)
@@ -117,6 +136,9 @@ type UnimplementedVMServiceServer struct{}
 
 func (UnimplementedVMServiceServer) CreateVm(context.Context, *CreateVmRequest) (*Operation, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateVm not implemented")
+}
+func (UnimplementedVMServiceServer) UpdateVmPower(context.Context, *UpdateVmPowerRequest) (*Operation, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateVmPower not implemented")
 }
 func (UnimplementedVMServiceServer) DeleteVm(context.Context, *DeleteVmRequest) (*Operation, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteVm not implemented")
@@ -162,6 +184,24 @@ func _VMService_CreateVm_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VMServiceServer).CreateVm(ctx, req.(*CreateVmRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VMService_UpdateVmPower_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateVmPowerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VMServiceServer).UpdateVmPower(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VMService_UpdateVmPower_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VMServiceServer).UpdateVmPower(ctx, req.(*UpdateVmPowerRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -230,6 +270,10 @@ var VMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateVm",
 			Handler:    _VMService_CreateVm_Handler,
+		},
+		{
+			MethodName: "UpdateVmPower",
+			Handler:    _VMService_UpdateVmPower_Handler,
 		},
 		{
 			MethodName: "DeleteVm",

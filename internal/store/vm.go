@@ -203,6 +203,35 @@ func (s *Store) TombstoneVM(ctx context.Context, q querier, id uuid.UUID, expect
 	return nil, fmt.Errorf("tombstone: unexpected zero-row update for vm %s", id)
 }
 
+// UpdateVMPower rewrites the ONLY v0.1-mutable spec field under the CAS:
+// bumps spec_generation and desired_revision, wakes the queue. The caller
+// passes the whole updated spec (power flipped) — protojson is rewritten
+// atomically with the version bump.
+func (s *Store) UpdateVMPower(ctx context.Context, q querier, id uuid.UUID, expectVersion int64, spec *vmcv1.VmSpec) (*VM, error) {
+	if q == nil {
+		q = s.pool
+	}
+	specJSON, err := pj.Marshal(spec)
+	if err != nil {
+		return nil, fmt.Errorf("marshal spec: %w", err)
+	}
+	row := q.QueryRow(ctx, `
+		UPDATE vms SET spec=$3,
+			spec_generation = spec_generation + 1,
+			desired_revision = desired_revision + 1,
+			next_attempt_at = clock_timestamp(),
+			resource_version = resource_version + 1,
+			updated_at = now()
+		WHERE id=$1 AND resource_version=$2 AND deleted_at IS NULL
+		RETURNING `+vmColumns,
+		id, expectVersion, specJSON)
+	vm, err := scanVM(row)
+	if errors.Is(err, ErrNotFound) {
+		return nil, staleOrMissing(ctx, q, id)
+	}
+	return vm, err
+}
+
 // staleOrMissing disambiguates a zero-row CAS UPDATE: stale version vs
 // genuinely absent row.
 func staleOrMissing(ctx context.Context, q querier, id uuid.UUID) error {

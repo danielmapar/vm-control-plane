@@ -21,6 +21,76 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type UpdateVmPowerRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	IdempotencyKey string                 `protobuf:"bytes,1,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Power          PowerState             `protobuf:"varint,3,opt,name=power,proto3,enum=vmc.v1.PowerState" json:"power,omitempty"`
+	// Optional optimistic-concurrency precondition: when non-zero, the update
+	// applies only if the row's resource_version still matches.
+	ExpectedResourceVersion int64 `protobuf:"varint,4,opt,name=expected_resource_version,json=expectedResourceVersion,proto3" json:"expected_resource_version,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *UpdateVmPowerRequest) Reset() {
+	*x = UpdateVmPowerRequest{}
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateVmPowerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateVmPowerRequest) ProtoMessage() {}
+
+func (x *UpdateVmPowerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateVmPowerRequest.ProtoReflect.Descriptor instead.
+func (*UpdateVmPowerRequest) Descriptor() ([]byte, []int) {
+	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *UpdateVmPowerRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *UpdateVmPowerRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateVmPowerRequest) GetPower() PowerState {
+	if x != nil {
+		return x.Power
+	}
+	return PowerState_POWER_STATE_UNSPECIFIED
+}
+
+func (x *UpdateVmPowerRequest) GetExpectedResourceVersion() int64 {
+	if x != nil {
+		return x.ExpectedResourceVersion
+	}
+	return 0
+}
+
 type CreateVmRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Client-minted UUID; the idempotency envelope key.
@@ -33,7 +103,7 @@ type CreateVmRequest struct {
 
 func (x *CreateVmRequest) Reset() {
 	*x = CreateVmRequest{}
-	mi := &file_vmc_v1_vm_service_proto_msgTypes[0]
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -45,7 +115,7 @@ func (x *CreateVmRequest) String() string {
 func (*CreateVmRequest) ProtoMessage() {}
 
 func (x *CreateVmRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vmc_v1_vm_service_proto_msgTypes[0]
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -58,7 +128,7 @@ func (x *CreateVmRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateVmRequest.ProtoReflect.Descriptor instead.
 func (*CreateVmRequest) Descriptor() ([]byte, []int) {
-	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{0}
+	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateVmRequest) GetIdempotencyKey() string {
@@ -92,7 +162,7 @@ type DeleteVmRequest struct {
 
 func (x *DeleteVmRequest) Reset() {
 	*x = DeleteVmRequest{}
-	mi := &file_vmc_v1_vm_service_proto_msgTypes[1]
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -104,7 +174,7 @@ func (x *DeleteVmRequest) String() string {
 func (*DeleteVmRequest) ProtoMessage() {}
 
 func (x *DeleteVmRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vmc_v1_vm_service_proto_msgTypes[1]
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -117,7 +187,7 @@ func (x *DeleteVmRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteVmRequest.ProtoReflect.Descriptor instead.
 func (*DeleteVmRequest) Descriptor() ([]byte, []int) {
-	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{1}
+	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *DeleteVmRequest) GetIdempotencyKey() string {
@@ -143,7 +213,7 @@ type GetVmRequest struct {
 
 func (x *GetVmRequest) Reset() {
 	*x = GetVmRequest{}
-	mi := &file_vmc_v1_vm_service_proto_msgTypes[2]
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -155,7 +225,7 @@ func (x *GetVmRequest) String() string {
 func (*GetVmRequest) ProtoMessage() {}
 
 func (x *GetVmRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vmc_v1_vm_service_proto_msgTypes[2]
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -168,7 +238,7 @@ func (x *GetVmRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetVmRequest.ProtoReflect.Descriptor instead.
 func (*GetVmRequest) Descriptor() ([]byte, []int) {
-	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{2}
+	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetVmRequest) GetName() string {
@@ -189,7 +259,7 @@ type ListVmsRequest struct {
 
 func (x *ListVmsRequest) Reset() {
 	*x = ListVmsRequest{}
-	mi := &file_vmc_v1_vm_service_proto_msgTypes[3]
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -201,7 +271,7 @@ func (x *ListVmsRequest) String() string {
 func (*ListVmsRequest) ProtoMessage() {}
 
 func (x *ListVmsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vmc_v1_vm_service_proto_msgTypes[3]
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -214,7 +284,7 @@ func (x *ListVmsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVmsRequest.ProtoReflect.Descriptor instead.
 func (*ListVmsRequest) Descriptor() ([]byte, []int) {
-	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{3}
+	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListVmsRequest) GetPageSize() int32 {
@@ -241,7 +311,7 @@ type ListVmsResponse struct {
 
 func (x *ListVmsResponse) Reset() {
 	*x = ListVmsResponse{}
-	mi := &file_vmc_v1_vm_service_proto_msgTypes[4]
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -253,7 +323,7 @@ func (x *ListVmsResponse) String() string {
 func (*ListVmsResponse) ProtoMessage() {}
 
 func (x *ListVmsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vmc_v1_vm_service_proto_msgTypes[4]
+	mi := &file_vmc_v1_vm_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -266,7 +336,7 @@ func (x *ListVmsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListVmsResponse.ProtoReflect.Descriptor instead.
 func (*ListVmsResponse) Descriptor() ([]byte, []int) {
-	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{4}
+	return file_vmc_v1_vm_service_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListVmsResponse) GetVms() []*VirtualMachine {
@@ -287,7 +357,12 @@ var File_vmc_v1_vm_service_proto protoreflect.FileDescriptor
 
 const file_vmc_v1_vm_service_proto_rawDesc = "" +
 	"\n" +
-	"\x17vmc/v1/vm_service.proto\x12\x06vmc.v1\x1a\x16vmc/v1/operation.proto\x1a\x0fvmc/v1/vm.proto\"r\n" +
+	"\x17vmc/v1/vm_service.proto\x12\x06vmc.v1\x1a\x16vmc/v1/operation.proto\x1a\x0fvmc/v1/vm.proto\"\xb9\x01\n" +
+	"\x14UpdateVmPowerRequest\x12'\n" +
+	"\x0fidempotency_key\x18\x01 \x01(\tR\x0eidempotencyKey\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
+	"\x05power\x18\x03 \x01(\x0e2\x12.vmc.v1.PowerStateR\x05power\x12:\n" +
+	"\x19expected_resource_version\x18\x04 \x01(\x03R\x17expectedResourceVersion\"r\n" +
 	"\x0fCreateVmRequest\x12'\n" +
 	"\x0fidempotency_key\x18\x01 \x01(\tR\x0eidempotencyKey\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\"\n" +
@@ -303,9 +378,10 @@ const file_vmc_v1_vm_service_proto_rawDesc = "" +
 	"page_token\x18\x02 \x01(\tR\tpageToken\"c\n" +
 	"\x0fListVmsResponse\x12(\n" +
 	"\x03vms\x18\x01 \x03(\v2\x16.vmc.v1.VirtualMachineR\x03vms\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xee\x01\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xb0\x02\n" +
 	"\tVMService\x126\n" +
-	"\bCreateVm\x12\x17.vmc.v1.CreateVmRequest\x1a\x11.vmc.v1.Operation\x126\n" +
+	"\bCreateVm\x12\x17.vmc.v1.CreateVmRequest\x1a\x11.vmc.v1.Operation\x12@\n" +
+	"\rUpdateVmPower\x12\x1c.vmc.v1.UpdateVmPowerRequest\x1a\x11.vmc.v1.Operation\x126\n" +
 	"\bDeleteVm\x12\x17.vmc.v1.DeleteVmRequest\x1a\x11.vmc.v1.Operation\x125\n" +
 	"\x05GetVm\x12\x14.vmc.v1.GetVmRequest\x1a\x16.vmc.v1.VirtualMachine\x12:\n" +
 	"\aListVms\x12\x16.vmc.v1.ListVmsRequest\x1a\x17.vmc.v1.ListVmsResponseB\x8f\x01\n" +
@@ -324,33 +400,38 @@ func file_vmc_v1_vm_service_proto_rawDescGZIP() []byte {
 	return file_vmc_v1_vm_service_proto_rawDescData
 }
 
-var file_vmc_v1_vm_service_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_vmc_v1_vm_service_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_vmc_v1_vm_service_proto_goTypes = []any{
-	(*CreateVmRequest)(nil), // 0: vmc.v1.CreateVmRequest
-	(*DeleteVmRequest)(nil), // 1: vmc.v1.DeleteVmRequest
-	(*GetVmRequest)(nil),    // 2: vmc.v1.GetVmRequest
-	(*ListVmsRequest)(nil),  // 3: vmc.v1.ListVmsRequest
-	(*ListVmsResponse)(nil), // 4: vmc.v1.ListVmsResponse
-	(*VmSpec)(nil),          // 5: vmc.v1.VmSpec
-	(*VirtualMachine)(nil),  // 6: vmc.v1.VirtualMachine
-	(*Operation)(nil),       // 7: vmc.v1.Operation
+	(*UpdateVmPowerRequest)(nil), // 0: vmc.v1.UpdateVmPowerRequest
+	(*CreateVmRequest)(nil),      // 1: vmc.v1.CreateVmRequest
+	(*DeleteVmRequest)(nil),      // 2: vmc.v1.DeleteVmRequest
+	(*GetVmRequest)(nil),         // 3: vmc.v1.GetVmRequest
+	(*ListVmsRequest)(nil),       // 4: vmc.v1.ListVmsRequest
+	(*ListVmsResponse)(nil),      // 5: vmc.v1.ListVmsResponse
+	(PowerState)(0),              // 6: vmc.v1.PowerState
+	(*VmSpec)(nil),               // 7: vmc.v1.VmSpec
+	(*VirtualMachine)(nil),       // 8: vmc.v1.VirtualMachine
+	(*Operation)(nil),            // 9: vmc.v1.Operation
 }
 var file_vmc_v1_vm_service_proto_depIdxs = []int32{
-	5, // 0: vmc.v1.CreateVmRequest.spec:type_name -> vmc.v1.VmSpec
-	6, // 1: vmc.v1.ListVmsResponse.vms:type_name -> vmc.v1.VirtualMachine
-	0, // 2: vmc.v1.VMService.CreateVm:input_type -> vmc.v1.CreateVmRequest
-	1, // 3: vmc.v1.VMService.DeleteVm:input_type -> vmc.v1.DeleteVmRequest
-	2, // 4: vmc.v1.VMService.GetVm:input_type -> vmc.v1.GetVmRequest
-	3, // 5: vmc.v1.VMService.ListVms:input_type -> vmc.v1.ListVmsRequest
-	7, // 6: vmc.v1.VMService.CreateVm:output_type -> vmc.v1.Operation
-	7, // 7: vmc.v1.VMService.DeleteVm:output_type -> vmc.v1.Operation
-	6, // 8: vmc.v1.VMService.GetVm:output_type -> vmc.v1.VirtualMachine
-	4, // 9: vmc.v1.VMService.ListVms:output_type -> vmc.v1.ListVmsResponse
-	6, // [6:10] is the sub-list for method output_type
-	2, // [2:6] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	6, // 0: vmc.v1.UpdateVmPowerRequest.power:type_name -> vmc.v1.PowerState
+	7, // 1: vmc.v1.CreateVmRequest.spec:type_name -> vmc.v1.VmSpec
+	8, // 2: vmc.v1.ListVmsResponse.vms:type_name -> vmc.v1.VirtualMachine
+	1, // 3: vmc.v1.VMService.CreateVm:input_type -> vmc.v1.CreateVmRequest
+	0, // 4: vmc.v1.VMService.UpdateVmPower:input_type -> vmc.v1.UpdateVmPowerRequest
+	2, // 5: vmc.v1.VMService.DeleteVm:input_type -> vmc.v1.DeleteVmRequest
+	3, // 6: vmc.v1.VMService.GetVm:input_type -> vmc.v1.GetVmRequest
+	4, // 7: vmc.v1.VMService.ListVms:input_type -> vmc.v1.ListVmsRequest
+	9, // 8: vmc.v1.VMService.CreateVm:output_type -> vmc.v1.Operation
+	9, // 9: vmc.v1.VMService.UpdateVmPower:output_type -> vmc.v1.Operation
+	9, // 10: vmc.v1.VMService.DeleteVm:output_type -> vmc.v1.Operation
+	8, // 11: vmc.v1.VMService.GetVm:output_type -> vmc.v1.VirtualMachine
+	5, // 12: vmc.v1.VMService.ListVms:output_type -> vmc.v1.ListVmsResponse
+	8, // [8:13] is the sub-list for method output_type
+	3, // [3:8] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_vmc_v1_vm_service_proto_init() }
@@ -366,7 +447,7 @@ func file_vmc_v1_vm_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_vmc_v1_vm_service_proto_rawDesc), len(file_vmc_v1_vm_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

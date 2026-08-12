@@ -134,6 +134,98 @@ func (s *Server) createVmTx(ctx context.Context, key uuid.UUID, req *vmcv1.Creat
 	return operationToProto(op), nil
 }
 
+// UpdateVmPower: the only v0.1 spec mutation (D3). Envelope discipline
+// identical to create: hash first, claim, then mutate inside the winning
+// transaction with an optional resource_version precondition.
+func (s *Server) UpdateVmPower(ctx context.Context, req *vmcv1.UpdateVmPowerRequest) (*vmcv1.Operation, error) {
+	key, err := uuid.Parse(req.GetIdempotencyKey())
+	if err != nil || key == uuid.Nil {
+		return nil, status.Error(codes.InvalidArgument, "idempotency_key must be a non-nil UUID")
+	}
+	switch req.GetPower() {
+	case vmcv1.PowerState_POWER_STATE_RUNNING, vmcv1.PowerState_POWER_STATE_STOPPED:
+	default:
+		return nil, status.Error(codes.InvalidArgument, "power must be RUNNING or STOPPED")
+	}
+	hash, err := canonicalHash(req, func(m proto.Message) {
+		m.(*vmcv1.UpdateVmPowerRequest).IdempotencyKey = ""
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	for attempt := 0; ; attempt++ {
+		op, err := s.updatePowerTx(ctx, key, req, hash)
+		switch {
+		case err == nil:
+			return op, nil
+		case errors.Is(err, store.ErrEnvelopeIncomplete) && attempt < envelopeRetries:
+			time.Sleep(envelopeBackoff)
+		case errors.Is(err, store.ErrEnvelopeIncomplete):
+			return nil, status.Error(codes.Aborted, "concurrent request with the same idempotency key is in flight; retry")
+		case errors.Is(err, store.ErrStaleWrite) && req.GetExpectedResourceVersion() == 0 && attempt < envelopeRetries:
+			// No user precondition: transparent CAS retry is safe.
+		default:
+			return nil, mapStoreErr(err)
+		}
+	}
+}
+
+func (s *Server) updatePowerTx(ctx context.Context, key uuid.UUID, req *vmcv1.UpdateVmPowerRequest, hash []byte) (*vmcv1.Operation, error) {
+	tx, err := s.st.Pool().Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+
+	existing, err := s.st.ClaimEnvelope(ctx, tx, key, "UpdateVmPower", "v1", "vm", req.GetName(), hash)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		if err := tx.Commit(ctx); err != nil {
+			return nil, err
+		}
+		return operationToProto(existing), nil
+	}
+
+	vm, err := s.st.GetVM(ctx, tx, req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	if vm.DeletedAt != nil {
+		return nil, status.Error(codes.FailedPrecondition, "vm is being deleted")
+	}
+	expect := vm.ResourceVersion
+	if v := req.GetExpectedResourceVersion(); v != 0 {
+		expect = v // user-supplied precondition wins — and is NOT retried
+	}
+	spec := proto.Clone(vm.Spec).(*vmcv1.VmSpec)
+	spec.Power = req.GetPower()
+	updated, err := s.st.UpdateVMPower(ctx, tx, vm.ID, expect, spec)
+	if err != nil {
+		return nil, err
+	}
+	op, err := s.st.CreateOperation(ctx, tx, &store.Operation{
+		ID: uuid.New(), ResourceType: "vm", ResourceID: updated.ID,
+		ResourceName: updated.Name, Verb: "UPDATE_POWER",
+		TargetRevision: updated.DesiredRevision,
+		DeadlineBudget: createDeadline,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.st.CompleteEnvelope(ctx, tx, key, op.ID); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	s.log.InfoContext(ctx, "vm power update accepted",
+		"vm", updated.Name, "power", req.GetPower().String(), "operation", op.ID, "target_revision", op.TargetRevision)
+	return operationToProto(op), nil
+}
+
 // DeleteVm: envelope claim → tombstone (set-once) + operation, one
 // transaction. The row persists until teardown finalizes — deletion is a
 // desired state, not an absence.

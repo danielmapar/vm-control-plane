@@ -13,9 +13,22 @@ import "vmc/v1/vm.proto";
 // different request is FAILED_PRECONDITION (plan D3).
 service VMService {
   rpc CreateVm(CreateVmRequest) returns (Operation);
+  // UpdateVmPower is the ONLY mutable-spec verb in v0.1 (plan D3): it bumps
+  // spec_generation and desired_revision under a resource_version
+  // precondition; everything else about a VM is immutable after create.
+  rpc UpdateVmPower(UpdateVmPowerRequest) returns (Operation);
   rpc DeleteVm(DeleteVmRequest) returns (Operation);
   rpc GetVm(GetVmRequest) returns (VirtualMachine);
   rpc ListVms(ListVmsRequest) returns (ListVmsResponse);
+}
+
+message UpdateVmPowerRequest {
+  string idempotency_key = 1;
+  string name = 2;
+  PowerState power = 3;
+  // Optional optimistic-concurrency precondition: when non-zero, the update
+  // applies only if the row's resource_version still matches.
+  int64 expected_resource_version = 4;
 }
 
 message CreateVmRequest {

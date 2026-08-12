@@ -37,6 +37,8 @@ func New(out io.Writer) *cobra.Command {
 	root.AddCommand(newCreateCmd(out, &server))
 	root.AddCommand(newGetCmd(out, &server))
 	root.AddCommand(newListCmd(out, &server))
+	root.AddCommand(newPowerCmd(out, &server, "start", vmcv1.PowerState_POWER_STATE_RUNNING))
+	root.AddCommand(newPowerCmd(out, &server, "stop", vmcv1.PowerState_POWER_STATE_STOPPED))
 	root.AddCommand(newDeleteCmd(out, &server))
 	root.AddCommand(newOpCmd(out, &server))
 	return root
@@ -190,6 +192,34 @@ func newListCmd(out io.Writer, server *string) *cobra.Command {
 				}
 			}
 			printVMs(out, all...)
+			return nil
+		},
+	}
+}
+
+func newPowerCmd(out io.Writer, server *string, verb string, power vmcv1.PowerState) *cobra.Command {
+	return &cobra.Command{
+		Use:   verb + " vm NAME",
+		Short: strings.ToUpper(verb[:1]) + verb[1:] + " a VM (async; the loop converges it)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if args[0] != "vm" {
+				return fmt.Errorf("only 'vm' resources are supported, got %q", args[0])
+			}
+			conn, err := dial(*server)
+			if err != nil {
+				return err
+			}
+			defer conn.Close() //nolint:errcheck // process exit follows
+			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+			defer cancel()
+			op, err := vmcv1.NewVMServiceClient(conn).UpdateVmPower(ctx, &vmcv1.UpdateVmPowerRequest{
+				IdempotencyKey: uuid.NewString(), Name: args[1], Power: power,
+			})
+			if err != nil {
+				return err
+			}
+			printOperation(out, op)
 			return nil
 		},
 	}
