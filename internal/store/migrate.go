@@ -17,6 +17,19 @@ var migrationFS embed.FS
 // applies atomically: a crash mid-migration leaves it unapplied, not half
 // applied.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	// One dedicated connection holds the advisory lock for the whole run:
+	// concurrent processes (api + controller roles starting together)
+	// serialize here instead of racing DDL (PR 4-8 triage).
+	lockConn, err := pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("migration lock conn: %w", err)
+	}
+	defer lockConn.Release()
+	if _, err := lockConn.Exec(ctx, `SELECT pg_advisory_lock(727274)`); err != nil {
+		return fmt.Errorf("migration lock: %w", err)
+	}
+	defer func() { _, _ = lockConn.Exec(context.WithoutCancel(ctx), `SELECT pg_advisory_unlock(727274)`) }()
+
 	if _, err := pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		filename text PRIMARY KEY,
 		applied_at timestamptz NOT NULL DEFAULT now()

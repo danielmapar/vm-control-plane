@@ -323,3 +323,50 @@ func TestE2EDeleteLifecycle(t *testing.T) {
 		t.Fatalf("delete operation must remain queryable: %v %+v", err, final)
 	}
 }
+
+// TestE2ECrashMidDelete: matrix row 16 black-box — the controller crashes
+// at the finalization boundary (teardown proven, row removal pending); a
+// clean restart finalizes exactly once and the DELETE operation completes.
+func TestE2ECrashMidDelete(t *testing.T) {
+	dir := binaries(t)
+	dbURL := pgtest.NewDBURL(t)
+	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
+
+	crashy := start(t, bin(dir, "control-plane"),
+		[]string{"VMC_FAILPOINTS=controller.before-finalize=crash"},
+		"--listen", addr, "--db-url", dbURL)
+	waitServing(t, addr, 30*time.Second)
+	start(t, bin(dir, "hypervisor-agent"), nil,
+		"--server", addr, "--state-dir", t.TempDir(), "--nodes", "node-a,node-b")
+
+	vms, ops := client(t, addr)
+	ctx := context.Background()
+
+	op, err := vms.CreateVm(ctx, createReq("cmd-1", 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitDone(t, ops, op.GetId(), 60*time.Second)
+
+	delOp, err := vms.DeleteVm(ctx, &vmcv1.DeleteVmRequest{
+		IdempotencyKey: uuid.NewString(), Name: "cmd-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Teardown receipt arrives; finalization hits the failpoint → 137.
+	if code := crashy.waitExit(t, 60*time.Second); code != 137 {
+		t.Fatalf("controller exit = %d, want 137", code)
+	}
+
+	// The Deleting row survived the crash (teardown proven, not finalized).
+	start(t, bin(dir, "control-plane"), nil, "--listen", addr, "--db-url", dbURL)
+	waitServing(t, addr, 30*time.Second)
+
+	vms2, ops2 := client(t, addr)
+	waitDone(t, ops2, delOp.GetId(), 60*time.Second)
+	if _, err := vms2.GetVm(context.Background(), &vmcv1.GetVmRequest{Name: "cmd-1"}); err == nil {
+		t.Fatal("row must be gone after recovered finalization")
+	}
+}
