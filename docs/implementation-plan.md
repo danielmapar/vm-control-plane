@@ -49,8 +49,8 @@ Verified on the development machine (2026-08-12):
 | Fact | Value | Consequence |
 |---|---|---|
 | OS | Windows 11 Pro | Native dev loop, **natively CI-tested** (Windows runner) |
-| CPU | i9-12900HK, VT-x enabled, SLAT | WSL2 + nested KVM viable after one-time install |
-| WSL | **Not installed** (admin + reboot) | Spike is **M0 work** the moment WSL exists; M1–M2 have no substrate dependency; M3+ schedule commits only on the spike report |
+| CPU | i9-12900HK, VT-x enabled, SLAT | Nested KVM viable inside a VirtualBox Ubuntu guest |
+| Substrate host | **VirtualBox 7.2.8; Hyper-V OFF (both verified)** — an Ubuntu guest with `--nested-hw-virt on` gets working /dev/kvm | Tier 1 = Ubuntu VM under VirtualBox (WSL explicitly not wanted); the spike runs inside it, is M0 work, and gates M3+ |
 | Go | 1.26.5 windows/amd64 | Ready |
 | Docker / containers | Absent everywhere | Standalone pinned observability binaries; embedded PostgreSQL |
 | buf / protoc-gen-go / golangci-lint | **Installed + verified during planning** (1.72.0 / 1.36.12 / 2.12.2) | PR 2 bootstrap proven |
@@ -58,10 +58,10 @@ Verified on the development machine (2026-08-12):
 | GitHub | `danielmapar` valid; `devsigtunnel` token invalid; repo visible to neither | Pushing blocked until fixed (§16) |
 | embedded-postgres | Smoke-tested: PG 18.3, 16.4 s cold | Viable (D11) |
 | go-libvirt / libovsdb | Compiled on windows/amd64 here | Pure-Go holds — **but go-libvirt mutation RPCs take no context** (e.g. `DomainDefineXML`), so cancellation is a designed connection-supervisor concern (D8), and the M0 spike includes an exact-library Go probe |
-| WSL2 kernel & OVS | 6.6 config ships `CONFIG_OPENVSWITCH=m` | Kernel datapath *likely*; spike verifies |
+| Substrate kernel & OVS | A real Ubuntu VM kernel ships the openvswitch module | Kernel datapath expected; the spike still capability-detects rather than assumes |
 | GitHub-hosted KVM | Documented experimental/unsupported | Three-lane CI; unavailable KVM is a **neutral capability result**; release gate is provenance-based (§8) |
 
-Hard constraints: (1) all code compiles and unit-tests on Windows; real drivers `//go:build linux`; both-GOOS builds + native Windows tests in CI; (2) real KVM = WSL2 post-spike + capability-gated CI lane; (3) working copy leaves OneDrive before code lands.
+Hard constraints: (1) all code compiles and unit-tests on Windows; real drivers `//go:build linux`; both-GOOS builds + native Windows tests in CI; (2) real KVM = an Ubuntu VM under VirtualBox (nested VT-x) post-spike + capability-gated CI lane; (3) working copy leaves OneDrive before code lands.
 
 ## 3. Goals and non-goals
 
@@ -75,7 +75,7 @@ Hard constraints: (1) all code compiles and unit-tests on Windows; real drivers 
 - **G6 — Drift reconciliation** over **live and next-boot (inactive) configuration plus autostart**, via owned-field projection, owner- and epoch-scoped.
 - **G7 — Observable**, async-honest tracing (span links).
 - **G8 — Portfolio artifacts:** design doc, ADRs (kept in lockstep — stale ADRs are treated as bugs), educational PRs with acceptance evidence, demos, honest statistics, scale analysis, limitations, tagged release.
-- **G9 — Runs on the author's machine:** fake tier natively on Windows; real KVM in WSL2.
+- **G9 — Runs on the author's machine:** fake tier natively on Windows; real KVM in an Ubuntu VM under VirtualBox (nested VT-x) on the same machine.
 
 ### Non-goals
 
@@ -223,9 +223,9 @@ Failure matrix (failpoint IDs are assigned in the checked-in manifest at PR 10; 
 
 **Tier 0** (as v5): native Windows, embedded PG, one host daemon + two logical nodes, loopback, stable paths, non-admin.
 
-**Tier 1 — WSL2, gated on the M0 spike** under the exact service identity, now also proving: **the go-libvirt connection-supervisor probe** (blackholed RPC, lost-response re-observation), OVSDB rights surviving daemon restart, full ownership cycle, datapath detection. Produces a written report that (a) gates M3+, (b) re-estimates the schedule, (c) **selects the concrete fallback venue if WSL KVM fails** — a rented bare-metal/nested-virt-capable Linux host (e.g. a small Hetzner instance) is provisioned *then*, or the degraded-scope matrix (§9) is invoked; "some Linux somewhere" is not a plan.
+**Tier 1 — an Ubuntu 24.04 VM under VirtualBox (nested VT-x), gated on the M0 spike** under the exact service identity, also proving: **the go-libvirt connection-supervisor probe** (blackholed RPC, lost-response re-observation), OVSDB rights surviving daemon restart, full ownership cycle, datapath detection (a real VM kernel ships the openvswitch module). `scripts/spike/vbox-create.ps1` provisions the VM — `--nested-hw-virt on` is the load-bearing flag, and Hyper-V is verified off so VirtualBox passes raw VT-x through. The spike report (a) gates M3+, (b) re-estimates the schedule, (c) **selects the concrete fallback venue on a NO-GO** — a rented nested-virt-capable Linux host is provisioned then, or the degraded-scope matrix (§9) is invoked; "some Linux somewhere" is not a plan.
 
-**Tier 2 — CI, three lanes** (as v5: portable+race+stress; no-KVM Linux substrate lane incl. qemu-img kill batteries, OVSDB-under-UID, seed read-back; capability-gated guest lane with hard preflight). **Release gate, tightened:** the tag workflow verifies a passing real-KVM artifact **for the exact release commit** — SHA, image digest, runner identity, acceleration preflight, results — from WSL2 or the fallback venue; unavailable hosted KVM is a neutral capability result, never a pass.
+**Tier 2 — CI, three lanes** (as v5: portable+race+stress; no-KVM Linux substrate lane incl. qemu-img kill batteries, OVSDB-under-UID, seed read-back; capability-gated guest lane with hard preflight). **Release gate, tightened:** the tag workflow verifies a passing real-KVM artifact **for the exact release commit** — SHA, image digest, runner identity, acceleration preflight, results — from the substrate VM or the fallback venue; unavailable hosted KVM is a neutral capability result, never a pass.
 
 ## 9. Milestones, scope, and PR dependency graph
 
@@ -238,7 +238,7 @@ Ground rules unchanged (one idea per PR; Deps/Produces/Accepts columns; protos a
 |---|---|---|---|---|
 | 1 | Docs | — | 4 h | Plan, design doc, ADRs 1–6 **(v6-consistent — stale ADRs are bugs)** / render + diagram check |
 | 2 | Scaffolding + CI lane 1 | — | 6 h | Layout, lint, both-GOOS, Linux+Windows runners, race lane, buf bootstrap / green on empty tree |
-| 3 | WSL2 spike + report | WSL (user) | 4 h + spike time | Go/no-go incl. **go-libvirt probe**; fallback-venue decision; re-estimate / report committed; **gates M3+** |
+| 3 | Substrate spike + report | VirtualBox VM (user provisions) | 4 h + spike time | Go/no-go incl. **go-libvirt probe**; fallback-venue decision; re-estimate / report committed; **gates M3+** |
 
 ### M1 — API and state (≈26 h)
 | PR | Title | Deps | Est | Produces / Accepts |
@@ -271,7 +271,7 @@ Ground rules unchanged (one idea per PR; Deps/Produces/Accepts columns; protos a
 | 21 | CI lanes 2+3 | 2,3 | 6 h | Substrate lane, guest lane, artifacts, **release-gate provenance workflow** / lane smoke |
 | 22 | Domain XML + seed | 4 | 8 h | domainxml goldens (identity, epoch, isolated mgmt, autostart); pure-Go ISO (CIDATA verified, ssh keys, MAC-matched net-config) / lane-2 read-back |
 | 23 | Real qcow2 core | 21 | 10 h | Sized overlays, cache admission, **publication + teardown durability**, scavenger, manifest primitives / ★ matrix 11-img, 16-durability in lane 2 |
-| 24 | Mgmt net + libvirt lifecycle | 16,18,19,20,22,23 | 16 h | Owned `vmc-mgmt`, **connection supervisor**, define/start/stop-ladder/undefine, dual-XML fingerprints, DHCP discovery, ownership cycle / ★ boot→SSH→stop→delete→drift in guest lane + WSL; matrix 13, 19-real; demos 1, 3-real |
+| 24 | Mgmt net + libvirt lifecycle | 16,18,19,20,22,23 | 16 h | Owned `vmc-mgmt`, **connection supervisor**, define/start/stop-ladder/undefine, dual-XML fingerprints, DHCP discovery, ownership cycle / ★ boot→SSH→stop→delete→drift in guest lane + substrate VM; matrix 13, 19-real; demos 1, 3-real |
 
 ### M3b — Full real substrate (≈48 h)
 | PR | Title | Deps | Est | Produces / Accepts |

@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# WSL2 substrate setup — asserts its preconditions instead of assuming them.
-# Run inside the WSL2 Ubuntu 24.04 distro as the user who will run the agent
-# (NOT root; sudo is used selectively).
+# Linux substrate setup — asserts its preconditions instead of assuming them.
+# Runs inside the Tier-1 Linux host: an Ubuntu 24.04 VM under VirtualBox
+# with nested VT-x (scripts/spike/vbox-create.ps1 provisions it), a WSL2
+# distro, or any bare-metal/cloud Ubuntu. Run as the user who will run the
+# agent (NOT root; sudo is used selectively).
 #
 # Group membership does not apply to the current login: after the first run
-# reports "re-login required", start a new WSL shell and run this script
-# again — the second run verifies effective identity and finishes.
+# reports "re-login required", start a new shell and run this script again —
+# the second run verifies effective identity and finishes.
 set -euo pipefail
 
 fail() { echo "SETUP-FAIL: $*" >&2; exit 1; }
@@ -15,15 +17,20 @@ ME="$(id -un)"
 [ "$(id -u)" -ne 0 ] || fail "run as the service user, not root"
 
 # systemd must be PID 1 for libvirtd/openvswitch units.
-[ "$(ps -p 1 -o comm=)" = "systemd" ] \
-  || fail "systemd is not PID 1 — add [boot]\\nsystemd=true to /etc/wsl.conf, then 'wsl --shutdown' and retry"
+if [ "$(ps -p 1 -o comm=)" != "systemd" ]; then
+  if grep -qi microsoft /proc/version 2>/dev/null; then
+    fail "systemd is not PID 1 — add [boot]\\nsystemd=true to /etc/wsl.conf, then 'wsl --shutdown' and retry"
+  fi
+  fail "systemd is not PID 1 — this host cannot run the substrate services"
+fi
 
-# Nested virtualization must expose /dev/kvm.
-[ -e /dev/kvm ] \
-  || fail "/dev/kvm missing — ensure nestedVirtualization=true in %UserProfile%\\.wslconfig, then 'wsl --shutdown'"
+# Virtualization must reach this guest. Under VirtualBox that means nested
+# VT-x: VBoxManage modifyvm <vm> --nested-hw-virt on (host must not be
+# running Hyper-V). Under WSL2: nestedVirtualization=true in .wslconfig.
+[ -e /dev/kvm ] || fail "/dev/kvm missing — enable nested virtualization for this VM (VirtualBox: --nested-hw-virt on; WSL: .wslconfig) and reboot it"
 
 # Go toolchain (the probe and the agent run under this identity).
-command -v go >/dev/null || fail "Go not installed in WSL — 'sudo snap install go --classic' or apt; need 1.26+"
+command -v go >/dev/null || fail "Go not installed — 'sudo snap install go --classic' or apt; need 1.26+"
 
 note "installing packages"
 sudo apt-get update -q
@@ -54,6 +61,8 @@ sudo systemctl daemon-reload
 sudo systemctl restart ovsdb-server openvswitch-switch
 
 # --- Datapath capability detection (never assume) ----------------------------
+# A real Ubuntu kernel (VirtualBox VM / bare metal) ships the openvswitch
+# module; stock WSL2 kernels may not. Detect, don't guess.
 if sudo modprobe openvswitch 2>/dev/null; then
   note "OVS kernel datapath available (module loaded)"
   echo kernel | sudo tee /var/lib/vmc-datapath >/dev/null
@@ -63,23 +72,22 @@ else
   echo netdev | sudo tee /var/lib/vmc-datapath >/dev/null
 fi
 
-# --- Storage root (WSL-native filesystem, never /mnt/c) ----------------------
+# --- Storage root (local filesystem, never a shared/synced mount) ------------
 sudo mkdir -p /var/lib/vmc
 sudo chown "$ME":vmc /var/lib/vmc
 sudo chmod 2775 /var/lib/vmc   # setgid: agent + qemu group share
 
 case "$(pwd)" in
-  /mnt/c/*) fail "repo checkout is under /mnt/c — clone to the WSL filesystem (~/) before running the demo" ;;
+  /mnt/*|/media/sf_*) fail "repo checkout is on a shared/synced mount ($(pwd)) — clone to the VM's own filesystem (~/) first" ;;
 esac
 
 # --- Effective-identity verification (second run finishes here) --------------
 if id -nG "$ME" | tr ' ' '\n' | grep -qx kvm && \
    id -nG | tr ' ' '\n' | grep -qx kvm; then
-  # Current shell already has the groups: verify the substrate touchpoints.
   [ -r /dev/kvm ] && [ -w /dev/kvm ] || fail "/dev/kvm not accessible even with kvm group — check udev"
   virsh -c qemu:///system version >/dev/null || fail "libvirt system socket not accessible under $ME"
   ovs-vsctl show >/dev/null || fail "OVSDB not accessible under $ME (socket perms drop-in failed?)"
   note "OK — identity verified; run scripts/spike/spike.sh"
 else
-  note "groups updated but NOT active in this shell — open a NEW WSL shell and run this script once more"
+  note "groups updated but NOT active in this shell — open a NEW shell and run this script once more"
 fi

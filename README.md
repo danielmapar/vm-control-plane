@@ -29,7 +29,7 @@ lifecycle, scheduling across logical nodes, execution grants and fencing,
 drift detection with one-path repair, node-loss policy, durable claims,
 semantic idempotency, and operations that always terminate — black-box
 tested with real processes and real kill -9. The real-substrate drivers
-(libvirt/OVS/qcow2 executors) land against the verified WSL2 substrate per
+(libvirt/OVS/qcow2 executors) land against the verified Linux substrate (an Ubuntu VM under VirtualBox with nested VT-x) per
 the plan's harness-before-feature gate (§9); their portable cores
 (domain XML, seed ISO, qcow2 command logic) are already merged and tested.
 The PR history is meant to be read as a course — see the plan's §9.
@@ -56,7 +56,7 @@ go test ./internal/e2e/ -v    # incl. controller kill -9 mid-transition and
                               # crash-mid-delete, recovered by restart alone
 ```
 
-Real-KVM tiers (WSL2 / CI) are described in the plan, §8.
+Real-KVM tiers (an Ubuntu VM under VirtualBox / CI) are described in the plan, §8.
 
 ## AI collaboration
 
