@@ -89,7 +89,16 @@ func (r *Runner) WriteSeed(node, vmID string, epoch int64, iso []byte) (string, 
 	if err := os.MkdirAll(dir, 0o2775); err != nil {
 		return "", err
 	}
+	// Idempotent: the seed is content-deterministic per (vm, epoch), so an
+	// existing seed is the correct one — a redelivery must not fail on the
+	// no-replace publish.
+	if _, err := os.Stat(final); err == nil {
+		return final, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
 	tmp := TempFor(final)
+	_ = os.Remove(tmp) // clear any crash garbage
 	if err := os.WriteFile(tmp, iso, 0o644); err != nil {
 		return "", err
 	}

@@ -5,6 +5,7 @@ package libvirt
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 
 	golibvirt "github.com/digitalocean/go-libvirt"
 	"github.com/google/uuid"
@@ -32,35 +33,43 @@ func mgmtNetworkXML(name string) string {
 }
 
 func bridgeName(net string) string {
-	// libvirt bridge names are limited; derive a short stable one.
-	if len(net) > 10 {
-		net = net[:10]
-	}
-	return "vmcbr-" + net
+	// Linux interface names are capped at 15 chars (IFNAMSIZ-1). Derive a
+	// short, stable, collision-resistant name: "vmcbr-" + 6 hex of a hash
+	// = 12 chars.
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(net))
+	return fmt.Sprintf("vmcbr-%06x", h.Sum32()&0xffffff)
 }
 
 // EnsureMgmtNetwork defines and starts the management NAT network if absent.
-// Idempotent; a foreign same-named network is a conflict, never adopted.
+// Idempotent. Note: golibvirt.IsNotFound matches DOMAIN-not-found only, so a
+// network lookup that fails is treated as "define it" — and a define that
+// loses a define-race is recovered by re-lookup. The supervisor already
+// distinguishes transport failures (which it poisons on) from server errors
+// reaching this closure.
 func (d *Driver) EnsureMgmtNetwork(ctx context.Context) error {
 	return d.sup.call(ctx, func(l *golibvirt.Libvirt) error {
-		if net, err := l.NetworkLookupByName(d.cfg.MgmtNetwork); err == nil {
-			// Exists — confirm it is active; start if not.
-			active, aerr := l.NetworkIsActive(net)
-			if aerr != nil {
-				return aerr
-			}
-			if active == 0 {
-				return l.NetworkCreate(net)
-			}
-			return nil
-		} else if !golibvirt.IsNotFound(err) {
-			return err
-		}
-		net, err := l.NetworkDefineXML(mgmtNetworkXML(d.cfg.MgmtNetwork))
+		net, err := l.NetworkLookupByName(d.cfg.MgmtNetwork)
 		if err != nil {
-			return err
+			// Assume not present; define it.
+			net, err = l.NetworkDefineXML(mgmtNetworkXML(d.cfg.MgmtNetwork))
+			if err != nil {
+				// A concurrent define may have won; re-lookup.
+				net2, lerr := l.NetworkLookupByName(d.cfg.MgmtNetwork)
+				if lerr != nil {
+					return fmt.Errorf("define management network: %w", err)
+				}
+				net = net2
+			}
 		}
-		return l.NetworkCreate(net)
+		active, aerr := l.NetworkIsActive(net)
+		if aerr != nil {
+			return aerr
+		}
+		if active == 0 {
+			return l.NetworkCreate(net)
+		}
+		return nil
 	})
 }
 

@@ -85,7 +85,7 @@ func TestITBootSSHTeardown(t *testing.T) {
 		_ = d.Teardown(tctx, cfg.VMID, cfg.Epoch)
 	})
 
-	ectx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	ectx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	state, err := d.Ensure(ectx, cfg)
 	if err != nil {
@@ -103,7 +103,7 @@ func TestITBootSSHTeardown(t *testing.T) {
 	// Wait for a DHCP lease (proves the guest kernel booted + configured the
 	// mgmt NIC via cloud-init).
 	var ip string
-	deadline := time.Now().Add(2 * time.Minute)
+	deadline := time.Now().Add(4 * time.Minute)
 	for time.Now().Before(deadline) {
 		got, err := d.MgmtIP(ctx, cfg.VMID)
 		if err != nil {

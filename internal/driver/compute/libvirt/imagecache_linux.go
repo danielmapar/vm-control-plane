@@ -48,7 +48,7 @@ type imgInfo struct {
 
 func probeStandalone(ctx context.Context, path string) (imgInfo, error) {
 	var buf bytes.Buffer
-	cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", path)
+	cmd := exec.CommandContext(ctx, "qemu-img", "info", "-U", "--output=json", path)
 	cmd.Stdout = &buf
 	if err := cmd.Run(); err != nil {
 		return imgInfo{}, fmt.Errorf("qemu-img info: %w", err)

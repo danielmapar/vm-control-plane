@@ -108,8 +108,13 @@ func CreateBlankArgs(tempPath string, sizeBytes uint64) ([]string, error) {
 // InfoArgs builds the validated-ensure probe: format, virtual size, and
 // backing chain are checked against expectations before ANY pre-existing
 // file is accepted (existence is not evidence — matrix row 11).
+//
+// -U (force-share) is REQUIRED here: on idempotent replay the overlay may be
+// held by a running QEMU, and a plain `qemu-img info` would fail to get the
+// lock (the QEMU image-locking case, plan D10). -U is safe because info is
+// read-only — it is only unsafe for mutations, which this never performs.
 func InfoArgs(path string) []string {
-	return []string{"qemu-img", "info", "--output=json", "--backing-chain", path}
+	return []string{"qemu-img", "info", "-U", "--output=json", "--backing-chain", path}
 }
 
 // Info is the subset of `qemu-img info` output the validator consumes.

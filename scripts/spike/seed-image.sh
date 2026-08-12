@@ -10,7 +10,7 @@
 set -euo pipefail
 
 NAME="${1:-ubuntu-24.04}"
-URL="${2:-https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img}"
+URL="${2:-https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img}"
 ROOT="${VMC_STORAGE_ROOT:-/var/lib/vmc}"
 CACHE="$ROOT/cache"
 DEST="$CACHE/$NAME.qcow2"
