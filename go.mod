@@ -7,6 +7,7 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.34.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/kdomanski/iso9660 v0.4.0
 	github.com/spf13/cobra v1.10.2
 	google.golang.org/grpc v1.83.0
 	google.golang.org/protobuf v1.36.12
