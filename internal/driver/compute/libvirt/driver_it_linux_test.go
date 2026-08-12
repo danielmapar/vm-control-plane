@@ -59,6 +59,15 @@ func testDriver(t *testing.T) (*Driver, string) {
 	if err := d.EnsureMgmtNetwork(ctx); err != nil {
 		t.Fatalf("ensure mgmt network: %v", err)
 	}
+	// A test that brings up a host-level libvirt network must take it back
+	// down: left active, vmc-mgmt-it holds 192.168.221.0/24 and collides with
+	// the demo's vmc-mgmt on the same subnet (surfaced by the capstone run).
+	// Registered here so it runs last (LIFO) — after each test's domain
+	// teardown, which is registered later.
+	t.Cleanup(func() {
+		_ = exec.Command("virsh", "-c", "qemu:///system", "net-destroy", "vmc-mgmt-it").Run()
+		_ = exec.Command("virsh", "-c", "qemu:///system", "net-undefine", "vmc-mgmt-it").Run()
+	})
 	return d, keyPath
 }
 
