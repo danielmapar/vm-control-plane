@@ -10,6 +10,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -29,6 +30,14 @@ func main() {
 }
 
 func run() error {
+	driver := flag.String("driver", "fake", "compute driver for the agent: fake | libvirt")
+	nodes := flag.String("nodes", "node-a,node-b", "logical node names")
+	storageRoot := flag.String("storage-root", "/var/lib/vmc", "libvirt storage root")
+	mgmtNetwork := flag.String("mgmt-network", "vmc-mgmt", "libvirt management network")
+	tenantBridge := flag.String("tenant-bridge", "", "libvirt OVS tenant bridge")
+	sshKeyFile := flag.String("ssh-key-file", "", "libvirt: SSH public key for guests")
+	flag.Parse()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
@@ -88,14 +97,26 @@ func run() error {
 	}
 	time.Sleep(1500 * time.Millisecond) // migrations + listener
 
-	debugPort, err := freePort()
-	if err != nil {
-		return err
+	agentArgs := []string{
+		"--server", listen, "--host-id", "host-local", "--nodes", *nodes,
+		"--driver", *driver,
 	}
-	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
-	ag := command(ctx, "agent", bin("hypervisor-agent"),
-		"--server", listen, "--host-id", "host-local", "--nodes", "node-a,node-b",
-		"--debug-addr", debugAddr)
+	if *driver == "libvirt" {
+		agentArgs = append(agentArgs,
+			"--storage-root", *storageRoot,
+			"--mgmt-network", *mgmtNetwork,
+			"--tenant-bridge", *tenantBridge)
+		if *sshKeyFile != "" {
+			agentArgs = append(agentArgs, "--ssh-key-file", *sshKeyFile)
+		}
+	} else {
+		debugPort, derr := freePort()
+		if derr != nil {
+			return derr
+		}
+		agentArgs = append(agentArgs, "--debug-addr", fmt.Sprintf("127.0.0.1:%d", debugPort))
+	}
+	ag := command(ctx, "agent", bin("hypervisor-agent"), agentArgs...)
 	if err := ag.Start(); err != nil {
 		return fmt.Errorf("start agent: %w", err)
 	}

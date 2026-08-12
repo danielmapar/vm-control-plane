@@ -31,18 +31,40 @@ func main() {
 		nodeCPUs = flag.Int64("node-cpus", 4, "cpu quota per logical node")
 		nodeMem  = flag.Uint64("node-memory-gib", 8, "memory quota per logical node (GiB)")
 		nodeDisk = flag.Uint64("node-disk-gib", 100, "disk quota per logical node (GiB)")
-		driver   = flag.String("driver", "fake", "compute driver (fake; libvirt lands with the real-substrate PRs)")
+		driver   = flag.String("driver", "fake", "compute driver: fake | libvirt (libvirt is Linux-only)")
 		debug    = flag.String("debug-addr", "", "loopback-only debug surface (drift injection; fake tier)")
+		// Real-driver (libvirt) options — ignored by the fake driver.
+		storageRoot  = flag.String("storage-root", "/var/lib/vmc", "libvirt: qcow2/seed storage root")
+		mgmtNetwork  = flag.String("mgmt-network", "vmc-mgmt", "libvirt: management NAT network name")
+		tenantBridge = flag.String("tenant-bridge", "", "libvirt: OVS integration bridge (empty = mgmt-only)")
+		sshKeyFile   = flag.String("ssh-key-file", "", "libvirt: SSH public key injected into guests")
+		libvirtSock  = flag.String("libvirt-socket", "", "libvirt: unix socket (default system socket)")
 	)
 	flag.Parse()
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	log.Info("hypervisor-agent starting", "version", version.String(), "host", *hostID)
+	log.Info("hypervisor-agent starting", "version", version.String(), "host", *hostID, "driver", *driver)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	var drv compute.Driver
 	switch *driver {
 	case "fake":
 		drv = computefake.New()
+	case "libvirt":
+		var err error
+		drv, err = newLibvirtDriver(ctx, libvirtDriverOpts{
+			Socket:       *libvirtSock,
+			StorageRoot:  *storageRoot,
+			MgmtNetwork:  *mgmtNetwork,
+			TenantBridge: *tenantBridge,
+			SSHKeyFile:   *sshKeyFile,
+		})
+		if err != nil {
+			log.Error("libvirt driver", "err", err)
+			os.Exit(2)
+		}
 	default:
 		log.Error("unknown driver", "driver", *driver)
 		os.Exit(2)
@@ -67,9 +89,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer conn.Close() //nolint:errcheck // process exit follows
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
 
 	d := agent.New(agent.Config{
 		HostID:   *hostID,
