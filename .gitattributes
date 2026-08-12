@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.png binary
+*.gif binary
+
+# Generated protobuf code: keep diffs readable in review tools.
+proto/**/*.pb.go linguist-generated=true
