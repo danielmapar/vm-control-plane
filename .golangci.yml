@@ -18,7 +18,9 @@ linters:
   exclusions:
     generated: lax
     paths:
-      - proto
+      # Only generated protobuf output — hand-written Go under proto/ (none
+      # today) would still be linted.
+      - proto/.*\.pb\.go$
 
 formatters:
   enable:

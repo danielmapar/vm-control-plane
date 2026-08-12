@@ -1,43 +1,52 @@
-// Command golibvirt-probe verifies, with the exact client library the agent
-// will use, the two facts the connection supervisor is designed around
-// (plan D8): go-libvirt mutation RPCs take no context and cannot be
-// cancelled in place, and after any ambiguous outcome the only safe recovery
-// is: poison the connection, reconnect, and re-observe before retrying.
+// Command golibvirt-probe establishes, with the exact client library the
+// agent will use, the fact the connection supervisor (plan D8) is designed
+// around: a go-libvirt MUTATION can land on the server while the client
+// never sees the response — and the only safe recovery is to poison the
+// transport, reconnect, and RE-OBSERVE before retrying.
 //
-// It runs three probes against qemu:///system:
+// Probe sequence:
 //
-//  1. lifecycle: define → start → destroy → undefine of a trivial domain,
-//     asserting each step is idempotently re-checkable (define-if-absent).
-//  2. deadline: a call issued over a deliberately blackholed connection must
-//     be abandoned by closing the transport (there is no other way), and the
-//     client must be replaced.
-//  3. re-observe: after an abandoned DomainDefineXML, a fresh connection
-//     lists domains to decide whether the mutation landed.
+//  1. lifecycle: define → lookup (idempotent re-check) → start → destroy →
+//     undefine of a run-scoped trivial domain.
+//  2. gated mutation: through a response-gating proxy, issue
+//     DomainDefineXML and WITHHOLD the server's response. An independent
+//     observer connection confirms the domain landed while the caller is
+//     still blocked — the ambiguous-outcome window made visible.
+//  3. poison + re-observe: close the proxied transport; assert the blocked
+//     call fails promptly; a fresh connection re-observes the domain and
+//     cleans it up.
 //
-// Exit code 0 = all probes behaved as the supervisor design expects.
+// Run-scoped names (vmc-probe-<pid>-<nonce>) make reruns safe: the probe
+// never touches resources it did not create this run.
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/digitalocean/go-libvirt/socket/dialers"
 )
 
-const testDomainXML = `<domain type='kvm'>
-  <name>vmc-probe</name>
+const socketPath = "/var/run/libvirt/libvirt-sock"
+
+func domainXML(name string) string {
+	return fmt.Sprintf(`<domain type='kvm'>
+  <name>%s</name>
   <memory unit='MiB'>128</memory>
   <vcpu>1</vcpu>
   <os><type arch='x86_64'>hvm</type><boot dev='hd'/></os>
   <devices><console type='pty'/></devices>
-</domain>`
-
-const socketPath = "/var/run/libvirt/libvirt-sock"
+</domain>`, name)
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -50,32 +59,39 @@ func run() error {
 	if _, err := os.Stat(socketPath); err != nil {
 		return fmt.Errorf("libvirt socket not present (run inside the substrate host): %w", err)
 	}
+	nonce := make([]byte, 4)
+	if _, err := rand.Read(nonce); err != nil {
+		return err
+	}
+	runID := fmt.Sprintf("vmc-probe-%d-%s", os.Getpid(), hex.EncodeToString(nonce))
 
-	// Probe 1: lifecycle with idempotent re-checks.
+	if err := lifecycleProbe(runID + "-a"); err != nil {
+		return fmt.Errorf("lifecycle: %w", err)
+	}
+	if err := gatedMutationProbe(runID + "-b"); err != nil {
+		return fmt.Errorf("gated mutation: %w", err)
+	}
+	return nil
+}
+
+func lifecycleProbe(name string) error {
 	l, err := connect()
 	if err != nil {
 		return err
 	}
 	defer l.Disconnect() //nolint:errcheck // best-effort teardown
 
-	// Clean slate: undefine any leftover from a previous run.
-	if d, err := l.DomainLookupByName("vmc-probe"); err == nil {
-		_ = l.DomainDestroy(d) // may not be running; best effort
-		if err := l.DomainUndefine(d); err != nil {
-			return fmt.Errorf("cleanup undefine: %w", err)
-		}
-	}
-
-	dom, err := l.DomainDefineXML(testDomainXML)
+	dom, err := l.DomainDefineXML(domainXML(name))
 	if err != nil {
 		return fmt.Errorf("define: %w", err)
 	}
-	// Idempotency check: looking the domain up again must find the same UUID.
-	again, err := l.DomainLookupByName("vmc-probe")
+	// Idempotent re-check: define-if-absent must find the same UUID.
+	again, err := l.DomainLookupByName(name)
 	if err != nil || again.UUID != dom.UUID {
-		return fmt.Errorf("define-if-absent re-check failed: %v", err)
+		return fmt.Errorf("define-if-absent re-check: %v", err)
 	}
 	if err := l.DomainCreate(dom); err != nil {
+		_ = l.DomainUndefine(dom)
 		return fmt.Errorf("start: %w", err)
 	}
 	if err := l.DomainDestroy(dom); err != nil {
@@ -84,49 +100,82 @@ func run() error {
 	if err := l.DomainUndefine(dom); err != nil {
 		return fmt.Errorf("undefine: %w", err)
 	}
+	return nil
+}
 
-	// Probe 2: deadline-by-transport-close. Dial the socket, wrap it so all
-	// reads hang (a blackhole), and confirm the only way to unblock a call
-	// is closing the connection out from under the client.
-	raw, err := net.Dial("unix", socketPath)
+// gatedMutationProbe proves the ambiguous-outcome window exists and that
+// poison + re-observe recovers from it.
+func gatedMutationProbe(name string) error {
+	gate := newGate()
+	proxied, err := gate.dialThrough(socketPath)
 	if err != nil {
-		return fmt.Errorf("dial for blackhole probe: %w", err)
+		return err
 	}
-	bh := &blackhole{Conn: raw}
-	bl := libvirt.NewWithDialer(connDialer{bh})
-	if err := bl.Connect(); err == nil {
-		// Connect handshake got through before we engaged the blackhole; engage now.
-		bh.engage()
-		done := make(chan error, 1)
-		go func() { _, err := bl.ConnectGetLibVersion(); done <- err }()
-		select {
-		case <-done:
-			return errors.New("blackholed call returned without transport close — unexpected")
-		case <-time.After(500 * time.Millisecond):
-			// Blocked, as designed around. Poison the transport.
-			_ = raw.Close()
-		}
-		select {
-		case err := <-done:
-			if err == nil {
-				return errors.New("call over closed transport succeeded — unexpected")
-			}
-		case <-time.After(5 * time.Second):
-			return errors.New("call did not fail after transport close — supervisor design invalid")
-		}
-	} else {
-		_ = raw.Close()
+	client := libvirt.NewWithDialer(connDialer{proxied})
+	if err := client.Connect(); err != nil {
+		gate.closeAll()
+		return fmt.Errorf("connect through proxy: %w", err)
 	}
 
-	// Probe 3: fresh connection re-observes cleanly after the poisoned one.
-	l2, err := connect()
+	// Withhold server→client bytes from this point on: the define request
+	// still reaches libvirtd; its response never reaches the client.
+	gate.engage()
+
+	defineErr := make(chan error, 1)
+	go func() {
+		_, err := client.DomainDefineXML(domainXML(name))
+		defineErr <- err
+	}()
+
+	// Independent observer: the mutation must LAND while the caller blocks.
+	observer, err := connect()
 	if err != nil {
-		return fmt.Errorf("reconnect after poison: %w", err)
+		gate.closeAll()
+		return err
 	}
-	defer l2.Disconnect() //nolint:errcheck // best-effort teardown
-	if _, _, err := l2.ConnectListAllDomains(1, 0); err != nil {
+	landed := false
+	for i := 0; i < 40; i++ { // up to 4s
+		if _, err := observer.DomainLookupByName(name); err == nil {
+			landed = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !landed {
+		gate.closeAll()
+		return errors.New("mutation did not land while response was withheld — proxy setup invalid")
+	}
+	select {
+	case err := <-defineErr:
+		gate.closeAll()
+		return fmt.Errorf("caller returned (%v) while its response was withheld — gate leaked", err)
+	default:
+		// Blocked, as designed around: the caller cannot know its define
+		// succeeded. This is exactly why retries must re-observe (D8).
+	}
+
+	// Poison the transport (the supervisor's only recourse) and require the
+	// blocked call to fail promptly.
+	gate.closeAll()
+	select {
+	case err := <-defineErr:
+		if err == nil {
+			return errors.New("blocked call reported success after poison — unexpected")
+		}
+	case <-time.After(5 * time.Second):
+		return errors.New("blocked call did not fail after transport close — supervisor design invalid")
+	}
+
+	// Re-observe on the untouched observer connection and clean up our
+	// run-scoped domain (never anything else).
+	dom, err := observer.DomainLookupByName(name)
+	if err != nil {
 		return fmt.Errorf("re-observe after poison: %w", err)
 	}
+	if err := observer.DomainUndefine(dom); err != nil {
+		return fmt.Errorf("cleanup undefine: %w", err)
+	}
+	_ = observer.Disconnect()
 	return nil
 }
 
@@ -141,41 +190,75 @@ func connect() (*libvirt.Libvirt, error) {
 	return l, nil
 }
 
-// connDialer hands a pre-established (possibly wrapped) connection to
-// go-libvirt — used to interpose the blackhole between client and daemon.
+// connDialer hands a pre-established connection to go-libvirt.
 type connDialer struct{ c net.Conn }
 
 func (d connDialer) Dial() (net.Conn, error) { return d.c, nil }
 
-// blackhole wraps a net.Conn; once engaged, reads hang until the underlying
-// connection is closed — simulating a wedged libvirtd or a half-open link.
-type blackhole struct {
-	net.Conn
-	engaged chan struct{}
+// gate is a response-gating proxy: client→server bytes always flow;
+// server→client bytes are silently discarded once engaged. Engagement is
+// mutex-guarded — no racy state shared with Read paths.
+type gate struct {
+	mu      sync.Mutex
+	engaged bool
+	conns   []net.Conn
 }
 
-func (b *blackhole) engage() {
-	if b.engaged == nil {
-		b.engaged = make(chan struct{})
+func newGate() *gate { return &gate{} }
+
+func (g *gate) engage() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.engaged = true
+}
+
+func (g *gate) isEngaged() bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.engaged
+}
+
+func (g *gate) closeAll() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	for _, c := range g.conns {
+		_ = c.Close()
 	}
-	close(b.engaged)
+	g.conns = nil
 }
 
-func (b *blackhole) Read(p []byte) (int, error) {
-	if b.engaged != nil {
-		select {
-		case <-b.engaged:
-			// Hang until Close unblocks the underlying read.
-			buf := make([]byte, 1)
-			_, err := b.Conn.Read(buf)
-			_ = buf
-			if err != nil {
-				return 0, err
+// dialThrough connects to the real socket and returns the client half of an
+// in-process pipe whose server half is pumped by the proxy goroutines.
+func (g *gate) dialThrough(path string) (net.Conn, error) {
+	server, err := net.DialTimeout("unix", path, 2*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("dial libvirt for proxy: %w", err)
+	}
+	clientSide, proxySide := net.Pipe()
+	g.mu.Lock()
+	g.conns = append(g.conns, server, clientSide, proxySide)
+	g.mu.Unlock()
+
+	// client → server: always forwarded.
+	go func() {
+		_, _ = io.Copy(server, proxySide)
+		_ = server.Close()
+	}()
+	// server → client: forwarded until engaged, then discarded.
+	go func() {
+		buf := make([]byte, 32<<10)
+		for {
+			n, err := server.Read(buf)
+			if n > 0 && !g.isEngaged() {
+				if _, werr := proxySide.Write(buf[:n]); werr != nil {
+					return
+				}
 			}
-			// Swallow real data while engaged: still a blackhole.
-			return 0, os.ErrDeadlineExceeded
-		default:
+			if err != nil {
+				_ = proxySide.Close()
+				return
+			}
 		}
-	}
-	return b.Conn.Read(p)
+	}()
+	return clientSide, nil
 }

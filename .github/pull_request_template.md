@@ -2,6 +2,12 @@
 
 <!-- One idea per PR. What does this change add or fix? -->
 
+## Depends / Produces / Accepts
+
+<!-- Stack base and hard dependency PRs; the artifact this PR produces;
+     the acceptance evidence (tests / matrix rows) OWNED here. Scope that
+     later PRs explicitly own goes under "Deferred". -->
+
 ## Why
 
 <!-- The design decision this implements; link the ADR / plan section. -->

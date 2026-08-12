@@ -29,8 +29,9 @@ read as a course. See the plan's §9 for the dependency graph.
 
 ## Quickstart (Tier 0 — fake drivers, no hypervisor required)
 
-> Requires only Go 1.26+. The first run downloads a pinned embedded PostgreSQL
-> once; run from a non-elevated shell.
+> Available once the Tier-0 E2E PR lands (plan §9). Requires only Go 1.26+;
+> the first run downloads a pinned embedded PostgreSQL once; run from a
+> non-elevated shell.
 
 ```
 make dev     # embedded Postgres + control-plane + host agent (2 logical nodes)

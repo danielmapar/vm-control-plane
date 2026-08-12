@@ -52,4 +52,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go test -race ./internal/...
+      - run: go test -race ./...
+
+  stress:
+    # Bounded repeat runs to surface flaky concurrency early; scope grows
+    # with the hot packages (claims, grants, sessions, scheduler, executor).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -race -count=3 -timeout=15m ./internal/...
