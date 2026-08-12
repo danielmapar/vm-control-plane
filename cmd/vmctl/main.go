@@ -4,10 +4,14 @@ package main
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/sigtunnel/vm-control-plane/internal/version"
+	"github.com/sigtunnel/vm-control-plane/internal/cli"
 )
 
 func main() {
-	fmt.Println("vmctl", version.String())
+	if err := cli.New(os.Stdout).Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "vmctl:", err)
+		os.Exit(1)
+	}
 }

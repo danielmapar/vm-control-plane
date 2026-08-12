@@ -7,6 +7,14 @@ linters:
     - unconvert
     - unparam
     - copyloopvar
+  settings:
+    errcheck:
+      exclude-functions:
+        # Rendering writes to tabwriter/stdout: errors are surfaced by Flush
+        # or are unactionable at print sites.
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Fprint
   exclusions:
     generated: lax
     paths:
