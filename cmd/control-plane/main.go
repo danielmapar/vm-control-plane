@@ -11,10 +11,12 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 
 	"google.golang.org/grpc"
 
 	"github.com/sigtunnel/vm-control-plane/internal/api"
+	"github.com/sigtunnel/vm-control-plane/internal/reconciler"
 	"github.com/sigtunnel/vm-control-plane/internal/store"
 	"github.com/sigtunnel/vm-control-plane/internal/version"
 	vmcv1 "github.com/sigtunnel/vm-control-plane/proto/vmc/v1"
@@ -41,13 +43,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	if err := run(ctx, log, *listen, *dbURL); err != nil {
+	if err := run(ctx, log, *listen, *dbURL, *role); err != nil {
 		log.Error("control-plane exiting", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, log *slog.Logger, listen, dbURL string) error {
+func run(ctx context.Context, log *slog.Logger, listen, dbURL, role string) error {
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -69,6 +71,12 @@ func run(ctx context.Context, log *slog.Logger, listen, dbURL string) error {
 	g := grpc.NewServer()
 	vmcv1.RegisterVMServiceServer(g, srv)
 	vmcv1.RegisterOperationServiceServer(g, srv)
+	vmcv1.RegisterAgentServiceServer(g, api.NewAgentServer(st))
+
+	if strings.Contains(role, "controller") {
+		loop := reconciler.New(st, reconciler.Config{Owner: "control-plane", Log: log})
+		go loop.Run(ctx)
+	}
 
 	go func() {
 		<-ctx.Done()

@@ -178,6 +178,7 @@ func prefixedVMColumns(alias string) string {
 	return alias + `.id, ` + alias + `.name, ` + alias + `.spec, ` + alias + `.status, ` +
 		alias + `.phase, ` + alias + `.spec_generation, ` + alias + `.resource_version, ` +
 		alias + `.desired_revision, ` + alias + `.node_name, ` + alias + `.placement_epoch, ` +
+		alias + `.observed_state, ` + alias + `.applied_revision, ` +
 		alias + `.deleted_at, ` + alias + `.created_at, ` + alias + `.updated_at`
 }
 
@@ -190,7 +191,8 @@ func scanClaimRow(rows pgx.Rows, c *Claim) (*VM, error) {
 	err := rows.Scan(&c.Token, &c.Owner, &c.ExpiresAt,
 		&vm.ID, &vm.Name, &specJSON, &statusJSON, &vm.Phase,
 		&vm.SpecGeneration, &vm.ResourceVersion, &vm.DesiredRevision,
-		&vm.NodeName, &vm.PlacementEpoch, &vm.DeletedAt, &vm.CreatedAt, &vm.UpdatedAt)
+		&vm.NodeName, &vm.PlacementEpoch, &vm.ObservedState, &vm.AppliedRevision,
+		&vm.DeletedAt, &vm.CreatedAt, &vm.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

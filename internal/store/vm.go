@@ -38,6 +38,8 @@ type VM struct {
 	DesiredRevision int64
 	NodeName        *string
 	PlacementEpoch  int64
+	ObservedState   string
+	AppliedRevision int64
 	DeletedAt       *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
@@ -68,7 +70,7 @@ var (
 
 const vmColumns = `id, name, spec, status, phase, spec_generation,
 	resource_version, desired_revision, node_name, placement_epoch,
-	deleted_at, created_at, updated_at`
+	observed_state, applied_revision, deleted_at, created_at, updated_at`
 
 // CreateVM inserts a new VM row (phase PENDING, generation 1, revision 1)
 // using the given querier (pass a tx to compose with operation insertion).
@@ -209,7 +211,8 @@ func scanVM(row pgx.Row) (*VM, error) {
 	)
 	err := row.Scan(&vm.ID, &vm.Name, &specJSON, &statusJSON, &vm.Phase,
 		&vm.SpecGeneration, &vm.ResourceVersion, &vm.DesiredRevision,
-		&vm.NodeName, &vm.PlacementEpoch, &vm.DeletedAt, &vm.CreatedAt, &vm.UpdatedAt)
+		&vm.NodeName, &vm.PlacementEpoch, &vm.ObservedState, &vm.AppliedRevision,
+		&vm.DeletedAt, &vm.CreatedAt, &vm.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}

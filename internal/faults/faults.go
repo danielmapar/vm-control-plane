@@ -55,6 +55,11 @@ var Catalog = map[string]Point{
 		Cut:       "transition computed, before the guarded completion tx commits",
 		Invariant: "nothing durable changed; rescan redoes the work exactly once",
 	},
+	"controller.before-finalize": {
+		ID:        "controller.before-finalize",
+		Cut:       "teardown proven, before the finalization tx (row removal + op) commits",
+		Invariant: "the Deleting row persists and finalization is redone exactly once",
+	},
 }
 
 type action struct {

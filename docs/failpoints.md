@@ -14,6 +14,7 @@ VMC_FAILPOINTS="controller.after-assign=crash;agent.report=error:boom;x=hang:2s;
 | `api.after-envelope` | after the envelope insert commits, before the caller sees the operation | replay returns the original operation; no duplicate VM | store/api PRs |
 | `controller.after-claim` | claim minted, before transition work | lease expiry re-exposes the row; no side effects | claim-queue PR |
 | `controller.before-complete` | transition computed, before the guarded completion tx | nothing durable changed; rescan redoes exactly once | claim-queue PR |
+| `controller.before-finalize` | teardown proven, before the finalization tx commits | Deleting row persists; finalization redone exactly once | reconciler-loop PR |
 
 Actions: `crash` (exit 137 — the kill -9 analog), `error[:msg]` (retry-path
 injection), `hang[:dur]` (hung-call containment), `pause` (in-process
