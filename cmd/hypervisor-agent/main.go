@@ -32,6 +32,7 @@ func main() {
 		nodeMem  = flag.Uint64("node-memory-gib", 8, "memory quota per logical node (GiB)")
 		nodeDisk = flag.Uint64("node-disk-gib", 100, "disk quota per logical node (GiB)")
 		driver   = flag.String("driver", "fake", "compute driver (fake; libvirt lands with the real-substrate PRs)")
+		debug    = flag.String("debug-addr", "", "loopback-only debug surface (drift injection; fake tier)")
 	)
 	flag.Parse()
 
@@ -80,6 +81,7 @@ func main() {
 		HostDisk:   *nodeDisk << 30 * uint64(len(specs)),
 		Compute:    drv,
 		Log:        log,
+		DebugAddr:  *debug,
 	}, vmcv1.NewAgentServiceClient(conn))
 
 	if err := d.Run(ctx); err != nil && ctx.Err() == nil {

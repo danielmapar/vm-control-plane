@@ -45,6 +45,10 @@ type Config struct {
 	Clock        clock.Clock
 	Compute      compute.Driver
 	Log          *slog.Logger
+	// DebugAddr, when set, serves the loopback-only debug surface (drift
+	// injection for demo 3 on the fake tier). Never exposed beyond
+	// 127.0.0.1; refuses non-loopback binds.
+	DebugAddr string
 }
 
 // Daemon runs the agent loops. All substrate mutation is fenced by: the
@@ -60,6 +64,9 @@ type Daemon struct {
 	executors map[string]chan *vmcv1.Intent // vm id → latest-wins channel
 	granted   map[string]bool               // vm/epoch → grant confirmed
 	seqs      map[string]*int64             // vm id → report_seq counter
+	// lastApplied: the newest non-deleted intent each executor completed —
+	// the resync loop's working set for drift detection (plan §4 ⑨).
+	lastApplied map[string]*vmcv1.Intent
 
 	halted  atomic.Bool // stale session detected: no NEW substrate actions
 	unlock  func()
@@ -81,11 +88,12 @@ func New(cfg Config, client vmcv1.AgentServiceClient) *Daemon {
 	}
 	return &Daemon{
 		cfg: cfg, client: client,
-		sessions:  map[string]*vmcv1.NodeSession{},
-		executors: map[string]chan *vmcv1.Intent{},
-		granted:   map[string]bool{},
-		seqs:      map[string]*int64{},
-		started:   make(chan struct{}),
+		sessions:    map[string]*vmcv1.NodeSession{},
+		executors:   map[string]chan *vmcv1.Intent{},
+		granted:     map[string]bool{},
+		seqs:        map[string]*int64{},
+		lastApplied: map[string]*vmcv1.Intent{},
+		started:     make(chan struct{}),
 	}
 }
 
@@ -110,7 +118,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	close(d.started)
 
+	if err := d.serveDebug(ctx); err != nil {
+		return fmt.Errorf("debug surface: %w", err)
+	}
 	go d.heartbeatLoop(ctx)
+	go d.resyncLoop(ctx)
 	d.pollLoop(ctx)
 	return ctx.Err()
 }
@@ -308,6 +320,64 @@ func (d *Daemon) handle(ctx context.Context, intent *vmcv1.Intent) {
 		State:           stateProto,
 	}); err != nil {
 		log.Warn("report rejected", "err", err)
+	}
+	d.mu.Lock()
+	d.lastApplied[intent.GetVmId()] = intent
+	d.mu.Unlock()
+}
+
+// resyncLoop is the drift detector (§4 ⑨): it periodically OBSERVES every
+// VM this daemon has realized and (a) reports the evidence, (b) re-ensures
+// through the executor when observation diverges from the applied intent —
+// drift repair IS provisioning, one code path.
+func (d *Daemon) resyncLoop(ctx context.Context) {
+	interval := d.cfg.PollInterval * 4
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-d.cfg.Clock.After(interval):
+		}
+		if d.halted.Load() {
+			continue
+		}
+		d.mu.Lock()
+		snapshot := make([]*vmcv1.Intent, 0, len(d.lastApplied))
+		for _, in := range d.lastApplied {
+			snapshot = append(snapshot, in)
+		}
+		d.mu.Unlock()
+
+		for _, intent := range snapshot {
+			state, err := d.cfg.Compute.Observe(ctx, intent.GetVmId(), intent.GetPlacementEpoch())
+			if err != nil {
+				continue
+			}
+			wantRunning := intent.GetSpec().GetPower() != vmcv1.PowerState_POWER_STATE_STOPPED
+			drifted := (wantRunning && state != compute.StateRunning) ||
+				(!wantRunning && state != compute.StateShutoff)
+			sess := d.sessions[intent.GetNodeName()]
+			if sess == nil {
+				continue
+			}
+			stateProto := map[compute.State]vmcv1.ObservedState{
+				compute.StateRunning: vmcv1.ObservedState_OBSERVED_STATE_RUNNING,
+				compute.StateShutoff: vmcv1.ObservedState_OBSERVED_STATE_SHUTOFF,
+				compute.StateAbsent:  vmcv1.ObservedState_OBSERVED_STATE_ABSENT,
+			}[state]
+			_, _ = d.client.Report(ctx, &vmcv1.ReportRequest{
+				Session: sess, VmId: intent.GetVmId(), PlacementEpoch: intent.GetPlacementEpoch(),
+				ReportSeq:       d.nextSeq(intent.GetVmId()),
+				AppliedRevision: intent.GetDesiredRevision(),
+				State:           stateProto,
+				Detail:          map[bool]string{true: "drift-detected", false: ""}[drifted],
+			})
+			if drifted {
+				d.cfg.Log.Warn("drift detected — re-ensuring through the executor",
+					"vm", intent.GetVmName(), "observed", string(state))
+				d.dispatch(ctx, intent)
+			}
+		}
 	}
 }
 

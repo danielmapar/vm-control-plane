@@ -79,6 +79,13 @@ func (l *Loop) Run(ctx context.Context) {
 		if _, err := l.st.ExpireOperations(ctx, nil); err != nil && ctx.Err() == nil {
 			l.cfg.Log.Warn("operation deadline sweep failed", "err", err)
 		}
+		if actions, err := l.st.ExpireNodeVMs(ctx); err != nil && ctx.Err() == nil {
+			l.cfg.Log.Warn("node-loss sweep failed", "err", err)
+		} else {
+			for _, a := range actions {
+				l.cfg.Log.Warn("node-loss action", "vm", a.VMName, "node", a.Node, "outcome", a.Outcome)
+			}
+		}
 		claims, err := l.st.ClaimDirtyVMs(ctx, l.cfg.Owner, l.cfg.Lease, 10)
 		if err != nil {
 			if ctx.Err() == nil {
@@ -106,7 +113,7 @@ func (l *Loop) reconcile(ctx context.Context, claim *store.Claim) {
 		err = l.reconcileDeleting(ctx, claim)
 	case vm.Phase == "PENDING":
 		err = l.reconcilePending(ctx, claim)
-	case vm.Phase == "PROVISIONING" || vm.Phase == "RUNNING" || vm.Phase == "STOPPED":
+	case vm.Phase == "PROVISIONING" || vm.Phase == "RUNNING" || vm.Phase == "STOPPED" || vm.Phase == "UNKNOWN":
 		err = l.reconcileConvergence(ctx, claim)
 	default:
 		// Nothing to do; release with a long backoff.

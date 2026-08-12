@@ -88,8 +88,14 @@ func run() error {
 	}
 	time.Sleep(1500 * time.Millisecond) // migrations + listener
 
+	debugPort, err := freePort()
+	if err != nil {
+		return err
+	}
+	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
 	ag := command(ctx, "agent", bin("hypervisor-agent"),
-		"--server", listen, "--host-id", "host-local", "--nodes", "node-a,node-b")
+		"--server", listen, "--host-id", "host-local", "--nodes", "node-a,node-b",
+		"--debug-addr", debugAddr)
 	if err := ag.Start(); err != nil {
 		return fmt.Errorf("start agent: %w", err)
 	}

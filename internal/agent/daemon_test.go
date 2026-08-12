@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/sigtunnel/vm-control-plane/internal/driver/compute"
 	"github.com/sigtunnel/vm-control-plane/internal/driver/compute/fake"
@@ -19,12 +21,13 @@ import (
 type fakeClient struct {
 	vmcv1.AgentServiceClient // panic on unimplemented
 
-	mu          sync.Mutex
-	grantDenied string // deny reason; empty = grant
-	grantCalls  int
-	reports     chan *vmcv1.ReportRequest
-	receipts    chan *vmcv1.TeardownReceiptRequest
-	actionFails chan *vmcv1.ActionFailedRequest
+	mu             sync.Mutex
+	grantDenied    string // deny reason; empty = grant
+	grantCalls     int
+	heartbeatStale bool // FailedPrecondition on heartbeat (replacement daemon)
+	reports        chan *vmcv1.ReportRequest
+	receipts       chan *vmcv1.TeardownReceiptRequest
+	actionFails    chan *vmcv1.ActionFailedRequest
 }
 
 func newFakeClient() *fakeClient {
@@ -43,6 +46,15 @@ func (f *fakeClient) RequestGrant(_ context.Context, _ *vmcv1.RequestGrantReques
 		return &vmcv1.RequestGrantResponse{Granted: false, Reason: f.grantDenied}, nil
 	}
 	return &vmcv1.RequestGrantResponse{Granted: true}, nil
+}
+
+func (f *fakeClient) Heartbeat(_ context.Context, _ *vmcv1.HeartbeatRequest, _ ...grpc.CallOption) (*vmcv1.HeartbeatResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.heartbeatStale {
+		return nil, status.Error(codes.FailedPrecondition, "stale node session")
+	}
+	return &vmcv1.HeartbeatResponse{}, nil
 }
 
 func (f *fakeClient) Report(_ context.Context, r *vmcv1.ReportRequest, _ ...grpc.CallOption) (*vmcv1.ReportResponse, error) {
