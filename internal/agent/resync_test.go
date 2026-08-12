@@ -24,6 +24,7 @@ func TestResyncDetectsAndRepairsDrift(t *testing.T) {
 		Compute: drv, Clock: fk, PollInterval: 100 * time.Millisecond,
 	}, fc)
 	d.sessions["node-a"] = &vmcv1.NodeSession{NodeName: "node-a", SessionId: "6e9f9d5e-0000-4000-8000-000000000001", SessionGeneration: 1}
+	d.extendLocalLease()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -94,5 +95,52 @@ func TestHeartbeatStaleSessionHalts(t *testing.T) {
 			fk.Advance(time.Second)
 			time.Sleep(20 * time.Millisecond)
 		}
+	}
+}
+
+// TestTombstoneNotResurrectedByResync: batch-review finding [27] — after a
+// delete, the resync loop must NEVER redispatch the old intent. The
+// tombstone removes the working-set entry, so Observe sees ABSENT and does
+// nothing; the domain stays gone across multiple resync periods.
+func TestTombstoneNotResurrectedByResync(t *testing.T) {
+	fc := newFakeClient()
+	drv := fake.New()
+	fk := clock.NewFake(time.Now())
+	d := New(Config{
+		HostID: "h-test", StateDir: t.TempDir(),
+		Compute: drv, Clock: fk, PollInterval: 100 * time.Millisecond,
+	}, fc)
+	d.sessions["node-a"] = &vmcv1.NodeSession{NodeName: "node-a", SessionId: "6e9f9d5e-0000-4000-8000-000000000001", SessionGeneration: 1}
+	d.extendLocalLease()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go d.resyncLoop(ctx)
+
+	// Provision, then delete.
+	d.dispatch(ctx, intent("vm1", 1, false))
+	<-fc.reports
+	if drv.Count() != 1 {
+		t.Fatalf("domain not created: %d", drv.Count())
+	}
+	d.dispatch(ctx, intent("vm1", 2, true)) // tombstone (epoch 1, rev 2, deleted)
+	<-fc.receipts
+	if drv.Count() != 0 {
+		t.Fatalf("teardown did not remove domain: %d", drv.Count())
+	}
+
+	// Drive many resync periods: the domain must stay absent.
+	for i := 0; i < 5; i++ {
+		fk.Advance(time.Second)
+		time.Sleep(50 * time.Millisecond)
+	}
+	if drv.Count() != 0 {
+		t.Fatalf("resync resurrected a deleted VM: %d domains", drv.Count())
+	}
+	// And a stale re-dispatch of the OLD (pre-delete) intent is dropped.
+	d.dispatch(ctx, intent("vm1", 1, false))
+	time.Sleep(200 * time.Millisecond)
+	if drv.Count() != 0 {
+		t.Fatal("a stale pre-delete intent must not resurrect the VM")
 	}
 }

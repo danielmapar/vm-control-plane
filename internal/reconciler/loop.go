@@ -168,6 +168,15 @@ func (l *Loop) reconcilePending(ctx context.Context, claim *store.Claim) error {
 			if errors.Is(err, store.ErrNoCapacity) {
 				continue // next candidate; our claim is still live
 			}
+			if errors.Is(err, store.ErrPlacementPreconditions) {
+				// Tombstone/phase moved after the claim: requeue; the
+				// rescan recomputes from fresh state.
+				return l.completeNoop(ctx, claim, 0)
+			}
+			return err
+		}
+		if err := l.st.FinishClaim(ctx, tx, vm.ID, claim.Token, 0); err != nil {
+			_ = tx.Rollback(ctx)
 			return err
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -203,6 +212,10 @@ func (l *Loop) markUnschedulable(ctx context.Context, claim *store.Claim) error 
 		_ = tx.Rollback(ctx)
 		return err
 	}
+	if err := l.st.FinishClaim(ctx, tx, vm.ID, claim.Token, l.cfg.PendingWait); err != nil {
+		_ = tx.Rollback(ctx)
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -211,16 +224,13 @@ func (l *Loop) markUnschedulable(ctx context.Context, claim *store.Claim) error 
 func (l *Loop) reconcileConvergence(ctx context.Context, claim *store.Claim) error {
 	vm := claim.VM
 
-	wantRunning := vm.Spec.GetPower() != vmcv1.PowerState_POWER_STATE_STOPPED
+	// Cheap pre-check from the claim snapshot; the authoritative decision is
+	// recomputed from the fresh row under the lock below.
 	wantState := "RUNNING"
-	targetPhase := "RUNNING"
-	if !wantRunning {
+	if vm.Spec.GetPower() == vmcv1.PowerState_POWER_STATE_STOPPED {
 		wantState = "SHUTOFF"
-		targetPhase = "STOPPED"
 	}
-
-	converged := vm.AppliedRevision == vm.DesiredRevision && vm.ObservedState == wantState
-	if !converged {
+	if vm.AppliedRevision != vm.DesiredRevision || vm.ObservedState != wantState {
 		// The agent drives; we wait (level-triggered — evidence wakes us).
 		return l.completeNoop(ctx, claim, l.cfg.ResyncWait)
 	}
@@ -229,22 +239,44 @@ func (l *Loop) reconcileConvergence(ctx context.Context, claim *store.Claim) err
 	if err != nil {
 		return err
 	}
+	// Recompute convergence from the FRESH row under the lock — evidence,
+	// power, or a tombstone may have moved since the claim snapshot, and a
+	// stale DONE would overwrite it (batch-review finding [2]).
 	fresh, err := l.st.GetVMByID(ctx, tx, vm.ID)
 	if err != nil {
 		_ = tx.Rollback(ctx)
 		return err
 	}
+	freshWantRunning := fresh.Spec.GetPower() != vmcv1.PowerState_POWER_STATE_STOPPED
+	freshWantState := "RUNNING"
+	freshTarget := "RUNNING"
+	if !freshWantRunning {
+		freshWantState = "SHUTOFF"
+		freshTarget = "STOPPED"
+	}
+	if fresh.DeletedAt != nil ||
+		fresh.DesiredRevision != vm.DesiredRevision ||
+		fresh.AppliedRevision != fresh.DesiredRevision ||
+		fresh.ObservedState != freshWantState {
+		_ = tx.Rollback(ctx)
+		return l.completeNoop(ctx, claim, l.cfg.ResyncWait)
+	}
+	targetPhase := freshTarget
 	status := fresh.Status
 	if status == nil {
 		status = &vmcv1.VmStatus{}
 	}
-	status.AppliedRevision = vm.AppliedRevision
+	status.AppliedRevision = fresh.AppliedRevision
 	setCondition(status, "Unschedulable", false, "", "")
 	if _, err := l.st.UpdateVMStatus(ctx, tx, vm.ID, fresh.ResourceVersion, targetPhase, status); err != nil {
 		_ = tx.Rollback(ctx)
 		return err
 	}
-	if err := l.terminalizeOps(ctx, tx, vm.ID, vm.DesiredRevision); err != nil {
+	if err := l.terminalizeOps(ctx, tx, vm.ID, fresh.DesiredRevision); err != nil {
+		_ = tx.Rollback(ctx)
+		return err
+	}
+	if err := l.st.FinishClaim(ctx, tx, vm.ID, claim.Token, l.cfg.PendingWait*6); err != nil {
 		_ = tx.Rollback(ctx)
 		return err
 	}
@@ -267,7 +299,15 @@ func (l *Loop) reconcileDeleting(ctx context.Context, claim *store.Claim) error 
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
 			return err
 		}
-		if p != nil && p.State != "torn_down" {
+		if errors.Is(err, store.ErrNotFound) {
+			// A missing ledger row for a positive epoch is CORRUPTION, not
+			// teardown proof — fail closed and park as cleanup debt
+			// (batch-review finding [12]).
+			l.cfg.Log.Error("placement ledger row missing for tombstoned vm — refusing to finalize",
+				"vm", vm.Name, "epoch", vm.PlacementEpoch)
+			return l.completeNoop(ctx, claim, l.cfg.PendingWait*6)
+		}
+		if p.State != "torn_down" {
 			// Teardown not yet proven; the tombstone intent keeps driving it.
 			return l.completeNoop(ctx, claim, l.cfg.ResyncWait)
 		}
@@ -296,6 +336,8 @@ func (l *Loop) reconcileDeleting(ctx context.Context, claim *store.Claim) error 
 		_ = tx.Rollback(ctx)
 		return err
 	}
+	// The row is gone; FinishClaim's guard would find nothing — the DELETE
+	// releases the claim with the row. Commit directly.
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
@@ -308,15 +350,15 @@ func (l *Loop) reconcileDeleting(ctx context.Context, claim *store.Claim) error 
 // terminates (D3).
 func (l *Loop) terminalizeOps(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, realizedRevision int64) error {
 	if _, err := tx.Exec(ctx, `
-		UPDATE operations SET state='DONE', finished_at=now()
-		WHERE resource_id=$1 AND target_revision=$2 AND state IN ('PENDING','RUNNING')`,
+		UPDATE operations SET state='DONE', finished_at=clock_timestamp()
+		WHERE resource_type='vm' AND resource_id=$1 AND target_revision=$2 AND state IN ('PENDING','RUNNING')`,
 		vmID, realizedRevision); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE operations SET state='SUPERSEDED',
-			error='a newer desired revision was realized first', finished_at=now()
-		WHERE resource_id=$1 AND target_revision<$2 AND state IN ('PENDING','RUNNING')`,
+			error='a newer desired revision was realized first', finished_at=clock_timestamp()
+		WHERE resource_type='vm' AND resource_id=$1 AND target_revision<$2 AND state IN ('PENDING','RUNNING')`,
 		vmID, realizedRevision); err != nil {
 		return err
 	}
@@ -327,6 +369,10 @@ func (l *Loop) terminalizeOps(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, re
 func (l *Loop) completeNoop(ctx context.Context, claim *store.Claim, backoff time.Duration) error {
 	tx, err := l.st.CompleteClaimTx(ctx, claim.VM.ID, claim.Token, backoff)
 	if err != nil {
+		return err
+	}
+	if err := l.st.FinishClaim(ctx, tx, claim.VM.ID, claim.Token, backoff); err != nil {
+		_ = tx.Rollback(ctx)
 		return err
 	}
 	return tx.Commit(ctx)

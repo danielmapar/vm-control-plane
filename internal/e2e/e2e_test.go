@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -119,6 +120,18 @@ func (p *proc) waitExit(t *testing.T, within time.Duration) int {
 		t.Fatal("process did not exit in time")
 		return -1
 	}
+}
+
+func waitCond(t *testing.T, what string, within time.Duration, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(within)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", what)
 }
 
 func freePort(t *testing.T) int {
@@ -229,9 +242,71 @@ func TestE2ECreateToRunningAcrossNodes(t *testing.T) {
 	}
 }
 
-// TestE2EControllerCrashRecovery: matrix rows 3/4 black-box — the
-// controller is killed by a failpoint mid-transition (exit 137), restarts
-// clean, and the VM still converges with exactly one placement.
+// TestE2EControllerExternalKillRecovery: matrix rows 3/4 black-box with a
+// GENUINE external SIGKILL (not a voluntary exit). The controller pauses at
+// a failpoint after claiming the VM; the harness detects the claim in the
+// database and calls Process.Kill(); a clean restart converges the VM with
+// exactly one placement. This is the honest kill-9 demonstration (the
+// earlier exit-137 tests prove restart-recovery but the crash is voluntary).
+func TestE2EControllerExternalKillRecovery(t *testing.T) {
+	dir := binaries(t)
+	dbURL := pgtest.NewDBURL(t)
+	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
+
+	// Pause after claiming so the row is claimed but no transition committed.
+	paused := start(t, bin(dir, "control-plane"),
+		[]string{"VMC_FAILPOINTS=controller.after-claim=pause"},
+		"--listen", addr, "--db-url", dbURL)
+	waitServing(t, addr, 30*time.Second)
+	start(t, bin(dir, "hypervisor-agent"), nil,
+		"--server", addr, "--state-dir", t.TempDir(), "--nodes", "node-a,node-b")
+
+	vms, ops := client(t, addr)
+	req := createReq("xkill-1", 1)
+	if _, err := vms.CreateVm(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+
+	// Wait until the DB shows the VM claimed (claim_token set), then KILL.
+	db, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	waitCond(t, "vm claimed", 20*time.Second, func() bool {
+		var claimed bool
+		_ = db.QueryRow(context.Background(),
+			`SELECT claim_token IS NOT NULL FROM vms WHERE name='xkill-1'`).Scan(&claimed)
+		return claimed
+	})
+	if err := paused.cmd.Process.Kill(); err != nil {
+		t.Fatalf("external kill: %v", err)
+	}
+	_, _ = paused.cmd.Process.Wait()
+
+	// Restart clean; the abandoned claim's lease lapses and the rescan
+	// re-drives the VM to Running with exactly one placement.
+	start(t, bin(dir, "control-plane"), nil, "--listen", addr, "--db-url", dbURL)
+	waitServing(t, addr, 30*time.Second)
+	vms2, ops2 := client(t, addr)
+	_ = ops
+	op, err := vms2.CreateVm(context.Background(), req) // same key → original op
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitDone(t, ops2, op.GetId(), 60*time.Second)
+	vm, err := vms2.GetVm(context.Background(), &vmcv1.GetVmRequest{Name: "xkill-1"})
+	if err != nil || vm.GetStatus().GetPhase() != vmcv1.Phase_PHASE_RUNNING {
+		t.Fatalf("post-kill recovery: %v phase=%v", err, vm.GetStatus().GetPhase())
+	}
+	if vm.GetStatus().GetPlacementEpoch() != 1 {
+		t.Fatalf("exactly one placement expected, epoch=%d", vm.GetStatus().GetPlacementEpoch())
+	}
+}
+
+// TestE2EControllerCrashRecovery: matrix rows 3/4 with a voluntary exit-137
+// crash (a controlled crash, not an external signal — see the external-kill
+// test above for a genuine SIGKILL). Proves restart-rescan recovery.
 func TestE2EControllerCrashRecovery(t *testing.T) {
 	dir := binaries(t)
 	dbURL := pgtest.NewDBURL(t)
@@ -324,10 +399,12 @@ func TestE2EDeleteLifecycle(t *testing.T) {
 	}
 }
 
-// TestE2ECrashMidDelete: matrix row 16 black-box — the controller crashes
-// at the finalization boundary (teardown proven, row removal pending); a
-// clean restart finalizes exactly once and the DELETE operation completes.
-func TestE2ECrashMidDelete(t *testing.T) {
+// TestE2EControllerCrashBeforeFinalization: matrix row 16 black-box — the
+// controller crashes at the finalization boundary (teardown receipt already
+// committed, row removal pending); a clean restart finalizes exactly once
+// and the DELETE operation completes. (Agent-side unlink/fsync/receipt crash
+// coverage is a real-driver concern, deferred with the qcow2 executor.)
+func TestE2EControllerCrashBeforeFinalization(t *testing.T) {
 	dir := binaries(t)
 	dbURL := pgtest.NewDBURL(t)
 	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))

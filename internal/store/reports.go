@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // ErrStaleReport: the report lost the lexicographic (session_generation,
@@ -87,9 +88,16 @@ func (s *Store) RecordActionFailure(ctx context.Context, vmID uuid.UUID, epoch, 
 	return err
 }
 
-// MarkTeardownComplete records a teardown receipt: the ONLY message type a
-// stale epoch may deliver, updating exactly its ledger row (plan §6.4).
-// Idempotent. The receipt also releases the reservation if still present.
+// ErrTeardownNotPermitted: a receipt targeted a placement that is neither
+// tombstoned nor superseded — tearing down a LIVE current placement is
+// refused (batch-review finding [24]).
+var ErrTeardownNotPermitted = errors.New("store: teardown receipt refused for a live current placement")
+
+// MarkTeardownComplete records a teardown receipt under the VM→placement
+// lock order. It is permitted only when teardown is legitimate: the VM is
+// tombstoned, OR this epoch is no longer the VM's current placement (a
+// superseded old epoch). A receipt can therefore never tear down the live
+// current placement of a running VM. Idempotent; releases the reservation.
 func (s *Store) MarkTeardownComplete(ctx context.Context, vmID uuid.UUID, epoch int64) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -97,10 +105,27 @@ func (s *Store) MarkTeardownComplete(ctx context.Context, vmID uuid.UUID, epoch 
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
 
+	// Lock order: VM row first (matches grants/deletion).
+	var (
+		deleted      bool
+		currentEpoch int64
+	)
+	err = tx.QueryRow(ctx, `
+		SELECT deleted_at IS NOT NULL, placement_epoch
+		FROM vms WHERE id=$1 FOR UPDATE`, vmID).Scan(&deleted, &currentEpoch)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil // VM already finalized: idempotent
+	}
+	if err != nil {
+		return err
+	}
+	if !deleted && epoch == currentEpoch {
+		return ErrTeardownNotPermitted
+	}
+
 	if err := s.ReleasePlacement(ctx, tx, vmID, epoch); err != nil {
 		return err
 	}
-	// Wake the loop: finalization is now possible.
 	if _, err := tx.Exec(ctx, `
 		UPDATE vms SET next_attempt_at = clock_timestamp(),
 			resource_version = resource_version + 1

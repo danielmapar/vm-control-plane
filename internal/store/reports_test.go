@@ -127,6 +127,16 @@ func TestTeardownReceiptIdempotent(t *testing.T) {
 	s, _, vm, epoch := reportFixture(t)
 	ctx := context.Background()
 
+	// Teardown is only legitimate once the VM is tombstoned (or its epoch
+	// superseded); tombstone it so the receipt is permitted.
+	fresh, err := s.GetVM(ctx, nil, vm.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.TombstoneVM(ctx, nil, vm.ID, fresh.ResourceVersion); err != nil {
+		t.Fatal(err)
+	}
+
 	for i := 0; i < 2; i++ {
 		if err := s.MarkTeardownComplete(ctx, vm.ID, epoch); err != nil {
 			t.Fatalf("receipt %d: %v", i, err)
@@ -139,5 +149,34 @@ func TestTeardownReceiptIdempotent(t *testing.T) {
 	p, err := s.GetPlacement(ctx, nil, vm.ID, epoch)
 	if err != nil || p.State != "torn_down" {
 		t.Fatalf("ledger after receipts: %+v", p)
+	}
+}
+
+// TestTeardownReceiptRefusesLiveVM: batch-review finding [24] — a receipt
+// for the CURRENT placement of a non-tombstoned VM is refused; it can never
+// tear down a live VM. A tombstoned VM (or a superseded epoch) is allowed.
+func TestTeardownReceiptRefusesLiveVM(t *testing.T) {
+	s, _, vm, epoch := reportFixture(t)
+	ctx := context.Background()
+
+	// Live VM, current epoch: refused.
+	if err := s.MarkTeardownComplete(ctx, vm.ID, epoch); !errors.Is(err, store.ErrTeardownNotPermitted) {
+		t.Fatalf("receipt for live current placement: want ErrTeardownNotPermitted, got %v", err)
+	}
+
+	// Tombstone it: now the receipt is legitimate.
+	fresh, err := s.GetVM(ctx, nil, vm.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.TombstoneVM(ctx, nil, vm.ID, fresh.ResourceVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.MarkTeardownComplete(ctx, vm.ID, epoch); err != nil {
+		t.Fatalf("receipt for tombstoned vm: %v", err)
+	}
+	p, err := s.GetPlacement(ctx, nil, vm.ID, epoch)
+	if err != nil || p.State != "torn_down" {
+		t.Fatalf("ledger after legitimate receipt: %v %+v", err, p)
 	}
 }

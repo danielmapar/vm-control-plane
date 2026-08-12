@@ -80,6 +80,7 @@ func testDaemon(t *testing.T, client vmcv1.AgentServiceClient, drv compute.Drive
 		Compute:  drv,
 	}, client)
 	d.sessions["node-a"] = &vmcv1.NodeSession{NodeName: "node-a", SessionId: "6e9f9d5e-0000-4000-8000-000000000001", SessionGeneration: 1}
+	d.extendLocalLease() // simulate a successful registration's live lease
 	return d
 }
 

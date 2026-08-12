@@ -87,20 +87,44 @@ func (s *Store) RenewClaim(ctx context.Context, vmID uuid.UUID, token uuid.UUID,
 	return nil
 }
 
-// CompleteClaimTx begins a transaction whose FIRST statement re-locks the
-// claim row under the full guard: token match AND unexpired lease (checked
-// against the database clock in the same statement — a token does not
-// outlive its lease, plan D4). Every durable side effect of the transition
-// must run inside the returned transaction; Commit makes them atomic with
-// the guard.
+// CompleteClaimTx begins the transition transaction and takes the VM row
+// lock WITHOUT releasing the claim: the lease-aware release is the LAST
+// statement, via FinishClaim, immediately before commit — checking the
+// lease in the first statement would leave a stall window in which an
+// expired worker could still commit (batch-review finding [0]).
 //
-// On success the claim is released and next_attempt_at pushed by backoff
-// (zero = immediately eligible again).
+// Usage: tx, _ := CompleteClaimTx(...); ...transition work...;
+// FinishClaim(ctx, tx, vmID, token, backoff); tx.Commit(ctx).
+//
+// The backoff parameter here is advisory documentation of intent only —
+// the value that matters is the one passed to FinishClaim.
 func (s *Store) CompleteClaimTx(ctx context.Context, vmID uuid.UUID, token uuid.UUID, backoff time.Duration) (pgx.Tx, error) {
+	_ = backoff // release happens in FinishClaim; kept for call-site clarity
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
+	// Lock the row and verify the claim is still ours and live — but do
+	// NOT release it yet; work happens under the held claim.
+	var ok bool
+	err = tx.QueryRow(ctx, `
+		SELECT claim_token = $2 AND claim_expires_at >= clock_timestamp()
+		FROM vms WHERE id = $1 FOR UPDATE`, vmID, token).Scan(&ok)
+	if err != nil || !ok {
+		_ = tx.Rollback(ctx)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+		return nil, ErrClaimLost
+	}
+	return tx, nil
+}
+
+// FinishClaim is the transition's FINAL statement: it releases the claim
+// under the full guard (token + lease unexpired AT THIS MOMENT). Zero rows
+// means the lease lapsed during the work — the caller must roll back;
+// nothing durable escapes.
+func (s *Store) FinishClaim(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, token uuid.UUID, backoff time.Duration) error {
 	tag, err := tx.Exec(ctx, `
 		UPDATE vms SET
 			claim_token = NULL, claim_owner = NULL, claim_expires_at = NULL,
@@ -110,14 +134,12 @@ func (s *Store) CompleteClaimTx(ctx context.Context, vmID uuid.UUID, token uuid.
 		  AND claim_expires_at >= clock_timestamp()`,
 		vmID, token, backoff)
 	if err != nil {
-		_ = tx.Rollback(ctx)
-		return nil, err
+		return err
 	}
 	if tag.RowsAffected() != 1 {
-		_ = tx.Rollback(ctx)
-		return nil, ErrClaimLost
+		return ErrClaimLost
 	}
-	return tx, nil
+	return nil
 }
 
 // RecordFailure durably records a failed attempt under the claim guard:

@@ -96,16 +96,27 @@ func TestExpiredClaimLoserLoses(t *testing.T) {
 		t.Fatalf("claim B after expiry: %v (%d)", err, len(b))
 	}
 
-	// A limps back and tries to commit its transition.
-	_, err = s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token, 0)
-	if !errors.Is(err, store.ErrClaimLost) {
-		t.Fatalf("stale worker must lose: want ErrClaimLost, got %v", err)
+	// A limps back and tries to commit its transition. CompleteClaimTx may
+	// even succeed in taking the row lock, but FinishClaim's lease guard is
+	// the real gate — the release is the LAST statement (finding [0]).
+	atx, err := s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token, 0)
+	if err == nil {
+		ferr := s.FinishClaim(ctx, atx, a[0].VM.ID, a[0].Token, 0)
+		_ = atx.Rollback(ctx)
+		if !errors.Is(ferr, store.ErrClaimLost) {
+			t.Fatalf("stale worker must lose at FinishClaim, got %v", ferr)
+		}
+	} else if !errors.Is(err, store.ErrClaimLost) {
+		t.Fatalf("stale worker: want ErrClaimLost, got %v", err)
 	}
 
-	// B's completion succeeds.
+	// B's completion succeeds through the full protocol.
 	tx, err := s.CompleteClaimTx(ctx, b[0].VM.ID, b[0].Token, time.Hour)
 	if err != nil {
 		t.Fatalf("B complete: %v", err)
+	}
+	if err := s.FinishClaim(ctx, tx, b[0].VM.ID, b[0].Token, time.Hour); err != nil {
+		t.Fatalf("B finish: %v", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
@@ -126,9 +137,15 @@ func TestExpiryWithoutTakeover(t *testing.T) {
 	}
 	time.Sleep(120 * time.Millisecond)
 
-	_, err = s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token, 0)
-	if !errors.Is(err, store.ErrClaimLost) {
-		t.Fatalf("expired-without-takeover must still lose: got %v", err)
+	atx, err := s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token, 0)
+	if err == nil {
+		ferr := s.FinishClaim(ctx, atx, a[0].VM.ID, a[0].Token, 0)
+		_ = atx.Rollback(ctx)
+		if !errors.Is(ferr, store.ErrClaimLost) {
+			t.Fatalf("expired-without-takeover must lose at FinishClaim, got %v", ferr)
+		}
+	} else if !errors.Is(err, store.ErrClaimLost) {
+		t.Fatalf("expired-without-takeover: got %v", err)
 	}
 }
 
@@ -228,6 +245,9 @@ func TestCompletionUnderObservationTraffic(t *testing.T) {
 	tx, err := s.CompleteClaimTx(ctx, claims[0].VM.ID, claims[0].Token, time.Hour)
 	if err != nil {
 		t.Fatalf("completion must survive observation traffic: %v", err)
+	}
+	if err := s.FinishClaim(ctx, tx, claims[0].VM.ID, claims[0].Token, time.Hour); err != nil {
+		t.Fatalf("finish must survive observation traffic: %v", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)

@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -74,21 +75,34 @@ var (
 )
 
 func init() {
-	Load(os.Getenv("VMC_FAILPOINTS"))
+	if err := Load(os.Getenv("VMC_FAILPOINTS")); err != nil {
+		panic(err) // a misconfigured failpoint spec must fail loud at startup
+	}
 }
 
-// Load (re)arms failpoints from a spec string. Tests use it directly;
-// production processes inherit it from the environment at start.
-func Load(spec string) {
+// Load (re)arms failpoints from a spec string. Returns an error for any
+// invalid specification — an unknown ID, an unknown action, or a malformed
+// duration (batch-review finding [43]): a typo'd failpoint that silently
+// does nothing is worse than a hard failure.
+func Load(spec string) error {
 	mu.Lock()
 	defer mu.Unlock()
+	// Close any live pause channels before discarding them so blocked
+	// waiters are released rather than leaked.
+	for _, ch := range pauses {
+		select {
+		case <-ch:
+		default:
+			close(ch)
+		}
+	}
 	armed = nil
 	pauses = nil
 	if spec == "" {
-		return
+		return nil
 	}
-	armed = map[string]action{}
-	pauses = map[string]chan struct{}{}
+	newArmed := map[string]action{}
+	newPauses := map[string]chan struct{}{}
 	for _, part := range strings.Split(spec, ";") {
 		part = strings.TrimSpace(part)
 		if part == "" {
@@ -96,14 +110,47 @@ func Load(spec string) {
 		}
 		id, act, ok := strings.Cut(part, "=")
 		if !ok {
-			continue
+			return fmt.Errorf("faults: malformed spec %q (want id=action)", part)
+		}
+		if _, known := Catalog[id]; !known {
+			return fmt.Errorf("faults: unknown failpoint id %q", id)
 		}
 		kind, arg, _ := strings.Cut(act, ":")
-		armed[id] = action{kind: kind, arg: arg}
+		switch kind {
+		case "crash", "error", "pause":
+		case "hang":
+			if arg != "" {
+				if _, err := time.ParseDuration(arg); err != nil {
+					return fmt.Errorf("faults: bad hang duration %q: %w", arg, err)
+				}
+			}
+		default:
+			return fmt.Errorf("faults: unknown action %q for %q", kind, id)
+		}
+		newArmed[id] = action{kind: kind, arg: arg}
 		if kind == "pause" {
-			pauses[id] = make(chan struct{})
+			newPauses[id] = make(chan struct{})
 		}
 	}
+	armed = newArmed
+	pauses = newPauses
+	return nil
+}
+
+// Manifest renders the Catalog as the docs table body — the source of the
+// generated docs/failpoints.md, so the two cannot drift (finding [42]).
+func Manifest() string {
+	ids := make([]string, 0, len(Catalog))
+	for id := range Catalog {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	var b strings.Builder
+	for _, id := range ids {
+		p := Catalog[id]
+		fmt.Fprintf(&b, "| `%s` | %s | %s |\n", p.ID, p.Cut, p.Invariant)
+	}
+	return b.String()
 }
 
 // Hit evaluates a failpoint. It panics on unknown IDs — the manifest and

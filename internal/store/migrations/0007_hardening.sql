@@ -28,6 +28,15 @@ ALTER TABLE placements
     ADD CONSTRAINT placements_state_chk CHECK (state IN
         ('assigned','granted','torn_down'));
 
+-- Capacity accounting can never go negative or oversubscribe (finding [16]).
+ALTER TABLE nodes
+    ADD CONSTRAINT nodes_quota_positive_chk CHECK (cpus > 0 AND memory_bytes > 0 AND disk_bytes > 0),
+    ADD CONSTRAINT nodes_reserved_nonneg_chk CHECK (reserved_cpus >= 0 AND reserved_memory >= 0 AND reserved_disk >= 0),
+    ADD CONSTRAINT nodes_reserved_le_quota_chk CHECK (
+        reserved_cpus <= cpus AND reserved_memory <= memory_bytes AND reserved_disk <= disk_bytes);
+ALTER TABLE reservations
+    ADD CONSTRAINT reservations_positive_chk CHECK (cpus > 0 AND memory_bytes > 0 AND disk_bytes > 0);
+
 -- Terminal operations are immutable — enforced by trigger, not convention.
 CREATE OR REPLACE FUNCTION reject_terminal_operation_update() RETURNS trigger AS $$
 BEGIN

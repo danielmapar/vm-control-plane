@@ -9,8 +9,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -65,12 +63,23 @@ type Daemon struct {
 	granted   map[string]bool               // vm/epoch → grant confirmed
 	seqs      map[string]*int64             // vm id → report_seq counter
 	// lastApplied: the newest non-deleted intent each executor completed —
-	// the resync loop's working set for drift detection (plan §4 ⑨).
+	// the resync loop's working set for drift detection (plan §4 ⑨). A
+	// tombstone REMOVES the entry so resync can never redispatch a deleted
+	// VM (batch-review finding [27]).
 	lastApplied map[string]*vmcv1.Intent
+	// watermark: the highest (tombstone, epoch, revision) seen per VM. The
+	// executor acts only on a STRICT advance — last-arrival-wins would let
+	// a stale resync redispatch replace a newer power intent (finding [28]).
+	watermark map[string]intentKey
 
-	halted  atomic.Bool // stale session detected: no NEW substrate actions
-	unlock  func()
-	started chan struct{} // closed once registration succeeded (tests)
+	halted atomic.Bool // stale session detected: no NEW substrate actions
+	// localLeaseUnix is the conservative deadline (unix nanos) after which
+	// the server lease is PRESUMED expired unless a heartbeat renewed it.
+	// A blackholed heartbeat therefore halts us instead of letting us act
+	// past our lease (batch-review finding [30]).
+	localLeaseUnix atomic.Int64
+	unlock         func()
+	started        chan struct{} // closed once registration succeeded (tests)
 }
 
 func New(cfg Config, client vmcv1.AgentServiceClient) *Daemon {
@@ -93,8 +102,38 @@ func New(cfg Config, client vmcv1.AgentServiceClient) *Daemon {
 		granted:     map[string]bool{},
 		seqs:        map[string]*int64{},
 		lastApplied: map[string]*vmcv1.Intent{},
+		watermark:   map[string]intentKey{},
 		started:     make(chan struct{}),
 	}
+}
+
+// intentKey orders intents for one VM: a tombstone dominates everything;
+// otherwise (epoch, revision) lexicographically. Only a strict advance is
+// acted upon.
+type intentKey struct {
+	deleted bool
+	epoch   int64
+	rev     int64
+}
+
+func keyOf(in *vmcv1.Intent) intentKey {
+	return intentKey{deleted: in.GetDeleted(), epoch: in.GetPlacementEpoch(), rev: in.GetDesiredRevision()}
+}
+
+// staleAgainst reports whether b is STRICTLY OLDER than a (must be
+// dropped). An equal key is NOT stale — drift repair legitimately
+// re-dispatches the current revision.
+func (a intentKey) staleAgainst(b intentKey) bool {
+	if a == b {
+		return false
+	}
+	if b.deleted != a.deleted {
+		return a.deleted // a is a tombstone, b is not → b is stale
+	}
+	if b.epoch != a.epoch {
+		return b.epoch < a.epoch
+	}
+	return b.rev < a.rev
 }
 
 // Started closes once registration has succeeded (test synchronization).
@@ -146,8 +185,21 @@ func (d *Daemon) register(ctx context.Context) error {
 	for _, s := range resp.GetSessions() {
 		d.sessions[s.GetNodeName()] = s
 	}
+	d.extendLocalLease()
 	d.cfg.Log.Info("host registered", "host", d.cfg.HostID, "nodes", len(d.sessions))
 	return nil
+}
+
+// extendLocalLease pushes the presumed-expiry deadline out by the lease
+// duration, minus a safety margin so we halt BEFORE the server would.
+func (d *Daemon) extendLocalLease() {
+	margin := d.cfg.Lease / 5
+	d.localLeaseUnix.Store(d.cfg.Clock.Now().Add(d.cfg.Lease - margin).UnixNano())
+}
+
+// leaseLive reports whether our conservative local lease is still valid.
+func (d *Daemon) leaseLive() bool {
+	return d.cfg.Clock.Now().UnixNano() < d.localLeaseUnix.Load()
 }
 
 func (d *Daemon) heartbeatLoop(ctx context.Context) {
@@ -158,17 +210,23 @@ func (d *Daemon) heartbeatLoop(ctx context.Context) {
 			return
 		case <-d.cfg.Clock.After(interval):
 		}
+		allOK := true
 		for _, sess := range d.sessions {
 			_, err := d.client.Heartbeat(ctx, &vmcv1.HeartbeatRequest{
 				Session: sess, Lease: durationpb.New(d.cfg.Lease),
 			})
-			if err != nil && isFailedPrecondition(err) {
-				// A replacement daemon registered: HALT new substrate
-				// actions immediately (§6.3, matrix row 10).
-				if !d.halted.Swap(true) {
-					d.cfg.Log.Error("session superseded — halting substrate actions", "node", sess.GetNodeName())
+			if err != nil {
+				allOK = false
+				if isFailedPrecondition(err) {
+					// A replacement daemon registered: HALT immediately.
+					if !d.halted.Swap(true) {
+						d.cfg.Log.Error("session superseded — halting substrate actions", "node", sess.GetNodeName())
+					}
 				}
 			}
+		}
+		if allOK {
+			d.extendLocalLease()
 		}
 	}
 }
@@ -184,7 +242,7 @@ func (d *Daemon) pollLoop(ctx context.Context) {
 			return
 		case <-d.cfg.Clock.After(d.cfg.PollInterval):
 		}
-		if d.halted.Load() {
+		if d.halted.Load() || !d.leaseLive() {
 			continue
 		}
 		resp, err := d.client.PollIntents(ctx, &vmcv1.PollIntentsRequest{Sessions: sessions})
@@ -202,7 +260,17 @@ func (d *Daemon) pollLoop(ctx context.Context) {
 // the executor only ever sees the newest revision — the mechanism that
 // makes "delete supersedes provision" a protocol (§6.4).
 func (d *Daemon) dispatch(ctx context.Context, intent *vmcv1.Intent) {
+	k := keyOf(intent)
 	d.mu.Lock()
+	// Drop only STRICTLY OLDER work — a stale resync or reordered poll
+	// cannot replace newer work (finding [28]) — while an equal key
+	// (drift repair of the current revision) passes.
+	if cur, seen := d.watermark[intent.GetVmId()]; seen && cur.staleAgainst(k) {
+		d.mu.Unlock()
+		return
+	}
+	// Record the newest key seen (equal or advance keeps the max).
+	d.watermark[intent.GetVmId()] = k
 	ch, ok := d.executors[intent.GetVmId()]
 	if !ok {
 		ch = make(chan *vmcv1.Intent, 1)
@@ -236,7 +304,9 @@ func (d *Daemon) runExecutor(ctx context.Context, ch chan *vmcv1.Intent) {
 }
 
 func (d *Daemon) handle(ctx context.Context, intent *vmcv1.Intent) {
-	if d.halted.Load() {
+	// Fail closed on BOTH an explicit halt and a lapsed local lease: a
+	// blackholed heartbeat must not leave us acting past our lease (finding [30]).
+	if d.halted.Load() || !d.leaseLive() {
 		return
 	}
 	sess := d.sessions[intent.GetNodeName()]
@@ -253,8 +323,23 @@ func (d *Daemon) handle(ctx context.Context, intent *vmcv1.Intent) {
 		case <-d.cfg.Clock.After(time.Duration(ms) * time.Millisecond):
 		}
 	}
+	// Revalidate the watermark AFTER the wait: a delete or newer revision
+	// may have arrived while we slept (finding [28] — revalidate around
+	// every pause, not just external steps).
+	d.mu.Lock()
+	if cur, ok := d.watermark[intent.GetVmId()]; ok && cur != keyOf(intent) {
+		d.mu.Unlock()
+		return
+	}
+	d.mu.Unlock()
 
 	if intent.GetDeleted() {
+		// A tombstone supersedes provisioning: drop the resync working-set
+		// entry FIRST so no concurrent resync can redispatch this VM
+		// (finding [27]).
+		d.mu.Lock()
+		delete(d.lastApplied, intent.GetVmId())
+		d.mu.Unlock()
 		// Teardown is idempotent and ownership-scoped; it needs no grant
 		// (destroying our own artifacts is always safe), but the receipt
 		// proves it happened.
@@ -319,10 +404,18 @@ func (d *Daemon) handle(ctx context.Context, intent *vmcv1.Intent) {
 		AppliedRevision: intent.GetDesiredRevision(),
 		State:           stateProto,
 	}); err != nil {
-		log.Warn("report rejected", "err", err)
+		// A server fence (FailedPrecondition) must NOT seed continued
+		// mutation for rejected work — only advance the working set on
+		// accepted evidence (finding [31]).
+		log.Warn("report rejected — not advancing resync state", "err", err)
+		return
 	}
 	d.mu.Lock()
-	d.lastApplied[intent.GetVmId()] = intent
+	// Guard against a tombstone that landed during Ensure: never re-seed a
+	// deleted VM into the resync set.
+	if cur, ok := d.watermark[intent.GetVmId()]; ok && !cur.deleted {
+		d.lastApplied[intent.GetVmId()] = intent
+	}
 	d.mu.Unlock()
 }
 
@@ -399,44 +492,4 @@ func (d *Daemon) nextSeq(vmID string) int64 {
 	}
 	d.mu.Unlock()
 	return atomic.AddInt64(counter, 1)
-}
-
-// acquireHostLock enforces one daemon per host state dir. O_CREATE|O_EXCL
-// is atomic on every platform we run on; a stale lock (dead pid) is stolen.
-func acquireHostLock(stateDir string) (func(), error) {
-	if stateDir == "" {
-		stateDir = filepath.Join(os.TempDir(), "vmc-host")
-	}
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		return nil, err
-	}
-	path := filepath.Join(stateDir, "host.lock")
-	for attempt := 0; attempt < 2; attempt++ {
-		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
-		if err == nil {
-			fmt.Fprintf(f, "%d\n", os.Getpid())
-			_ = f.Close()
-			return func() { _ = os.Remove(path) }, nil
-		}
-		// Steal only if the holder is provably dead.
-		data, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return nil, fmt.Errorf("lock held and unreadable: %w", err)
-		}
-		pid, _ := strconv.Atoi(firstLine(string(data)))
-		if pid > 0 && processAlive(pid) {
-			return nil, fmt.Errorf("host lock held by live pid %d", pid)
-		}
-		_ = os.Remove(path)
-	}
-	return nil, fmt.Errorf("could not acquire host lock at %s", path)
-}
-
-func firstLine(s string) string {
-	for i, r := range s {
-		if r == '\n' || r == '\r' {
-			return s[:i]
-		}
-	}
-	return s
 }

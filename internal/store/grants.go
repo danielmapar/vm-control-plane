@@ -86,11 +86,7 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 		return err
 	}
 	switch state {
-	case "granted":
-		// Idempotent replay after a lost grant response (matrix row 6):
-		// the exposure fact is already durable; re-confirming is safe.
-		return tx.Commit(ctx)
-	case "assigned":
+	case "granted", "assigned":
 	default:
 		return &ErrGrantDenied{DenyNotAssigned}
 	}
@@ -98,7 +94,10 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 		return &ErrGrantDenied{DenyStaleSession}
 	}
 
-	// Session currency + lease, against the database clock.
+	// Session currency + lease, against the database clock — authorized
+	// for BOTH the initial transition AND the idempotent replay, so a
+	// wrong/expired/superseded daemon can never receive Granted=true even
+	// for an already-granted placement (batch-review finding [19]).
 	var current, live bool
 	err = tx.QueryRow(ctx, `
 		SELECT (session_id = $2 AND session_generation = $3),
@@ -118,6 +117,12 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 		return &ErrGrantDenied{DenyLeaseExpired}
 	}
 
+	if state == "granted" {
+		// Authorized replay after a lost grant response (matrix row 6):
+		// the exposure fact is durable AND the requester is still the
+		// current live owner.
+		return tx.Commit(ctx)
+	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE placements SET state='granted', granted_at=clock_timestamp()
 		WHERE vm_id=$1 AND epoch=$2`, vmID, epoch); err != nil {

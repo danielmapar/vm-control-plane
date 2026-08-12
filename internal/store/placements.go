@@ -25,6 +25,11 @@ type Resources struct {
 	DiskBytes   int64
 }
 
+// ErrPlacementPreconditions: the VM changed between claim and placement
+// (tombstoned, or no longer PENDING) — the transition aborts and the
+// rescan recomputes from fresh state.
+var ErrPlacementPreconditions = errors.New("store: placement preconditions changed under the lock")
+
 var (
 	// ErrNoCapacity: the all-predicate conditional reservation matched zero
 	// rows — capacity, labels, or lease changed between filter and commit.
@@ -48,14 +53,28 @@ var (
 //
 // Everything commits or rolls back with the claim guard.
 func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *Node, res Resources) (epoch int64, err error) {
-	var currentEpoch int64
+	// Recheck the placement preconditions UNDER the row lock, not from the
+	// claim snapshot: a tombstone or phase change arriving after the claim
+	// must abort placement (batch-review finding [3]).
+	var (
+		currentEpoch int64
+		deleted      bool
+		phase        string
+	)
 	if err := tx.QueryRow(ctx,
-		`SELECT placement_epoch FROM vms WHERE id=$1 FOR UPDATE`, vmID,
-	).Scan(&currentEpoch); err != nil {
+		`SELECT placement_epoch, deleted_at IS NOT NULL, phase
+		 FROM vms WHERE id=$1 FOR UPDATE`, vmID,
+	).Scan(&currentEpoch, &deleted, &phase); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, ErrNotFound
 		}
 		return 0, err
+	}
+	if deleted {
+		return 0, fmt.Errorf("%w: vm is tombstoned", ErrPlacementPreconditions)
+	}
+	if phase != "PENDING" {
+		return 0, fmt.Errorf("%w: phase %s", ErrPlacementPreconditions, phase)
 	}
 	epoch = currentEpoch + 1
 

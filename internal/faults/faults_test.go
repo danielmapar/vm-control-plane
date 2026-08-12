@@ -5,13 +5,14 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestUnarmedIsFree(t *testing.T) {
-	Load("")
+	_ = Load("")
 	if err := Hit(context.Background(), "api.after-envelope"); err != nil {
 		t.Fatalf("unarmed failpoint returned %v", err)
 	}
@@ -27,8 +28,8 @@ func TestUnknownIDPanics(t *testing.T) {
 }
 
 func TestErrorInjection(t *testing.T) {
-	Load("api.after-envelope=error:boom")
-	t.Cleanup(func() { Load("") })
+	mustLoad(t, "api.after-envelope=error:boom")
+	t.Cleanup(func() { _ = Load("") })
 	err := Hit(context.Background(), "api.after-envelope")
 	if err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("want injected boom, got %v", err)
@@ -36,8 +37,8 @@ func TestErrorInjection(t *testing.T) {
 }
 
 func TestHangRespectsContext(t *testing.T) {
-	Load("controller.after-claim=hang:30s")
-	t.Cleanup(func() { Load("") })
+	mustLoad(t, "controller.after-claim=hang:30s")
+	t.Cleanup(func() { _ = Load("") })
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	start := time.Now()
@@ -51,8 +52,8 @@ func TestHangRespectsContext(t *testing.T) {
 }
 
 func TestPauseAndRelease(t *testing.T) {
-	Load("controller.before-complete=pause")
-	t.Cleanup(func() { Load("") })
+	mustLoad(t, "controller.before-complete=pause")
+	t.Cleanup(func() { _ = Load("") })
 
 	done := make(chan error, 1)
 	go func() { done <- Hit(context.Background(), "controller.before-complete") }()
@@ -79,7 +80,7 @@ func TestPauseAndRelease(t *testing.T) {
 // and asserts exit code 137 — the subprocess harness pattern in miniature.
 func TestCrashExits(t *testing.T) {
 	if os.Getenv("FAULTS_CRASH_CHILD") == "1" {
-		Load("controller.after-claim=crash")
+		_ = Load("controller.after-claim=crash")
 		_ = Hit(context.Background(), "controller.after-claim")
 		t.Fatal("unreachable")
 		return
@@ -103,6 +104,36 @@ func TestManifestCoversCatalog(t *testing.T) {
 		}
 		if p.Cut == "" || p.Invariant == "" {
 			t.Errorf("%s: manifest fields incomplete", id)
+		}
+	}
+}
+
+func mustLoad(t *testing.T, spec string) {
+	t.Helper()
+	if err := Load(spec); err != nil {
+		t.Fatalf("Load(%q): %v", spec, err)
+	}
+}
+
+func TestLoadRejectsInvalid(t *testing.T) {
+	t.Cleanup(func() { _ = Load("") })
+	for _, bad := range []string{"no.such.id=crash", "api.after-envelope=explode", "api.after-envelope=hang:notaduration", "malformed"} {
+		if err := Load(bad); err == nil {
+			t.Errorf("Load(%q) must error", bad)
+		}
+	}
+}
+
+// TestManifestMatchesDoc: the rendered manifest body must appear verbatim in
+// docs/failpoints.md — the two cannot drift (finding [42]).
+func TestManifestMatchesDoc(t *testing.T) {
+	doc, err := os.ReadFile(filepath.Join("..", "..", "docs", "failpoints.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(strings.TrimRight(Manifest(), "\n"), "\n") {
+		if !strings.Contains(string(doc), line) {
+			t.Errorf("docs/failpoints.md is missing manifest row:\n%s\n(regenerate it from faults.Manifest)", line)
 		}
 	}
 }

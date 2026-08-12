@@ -69,6 +69,9 @@ func parseSize(s string) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("size %q: %w", s, err)
 	}
+	if mult > 1 && n > (^uint64(0))/mult {
+		return 0, fmt.Errorf("size %q overflows uint64", s)
+	}
 	return n * mult, nil
 }
 

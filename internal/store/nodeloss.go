@@ -80,8 +80,12 @@ func (s *Store) ExpireNodeVMs(ctx context.Context) ([]NodeLossAction, error) {
 		}
 		// granted → UNKNOWN (single guarded statement; phase regression from
 		// UNKNOWN happens only via fresh evidence in the convergence path).
+		// Entering UNKNOWN clears the applied-revision watermark so that
+		// stale pre-loss evidence cannot immediately re-converge when the
+		// node returns — a FRESH report from a live session is required
+		// (batch-review finding [10]).
 		tag, err := s.pool.Exec(ctx, `
-			UPDATE vms SET phase='UNKNOWN',
+			UPDATE vms SET phase='UNKNOWN', applied_revision=0, observed_state='',
 				resource_version = resource_version + 1, updated_at = now()
 			WHERE id=$1 AND phase IN ('PROVISIONING','RUNNING','STOPPED')`, c.id)
 		if err != nil {

@@ -289,6 +289,12 @@ Ground rules unchanged (one idea per PR; Deps/Produces/Accepts columns; protos a
 | 31 | Hardening | 29 | 8 h | Graceful shutdown, leader gate, ledger-driven GC audit / containment tests |
 | 32 | Benchmarks + release | 29,30,31 | 12 h | Median/IQR/raw distributions; scale analysis; limitations; recording; **exact-SHA provenance release gate**; v0.1.0 / §15-B |
 
+> **Implementation note (post-batch-review):** the fake-tier drift detector
+> compares power state only. Owned-field, next-boot (`INACTIVE`), and
+> autostart drift (D8) are real-driver protocols exercised against the
+> libvirt driver, not the fake tier — Tier-0 drift claims are scoped
+> accordingly.
+
 ## 10. Testing strategy
 
 As v5 (failpoint manifest with IDs from PR 10; injectable clock; directional/half-open partition proxy; two harnesses; race + stress lane; substrate battery incl. daemon restarts and ENOSPC; guest battery incl. full ownership cycle and isolation battery; named semantic tests), plus v6 additions: **expiry-without-takeover; new-session-low-seq ordering; same-revision repair generations; blackholed-RPC / lost-response supervisor probes; inactive-XML and autostart drift; attestation fail-closed cases; durable-teardown failpoints (unlink/fsync/receipt); host-aggregate quota races; admin-verb envelope replay tests.**

@@ -30,7 +30,10 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 	defer func() { _, _ = lockConn.Exec(context.WithoutCancel(ctx), `SELECT pg_advisory_unlock(727274)`) }()
 
-	if _, err := pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+	// Run ALL DDL through the LOCKED connection, not the pool — otherwise a
+	// pool with MaxConns=1 deadlocks (the lock holds the only connection)
+	// and concurrent waiters can exhaust a small pool (batch-review [41]).
+	if _, err := lockConn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		filename text PRIMARY KEY,
 		applied_at timestamptz NOT NULL DEFAULT now()
 	)`); err != nil {
@@ -48,7 +51,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	sort.Strings(names)
 
 	for _, name := range names {
-		tx, err := pool.Begin(ctx)
+		tx, err := lockConn.Begin(ctx)
 		if err != nil {
 			return err
 		}

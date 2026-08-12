@@ -25,21 +25,37 @@ type AgentServer struct {
 func NewAgentServer(st *store.Store) *AgentServer { return &AgentServer{st: st} }
 
 func (a *AgentServer) RegisterHost(ctx context.Context, req *vmcv1.RegisterHostRequest) (*vmcv1.RegisterHostResponse, error) {
+	const maxBytes = int64(1) << 50 // 1 PiB — practical ceiling, guards uint64→int64 wrap
+	toInt64 := func(v uint64) (int64, bool) { return int64(v), v <= uint64(maxBytes) }
 	quotas := make([]store.NodeQuota, 0, len(req.GetNodes()))
 	for _, n := range req.GetNodes() {
+		mem, okM := toInt64(n.GetMemoryBytes())
+		disk, okD := toInt64(n.GetDiskBytes())
+		if n.GetCpus() < 1 || n.GetCpus() > 4096 || !okM || !okD || mem < 1 || disk < 1 {
+			return nil, status.Error(codes.InvalidArgument, "node quota out of range")
+		}
 		quotas = append(quotas, store.NodeQuota{
 			Name: n.GetName(), CPUs: n.GetCpus(),
-			MemoryBytes: int64(n.GetMemoryBytes()), DiskBytes: int64(n.GetDiskBytes()),
-			Labels: n.GetLabels(),
+			MemoryBytes: mem, DiskBytes: disk, Labels: n.GetLabels(),
 		})
 	}
+	hMem, okHM := toInt64(req.GetMemoryBytes())
+	hDisk, okHD := toInt64(req.GetDiskBytes())
+	if req.GetCpus() < 1 || !okHM || !okHD {
+		return nil, status.Error(codes.InvalidArgument, "host capacity out of range")
+	}
 	lease := 15 * time.Second
-	if d := req.GetLease(); d != nil && d.AsDuration() > 0 {
-		lease = d.AsDuration()
+	if d := req.GetLease(); d != nil {
+		if v := d.AsDuration(); v > 0 {
+			lease = min(v, 60*time.Second) // server-capped: a client cannot keep a dead node Ready forever
+		}
+	}
+	if req.GetHostId() == "" || len(quotas) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "host_id and at least one node are required")
 	}
 	sessions, err := a.st.RegisterHost(ctx, store.HostCapacity{
 		HostID: req.GetHostId(), CPUs: req.GetCpus(),
-		MemoryBytes: int64(req.GetMemoryBytes()), DiskBytes: int64(req.GetDiskBytes()),
+		MemoryBytes: hMem, DiskBytes: hDisk,
 	}, quotas, lease)
 	if err != nil {
 		switch {

@@ -38,6 +38,10 @@ func placeOnce(ctx context.Context, s *store.Store, vmID uuid.UUID, node *store.
 		_ = tx.Rollback(ctx)
 		return 0, err
 	}
+	if err := s.FinishClaim(ctx, tx, vmID, claim.Token, time.Hour); err != nil {
+		_ = tx.Rollback(ctx)
+		return 0, err
+	}
 	return epoch, tx.Commit(ctx)
 }
 
@@ -134,6 +138,11 @@ func TestConcurrentPlacementNoOversubscription(t *testing.T) {
 				return
 			}
 			if _, err := s.PlaceVM(ctx, tx, claim.VM.ID, node, res); err != nil {
+				_ = tx.Rollback(ctx)
+				errs[i] = err
+				return
+			}
+			if err := s.FinishClaim(ctx, tx, claim.VM.ID, claim.Token, time.Hour); err != nil {
 				_ = tx.Rollback(ctx)
 				errs[i] = err
 				return
