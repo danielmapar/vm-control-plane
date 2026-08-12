@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
@@ -38,7 +39,12 @@ func run() error {
 	sshKeyFile := flag.String("ssh-key-file", "", "libvirt: SSH public key for guests")
 	flag.Parse()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	// Catch SIGTERM as well as SIGINT: a process manager (or the demo's
+	// `kill $PID`) sends SIGTERM, and without this the supervisor is killed
+	// abruptly — the deferred pg.Stop() never runs and the child processes
+	// orphan. Handling it lets ctx cancellation fan out to the ctx-bound
+	// children and the embedded-Postgres teardown.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	fmt.Println("dev: building binaries into bin/ (stable paths)")
