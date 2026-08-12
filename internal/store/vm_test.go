@@ -137,20 +137,24 @@ func TestTombstoneSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tombstone: %v", err)
 	}
-	if dead.DeletedAt == nil || dead.Phase != "DELETING" {
+	if dead.DeletedAt == nil {
 		t.Fatalf("tombstone not applied: %+v", dead)
+	}
+	if dead.Phase != vm.Phase {
+		t.Fatalf("tombstone must NOT touch reconciler-owned phase: %q -> %q", vm.Phase, dead.Phase)
 	}
 	if dead.DesiredRevision != vm.DesiredRevision+1 {
 		t.Fatalf("desired_revision: got %d, want %d", dead.DesiredRevision, vm.DesiredRevision+1)
 	}
 
-	// Second tombstone: no-op on deletion state, no second revision bump.
-	again, err := s.TombstoneVM(ctx, nil, dead.ID, dead.ResourceVersion)
+	// Second tombstone: a TRUE no-op — same revision, same version, same
+	// timestamp; no CAS conflict even with a stale expected version.
+	again, err := s.TombstoneVM(ctx, nil, dead.ID, vm.ResourceVersion)
 	if err != nil {
 		t.Fatalf("second tombstone: %v", err)
 	}
-	if again.DesiredRevision != dead.DesiredRevision {
-		t.Fatalf("second tombstone bumped revision: %d -> %d", dead.DesiredRevision, again.DesiredRevision)
+	if again.DesiredRevision != dead.DesiredRevision || again.ResourceVersion != dead.ResourceVersion {
+		t.Fatalf("second tombstone mutated the row: %+v vs %+v", again, dead)
 	}
 	if !again.DeletedAt.Equal(*dead.DeletedAt) {
 		t.Fatalf("deleted_at changed on second tombstone")

@@ -41,8 +41,22 @@ func validateSpec(spec *vmcv1.VmSpec) error {
 			return fmt.Errorf("network: %w", err)
 		}
 	}
+	switch spec.Power {
+	case vmcv1.PowerState_POWER_STATE_RUNNING, vmcv1.PowerState_POWER_STATE_STOPPED:
+	default:
+		return fmt.Errorf("power: unknown value %d", spec.Power)
+	}
+	return nil
+}
+
+// normalizeSpec applies defaults on a CLONE before hashing — the caller's
+// request is never mutated, and the hash sees the same bytes a defaulted
+// replay would send.
+func normalizeSpec(spec *vmcv1.VmSpec) {
+	if spec == nil {
+		return
+	}
 	if spec.Power == vmcv1.PowerState_POWER_STATE_UNSPECIFIED {
 		spec.Power = vmcv1.PowerState_POWER_STATE_RUNNING
 	}
-	return nil
 }

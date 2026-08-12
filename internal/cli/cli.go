@@ -77,6 +77,7 @@ func newCreateCmd(out io.Writer, server *string) *cobra.Command {
 		image   string
 		disk    string
 		network string
+		idemKey string
 	)
 	cmd := &cobra.Command{
 		Use:   "create vm NAME",
@@ -102,10 +103,15 @@ func newCreateCmd(out io.Writer, server *string) *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 			defer cancel()
-			// The key is minted BEFORE the first attempt: a timeout-and-retry
-			// from this process would replay the same key (D3).
+			// The key exists BEFORE the first attempt and is printed first:
+			// after an ambiguous failure the user can replay with
+			// --idempotency-key to get the original operation (D3).
+			if idemKey == "" {
+				idemKey = uuid.NewString()
+			}
+			fmt.Fprintf(out, "idempotency-key: %s  (replay with --idempotency-key on ambiguous failures)\n", idemKey)
 			op, err := vmcv1.NewVMServiceClient(conn).CreateVm(ctx, &vmcv1.CreateVmRequest{
-				IdempotencyKey: uuid.NewString(),
+				IdempotencyKey: idemKey,
 				Name:           args[1],
 				Spec: &vmcv1.VmSpec{
 					Cpus:          cpus,
@@ -128,6 +134,7 @@ func newCreateCmd(out io.Writer, server *string) *cobra.Command {
 	cmd.Flags().StringVar(&image, "image", "ubuntu-24.04", "backing image")
 	cmd.Flags().StringVar(&disk, "disk", "10GiB", "root disk size")
 	cmd.Flags().StringVar(&network, "network", "", "tenant network (optional)")
+	cmd.Flags().StringVar(&idemKey, "idempotency-key", "", "replay a previous attempt's key (UUID)")
 	return cmd
 }
 
@@ -167,11 +174,22 @@ func newListCmd(out io.Writer, server *string) *cobra.Command {
 			defer conn.Close() //nolint:errcheck // process exit follows
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
 			defer cancel()
-			resp, err := vmcv1.NewVMServiceClient(conn).ListVms(ctx, &vmcv1.ListVmsRequest{})
-			if err != nil {
-				return err
+			client := vmcv1.NewVMServiceClient(conn)
+			var all []*vmcv1.VirtualMachine
+			token, prev := "", "-"
+			for token != prev {
+				prev = token
+				resp, err := client.ListVms(ctx, &vmcv1.ListVmsRequest{PageToken: token})
+				if err != nil {
+					return err
+				}
+				all = append(all, resp.Vms...)
+				token = resp.GetNextPageToken()
+				if token == "" {
+					break
+				}
 			}
-			printVMs(out, resp.Vms...)
+			printVMs(out, all...)
 			return nil
 		},
 	}

@@ -38,11 +38,7 @@ func (s *Store) ClaimDirtyVMs(ctx context.Context, owner string, lease time.Dura
 			SELECT id FROM vms
 			WHERE next_attempt_at <= clock_timestamp()
 			  AND (claim_expires_at IS NULL OR claim_expires_at < clock_timestamp())
-			  AND phase NOT IN ('FAILED')
-			  AND (
-			        phase IN ('PENDING','SCHEDULING','PROVISIONING','DELETING')
-			     OR deleted_at IS NOT NULL AND phase <> 'DELETING'
-			  )
+			  AND (phase <> 'FAILED' OR deleted_at IS NOT NULL)
 			ORDER BY next_attempt_at
 			LIMIT $3
 			FOR UPDATE SKIP LOCKED

@@ -198,7 +198,7 @@ func TestDeadlineExpiryTerminalizes(t *testing.T) {
 	op, err := s.CreateOperation(ctx, nil, &store.Operation{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: uuid.New(),
 		ResourceName: "stall", Verb: "CREATE", TargetRevision: 1,
-		Deadline: time.Now().Add(-time.Second), // already past
+		DeadlineBudget: -time.Second, // database-clock deadline already past
 	})
 	if err != nil {
 		t.Fatal(err)

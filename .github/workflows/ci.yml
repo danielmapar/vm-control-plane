@@ -20,6 +20,22 @@ jobs:
         with:
           version: v2.12.2
 
+  proto:
+    # buf lint + regeneration clean-diff: stale generated Go or breaking
+    # proto edits fail here, not in a reviewer's head (PR 4-8 triage).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make tools
+      - run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          buf lint
+          buf generate
+          git diff --exit-code -- proto
+
   build-both-goos:
     # Cross-compile gate: one stray netlink/x-sys import must fail CI, not a
     # developer machine. Cross-compiling is NOT testing — the test matrix

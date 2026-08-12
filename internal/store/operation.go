@@ -21,6 +21,9 @@ type Operation struct {
 	State          string
 	Error          string
 	Deadline       time.Time
+	// DeadlineBudget is the per-verb duration used at INSERT; the stored
+	// Deadline is computed from the database clock, never the API host's.
+	DeadlineBudget time.Duration
 	CreatedAt      time.Time
 	FinishedAt     *time.Time
 }
@@ -122,16 +125,24 @@ func (s *Store) CompleteEnvelope(ctx context.Context, tx pgx.Tx, key, operationI
 	return nil
 }
 
-// CreateOperation inserts a PENDING operation with its per-verb deadline.
+// CreateOperation inserts a PENDING operation. The deadline is computed
+// from the DATABASE clock plus the per-verb budget — an API host with a
+// skewed clock cannot lengthen or shorten operation lifetimes (D3; PR 4-8
+// review triage).
 func (s *Store) CreateOperation(ctx context.Context, q querier, op *Operation) (*Operation, error) {
 	if q == nil {
 		q = s.pool
 	}
+	budget := op.DeadlineBudget
+	if budget == 0 {
+		budget = 15 * time.Minute
+	}
+	// Negative budgets are legal (tests mint already-expired operations).
 	row := q.QueryRow(ctx, `
 		INSERT INTO operations (id, resource_type, resource_id, resource_name, verb, target_revision, state, deadline)
-		VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7)
+		VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', clock_timestamp() + $7)
 		RETURNING `+opColumns,
-		op.ID, op.ResourceType, op.ResourceID, op.ResourceName, op.Verb, op.TargetRevision, op.Deadline)
+		op.ID, op.ResourceType, op.ResourceID, op.ResourceName, op.Verb, op.TargetRevision, budget)
 	return scanOperation(row)
 }
 
@@ -158,7 +169,7 @@ func (s *Store) TerminalizeOperation(ctx context.Context, q querier, id uuid.UUI
 		return nil, fmt.Errorf("terminalize: %q is not a terminal state", state)
 	}
 	row := q.QueryRow(ctx, `
-		UPDATE operations SET state=$2, error=$3, finished_at=now()
+		UPDATE operations SET state=$2, error=$3, finished_at=clock_timestamp()
 		WHERE id=$1 AND state IN ('PENDING','RUNNING')
 		RETURNING `+opColumns,
 		id, state, errMsg)
@@ -185,8 +196,8 @@ func (s *Store) ExpireOperations(ctx context.Context, q querier) ([]*Operation, 
 	rows, err := q.Query(ctx, `
 		UPDATE operations SET state='DEADLINE_EXCEEDED',
 			error='operation deadline exceeded; resource state unchanged (no unsafe cleanup)',
-			finished_at=now()
-		WHERE state IN ('PENDING','RUNNING') AND deadline < clock_timestamp()
+			finished_at=clock_timestamp()
+		WHERE state IN ('PENDING','RUNNING') AND deadline <= clock_timestamp()
 		RETURNING `+opColumns)
 	if err != nil {
 		return nil, err

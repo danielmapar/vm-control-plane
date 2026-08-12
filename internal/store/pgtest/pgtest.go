@@ -31,6 +31,7 @@ import (
 	"time"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sigtunnel/vm-control-plane/internal/store"
@@ -71,21 +72,41 @@ func Main(m *testing.M) int {
 		return 1
 	}
 
-	pg = embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().
-		Version(Version).
-		Encoding("UTF8").
-		Locale("C").
-		Port(uint32(port)).
-		DataPath(filepath.Join(dir, "data")).
-		RuntimePath(filepath.Join(dir, "runtime")).
-		Logger(nil))
-
-	if err := pg.Start(); err != nil {
-		unlock()
-		fmt.Fprintln(os.Stderr, "pgtest: start:", err)
-		if strings.Contains(err.Error(), "process could not be started") {
-			fmt.Fprintln(os.Stderr, "pgtest: hint: postgres refuses elevated shells — run tests from a non-admin terminal")
+	// The :0 probe listener closes before postgres binds — another parallel
+	// package can grab the port in between. Retry with a fresh port on bind
+	// failure (PR 4-8 review triage).
+	started := false
+	for attempt := 0; attempt < 3 && !started; attempt++ {
+		pg = embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().
+			Version(Version).
+			Encoding("UTF8").
+			Locale("C").
+			Port(uint32(port)).
+			DataPath(filepath.Join(dir, "data")).
+			RuntimePath(filepath.Join(dir, "runtime")).
+			Logger(nil))
+		err := pg.Start()
+		if err == nil {
+			started = true
+			break
 		}
+		if strings.Contains(err.Error(), "process could not be started") {
+			unlock()
+			fmt.Fprintln(os.Stderr, "pgtest: start:", err)
+			fmt.Fprintln(os.Stderr, "pgtest: hint: postgres refuses elevated shells — run tests from a non-admin terminal")
+			return 1
+		}
+		fmt.Fprintln(os.Stderr, "pgtest: start attempt failed (retrying on a fresh port):", err)
+		_ = os.RemoveAll(filepath.Join(dir, "data"))
+		_ = os.RemoveAll(filepath.Join(dir, "runtime"))
+		if port, err = freePort(); err != nil {
+			unlock()
+			return 1
+		}
+	}
+	if !started {
+		unlock()
+		fmt.Fprintln(os.Stderr, "pgtest: could not start postgres after retries")
 		return 1
 	}
 	unlock() // binaries are extracted once Start returns
@@ -124,7 +145,7 @@ func NewDB(t *testing.T) *pgxpool.Pool {
 		t.Fatalf("pgtest: admin pool: %v", err)
 	}
 	defer admin.Close()
-	if _, err := admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
+	if _, err := admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
 		t.Fatalf("pgtest: create database: %v", err)
 	}
 

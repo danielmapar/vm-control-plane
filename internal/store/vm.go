@@ -165,29 +165,42 @@ func (s *Store) UpdateVMStatus(ctx context.Context, q querier, id uuid.UUID, exp
 	return vm, err
 }
 
-// TombstoneVM marks deletion: sets deleted_at and phase DELETING and bumps
-// the desired revision — deletion is one more desired state, driven through
-// the same reconciliation machinery (ADR-0003). Set-once: a second call is
-// a no-op returning the current row.
+// TombstoneVM marks deletion: sets deleted_at and bumps the desired
+// revision — deletion is one more desired state, driven through the same
+// reconciliation machinery (ADR-0003). The API owns ONLY the tombstone;
+// phase belongs to the reconciler (plan §6 writer table — PR 4-8 review
+// triage). Set-once: a replay against an already-tombstoned row returns it
+// unchanged, with no version bump and no CAS conflict.
 func (s *Store) TombstoneVM(ctx context.Context, q querier, id uuid.UUID, expectVersion int64) (*VM, error) {
 	if q == nil {
 		q = s.pool
 	}
 	row := q.QueryRow(ctx, `
 		UPDATE vms SET
-			deleted_at = COALESCE(deleted_at, now()),
-			phase = CASE WHEN deleted_at IS NULL THEN 'DELETING' ELSE phase END,
-			desired_revision = CASE WHEN deleted_at IS NULL THEN desired_revision + 1 ELSE desired_revision END,
+			deleted_at = now(),
+			desired_revision = desired_revision + 1,
 			resource_version = resource_version + 1,
+			next_attempt_at = clock_timestamp(),
 			updated_at = now()
-		WHERE id=$1 AND resource_version=$2
+		WHERE id=$1 AND resource_version=$2 AND deleted_at IS NULL
 		RETURNING `+vmColumns,
 		id, expectVersion)
 	vm, err := scanVM(row)
-	if errors.Is(err, ErrNotFound) {
-		return nil, staleOrMissing(ctx, q, id)
+	if !errors.Is(err, ErrNotFound) {
+		return vm, err
 	}
-	return vm, err
+	// Zero rows: already tombstoned (idempotent replay), stale, or missing.
+	existing, exErr := s.GetVMByID(ctx, q, id)
+	if exErr != nil {
+		return nil, exErr
+	}
+	if existing.DeletedAt != nil {
+		return existing, nil
+	}
+	if existing.ResourceVersion != expectVersion {
+		return nil, ErrStaleWrite
+	}
+	return nil, fmt.Errorf("tombstone: unexpected zero-row update for vm %s", id)
 }
 
 // staleOrMissing disambiguates a zero-row CAS UPDATE: stale version vs

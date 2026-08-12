@@ -51,21 +51,22 @@ func NewServer(st *store.Store, log *slog.Logger) *Server {
 // different request is FAILED_PRECONDITION.
 func (s *Server) CreateVm(ctx context.Context, req *vmcv1.CreateVmRequest) (*vmcv1.Operation, error) {
 	key, err := uuid.Parse(req.GetIdempotencyKey())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "idempotency_key must be a UUID (minted client-side before the first attempt)")
+	if err != nil || key == uuid.Nil {
+		return nil, status.Error(codes.InvalidArgument, "idempotency_key must be a non-nil UUID (minted client-side before the first attempt)")
 	}
-	if err := validateName(req.GetName()); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	if err := validateSpec(req.GetSpec()); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	hash, err := canonicalHash(req, func(m proto.Message) {
-		m.(*vmcv1.CreateVmRequest).IdempotencyKey = ""
-	})
+	// Normalize a CLONE (defaults applied without mutating the caller's
+	// request), hash it, and claim the envelope BEFORE validation: a replay
+	// must return its original operation even if validation policy changed
+	// between attempts, and an altered request must hit the mismatch error,
+	// not a validation error (PR 4-8 review triage).
+	norm := proto.Clone(req).(*vmcv1.CreateVmRequest)
+	norm.IdempotencyKey = ""
+	normalizeSpec(norm.GetSpec())
+	hash, err := canonicalHash(norm, func(proto.Message) {})
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	req = &vmcv1.CreateVmRequest{IdempotencyKey: key.String(), Name: norm.GetName(), Spec: norm.GetSpec()}
 
 	for attempt := 0; ; attempt++ {
 		op, err := s.createVmTx(ctx, key, req, hash)
@@ -100,6 +101,15 @@ func (s *Server) createVmTx(ctx context.Context, key uuid.UUID, req *vmcv1.Creat
 		return operationToProto(existing), nil
 	}
 
+	// We own the verb: validate INSIDE the winning transaction (replays
+	// never reach validation — they returned above).
+	if err := validateName(req.GetName()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := validateSpec(req.GetSpec()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	vm, err := s.st.CreateVM(ctx, tx, uuid.New(), req.GetName(), req.GetSpec())
 	if err != nil {
 		return nil, err
@@ -108,7 +118,7 @@ func (s *Server) createVmTx(ctx context.Context, key uuid.UUID, req *vmcv1.Creat
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID,
 		ResourceName: vm.Name, Verb: "CREATE",
 		TargetRevision: vm.DesiredRevision,
-		Deadline:       time.Now().Add(createDeadline),
+		DeadlineBudget: createDeadline,
 	})
 	if err != nil {
 		return nil, err
@@ -129,8 +139,8 @@ func (s *Server) createVmTx(ctx context.Context, key uuid.UUID, req *vmcv1.Creat
 // desired state, not an absence.
 func (s *Server) DeleteVm(ctx context.Context, req *vmcv1.DeleteVmRequest) (*vmcv1.Operation, error) {
 	key, err := uuid.Parse(req.GetIdempotencyKey())
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "idempotency_key must be a UUID")
+	if err != nil || key == uuid.Nil {
+		return nil, status.Error(codes.InvalidArgument, "idempotency_key must be a non-nil UUID")
 	}
 	hash, err := canonicalHash(req, func(m proto.Message) {
 		m.(*vmcv1.DeleteVmRequest).IdempotencyKey = ""
@@ -187,7 +197,7 @@ func (s *Server) deleteVmTx(ctx context.Context, key uuid.UUID, req *vmcv1.Delet
 		ID: uuid.New(), ResourceType: "vm", ResourceID: dead.ID,
 		ResourceName: dead.Name, Verb: "DELETE",
 		TargetRevision: dead.DesiredRevision,
-		Deadline:       time.Now().Add(deleteDeadline),
+		DeadlineBudget: deleteDeadline,
 	})
 	if err != nil {
 		return nil, err
@@ -212,16 +222,23 @@ func (s *Server) GetVm(ctx context.Context, req *vmcv1.GetVmRequest) (*vmcv1.Vir
 }
 
 func (s *Server) ListVms(ctx context.Context, req *vmcv1.ListVmsRequest) (*vmcv1.ListVmsResponse, error) {
-	vms, err := s.st.ListVMs(ctx, nil, req.GetPageToken(), int(req.GetPageSize()))
+	limit := int(req.GetPageSize())
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	// Fetch limit+1: the extra row is the only honest evidence that a next
+	// page exists (PR 4-8 review triage — no spurious or missing tokens).
+	vms, err := s.st.ListVMs(ctx, nil, req.GetPageToken(), limit+1)
 	if err != nil {
 		return nil, mapStoreErr(err)
 	}
 	resp := &vmcv1.ListVmsResponse{}
-	for _, vm := range vms {
+	for i, vm := range vms {
+		if i == limit {
+			resp.NextPageToken = vms[limit-1].Name
+			break
+		}
 		resp.Vms = append(resp.Vms, vmToProto(vm))
-	}
-	if n := len(vms); n > 0 && (req.GetPageSize() <= 0 || n == int(req.GetPageSize())) {
-		resp.NextPageToken = vms[n-1].Name
 	}
 	return resp, nil
 }
@@ -248,8 +265,13 @@ func (s *Server) WaitOperation(ctx context.Context, req *vmcv1.WaitOperationRequ
 	}
 	wait := 30 * time.Second
 	if d := req.GetTimeout(); d != nil {
-		if v := d.AsDuration(); v > 0 && v < 2*time.Minute {
-			wait = v
+		if err := d.CheckValid(); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "timeout: "+err.Error())
+		}
+		if v := d.AsDuration(); v < 0 {
+			return nil, status.Error(codes.InvalidArgument, "timeout must not be negative")
+		} else if v > 0 {
+			wait = min(v, 2*time.Minute)
 		}
 	}
 	deadline := time.Now().Add(wait)
@@ -265,7 +287,7 @@ func (s *Server) WaitOperation(ctx context.Context, req *vmcv1.WaitOperationRequ
 		}
 		select {
 		case <-ctx.Done():
-			return operationToProto(op), nil
+			return nil, status.FromContextError(ctx.Err()).Err()
 		case <-tick.C:
 		}
 	}
@@ -274,7 +296,14 @@ func (s *Server) WaitOperation(ctx context.Context, req *vmcv1.WaitOperationRequ
 // --- mapping ----------------------------------------------------------------
 
 func mapStoreErr(err error) error {
+	// Errors that already carry a gRPC status (e.g. validation inside the
+	// winning transaction) pass through unchanged.
+	if _, ok := status.FromError(err); ok {
+		return err
+	}
 	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return status.FromContextError(err).Err()
 	case errors.Is(err, store.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, store.ErrDuplicate):
@@ -317,6 +346,12 @@ func vmToProto(vm *store.VM) *vmcv1.VirtualMachine {
 		st = &vmcv1.VmStatus{}
 	}
 	st.Phase = phaseFromString[vm.Phase]
+	// Presentation only: a tombstoned row reads as DELETING regardless of
+	// the reconciler-owned phase column — the API never WRITES phase (§6),
+	// but the user deserves to see the deletion in flight.
+	if vm.DeletedAt != nil {
+		st.Phase = vmcv1.Phase_PHASE_DELETING
+	}
 	if vm.NodeName != nil {
 		st.Node = *vm.NodeName
 	}
