@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package vmc.v1;
+
+import "google/protobuf/duration.proto";
+import "vmc/v1/operation.proto";
+
+// OperationService reads long-running operation state. Operations always
+// terminate (plan D3), and delete operations outlive their resource rows,
+// so a completed delete remains queryable here.
+service OperationService {
+  rpc GetOperation(GetOperationRequest) returns (Operation);
+  // WaitOperation blocks until the operation is terminal or the requested
+  // wait elapses (whichever is first). Clients still apply their own
+  // defensive deadline (vmctl does).
+  rpc WaitOperation(WaitOperationRequest) returns (Operation);
+}
+
+message GetOperationRequest {
+  string id = 1;
+}
+
+message WaitOperationRequest {
+  string id = 1;
+  google.protobuf.Duration timeout = 2;
+}

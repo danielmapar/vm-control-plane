@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package vmc.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Operation is the long-running result of every mutating RPC. Operations
+// ALWAYS terminate (plan D3): realized -> DONE; a newer revision realized
+// first -> SUPERSEDED; retry budget exhausted -> FAILED (same transaction as
+// the phase write); per-verb deadline expiry -> DEADLINE_EXCEEDED without
+// unsafe cleanup. Delete operations remain queryable after their resource
+// row is gone.
+message Operation {
+  string id = 1;
+  string resource_type = 2;
+  string resource_id = 3;
+  string resource_name = 4;
+  Verb verb = 5;
+  // The desired revision this operation will realize. Completion requires
+  // evidence of exactly this revision.
+  int64 target_revision = 6;
+  OperationState state = 7;
+  // Terminal result detail; immutable once the state is terminal.
+  string error = 8;
+  // Database-clock deadline after which the operation terminalizes as
+  // DEADLINE_EXCEEDED even if no retry budget was consumed.
+  google.protobuf.Timestamp deadline = 9;
+  google.protobuf.Timestamp create_time = 10;
+  google.protobuf.Timestamp finish_time = 11;
+}
+
+enum Verb {
+  VERB_UNSPECIFIED = 0;
+  VERB_CREATE = 1;
+  VERB_UPDATE_POWER = 2;
+  VERB_DELETE = 3;
+  VERB_SNAPSHOT_CREATE = 4;
+  VERB_SNAPSHOT_RESTORE = 5;
+  VERB_ADMIN_RETRY_CLEANUP = 6;
+  VERB_ADMIN_CLEAR_RECOVERY = 7;
+}
+
+enum OperationState {
+  OPERATION_STATE_UNSPECIFIED = 0;
+  OPERATION_STATE_PENDING = 1;
+  OPERATION_STATE_RUNNING = 2;
+  OPERATION_STATE_DONE = 3;
+  OPERATION_STATE_FAILED = 4;
+  OPERATION_STATE_SUPERSEDED = 5;
+  OPERATION_STATE_DEADLINE_EXCEEDED = 6;
+}
