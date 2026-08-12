@@ -1,38 +1,48 @@
 # Substrate spike report — Tier 1 (Ubuntu VM under VirtualBox)
 
-**Status: PENDING** — blocked on the one-time substrate-VM provisioning
-(`scripts/spike/vbox-create.ps1` + Ubuntu install; VirtualBox 7.2.8 and
-Hyper-V-off are already verified on the dev machine). Per plan §9, **M3+
-PRs do not merge until this report is committed with results**, and the
-schedule is re-estimated from it.
+**Status: GO** — 16/16 checks passed on 2026-08-12 inside the Vagrant-provisioned
+substrate VM (`deploy/vagrant`). Every real-substrate assumption is verified;
+M3+ real-driver work is unblocked.
 
-## How to produce this report
+## Environment (verified)
+
+| Fact | Value |
+|---|---|
+| Host | Windows 11, VirtualBox 7.2.8, Hyper-V OFF |
+| Guest | Ubuntu 24.04, kernel 6.8.0-53-generic, 8 vCPU / 16 GiB, nested VT-x on |
+| /dev/kvm | present and accelerating (KVM, not TCG) |
+| libvirt | 10.0.0 (`qemu:///system` reachable under the service identity) |
+| qemu-img | 8.2.2 |
+| Open vSwitch | 3.3.4, kernel datapath (module present — no userspace fallback needed) |
+| Go | 1.26.5 linux/amd64 |
+| Service identity | `vagrant` in groups `kvm`, `libvirt`, `vmc` |
+
+## Results (16/16 PASS)
+
+| Check | Proves |
+|---|---|
+| kvm-device-rw, kvm-accel | /dev/kvm usable; `domain type='kvm'` (hard fail on TCG avoided) |
+| libvirt-connect | system socket reachable under the service UID |
+| domain-define/start/destroy/undefine | full domain lifecycle round-trip |
+| qemu-img-base/overlay/size | explicit -F + explicit size honored (2 GiB overlay) |
+| ovs-bridge, ovs-owner-readback | bridge creation + external_ids ownership stamp in one transaction |
+| ovs-restart-perms | OVSDB socket access survives `systemctl restart openvswitch-switch` (the drop-in works) |
+| mgmt-net-define, mgmt-net-start | NAT management network define + start |
+| golibvirt-probe | the connection-supervisor design (D8) verified against the exact library: a DomainDefineXML mutation lands while its response is withheld (the ambiguous-outcome window), the poisoned transport unblocks the call, and a fresh connection re-observes |
+
+## Decision
+
+GO. The real-driver PRs proceed against this verified substrate. The OVS
+kernel datapath is available (better than the WSL2 plan would have offered),
+so no experimental userspace-netdev fallback is needed here. Full run logs
+(per-check command, output, exit status) are retained under the spike's
+/tmp/vmc-spike-<run>/ log directory on the substrate VM.
+
+## Reproduce
 
 ```
-# On Windows: provision the VM (nested VT-x on), install Ubuntu 24.04 + OpenSSH
-scripts/spike/vbox-create.ps1 -IsoPath C:/isos/ubuntu-24.04-live-server-amd64.iso
-
-# Inside the VM, as the service user, from a clone on the VM's filesystem:
-./scripts/spike/host-setup.sh     # run twice — re-login applies groups
-./scripts/spike/spike.sh | tee spike-results.txt
+cd deploy/vagrant && vagrant up          # provisions the substrate VM
+vagrant ssh                              # you are the `vagrant` service user
+cd ~/vm-control-plane
+./scripts/spike/spike.sh                 # this battery
 ```
-
-## Checks and results
-
-| Check | Expectation | Result |
-|---|---|---|
-| kvm-device-rw / kvm-accel | /dev/kvm usable; `domain type='kvm'` (hard fail on TCG) | _pending_ |
-| libvirt-connect | `qemu:///system` reachable under the service UID | _pending_ |
-| domain lifecycle | define/start/destroy/undefine round-trip | _pending_ |
-| qemu-img base/overlay/info | explicit `-F` + explicit size honored (2 GiB overlay) | _pending_ |
-| ovs-bridge (+datapath detection) | kernel module expected (real Ubuntu kernel); netdev fallback only after TUN/TAP check | _pending_ |
-| ovs-external-ids | ownership stamping works under the service UID | _pending_ |
-| ovs-restart-perms | OVSDB socket access **survives daemon restart** | _pending_ |
-| mgmt NAT network | define/start/destroy/undefine of `vmc-spike-net` | _pending_ |
-| golibvirt-probe | exact-library lifecycle + blackholed-call poisoning + re-observe | _pending_ |
-
-## Decisions this report drives
-
-- **GO:** M3a proceeds; schedule re-estimated from measured friction.
-- **NO-GO (OVS):** invoke plan §9 failure branch — cut OVS + snapshots, Linux-bridge isolation for demo 4, document the OVS design.
-- **NO-GO (KVM, i.e. nested VT-x failed):** verify Hyper-V/VBS is off and --nested-hw-virt was applied; otherwise select the concrete fallback venue (rented Linux host) or degraded-scope matrix; decided here, not deferred.
