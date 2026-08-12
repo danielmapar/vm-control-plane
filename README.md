@@ -24,20 +24,36 @@ model, PR-by-PR build order, and testing strategy. Decision records live in
 
 ## Status
 
-Under construction, built in reviewable order — the PR history is meant to be
-read as a course. See the plan's §9 for the dependency graph.
+Tier 0 (fake drivers) is COMPLETE and runs on Windows/macOS/Linux: full
+lifecycle, scheduling across logical nodes, execution grants and fencing,
+drift detection with one-path repair, node-loss policy, durable claims,
+semantic idempotency, and operations that always terminate — black-box
+tested with real processes and real kill -9. The real-substrate drivers
+(libvirt/OVS/qcow2 executors) land against the verified WSL2 substrate per
+the plan's harness-before-feature gate (§9); their portable cores
+(domain XML, seed ISO, qcow2 command logic) are already merged and tested.
+The PR history is meant to be read as a course — see the plan's §9.
 
 ## Quickstart (Tier 0 — fake drivers, no hypervisor required)
 
-> Available once the Tier-0 E2E PR lands (plan §9). Requires only Go 1.26+;
-> the first run downloads a pinned embedded PostgreSQL once; run from a
-> non-elevated shell.
+> Requires only Go 1.26+ ("no preinstalled services": the first run
+> downloads a pinned embedded PostgreSQL once; run from a non-elevated
+> shell).
 
 ```
 make dev     # embedded Postgres + control-plane + host agent (2 logical nodes)
-vmctl create vm demo-1 --cpu 1 --memory 512MiB
-vmctl op wait <operation-id>
-vmctl describe vm demo-1
+bin/vmctl create vm demo-1 --cpu 1 --memory 512MiB
+bin/vmctl op wait <operation-id>
+bin/vmctl list vms          # REVISION column: applied/desired — watch it converge
+bin/vmctl stop vm demo-1    # the only mutable spec field (v0.1)
+bin/vmctl delete vm demo-1  # tombstone → reconciled teardown → finalize
+```
+
+Crash-safety is demoable, not aspirational: run the black-box suite —
+
+```
+go test ./internal/e2e/ -v    # incl. controller kill -9 mid-transition and
+                              # crash-mid-delete, recovered by restart alone
 ```
 
 Real-KVM tiers (WSL2 / CI) are described in the plan, §8.
