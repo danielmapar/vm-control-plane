@@ -139,6 +139,15 @@ func NewDB(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+// NewDBURL creates a fresh migrated database and returns its connection
+// URL — for black-box tests whose child processes need their own pools.
+func NewDBURL(t *testing.T) string {
+	t.Helper()
+	pool := NewDB(t)
+	cfg := pool.Config().ConnConfig
+	return fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/%s", cfg.Port, cfg.Database)
+}
+
 func freePort() (int, error) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
