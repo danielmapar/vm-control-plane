@@ -26,6 +26,8 @@ Two ways to run it, simplest first.
 
 ### 1. No hypervisor, any OS (fake drivers)
 
+![The VM lifecycle against fake drivers: create, wait, list, stop, delete](docs/media/tier0.gif)
+
 Needs only Go 1.26+. The first run downloads a pinned embedded PostgreSQL, so run
 it from a normal (non-admin) shell.
 
@@ -47,6 +49,8 @@ The available commands are in the [Operations](#operations) section below. Ctrl-
 in the first terminal stops everything.
 
 ### 2. Real KVM (in a Linux VM)
+
+![A real guest booting under KVM through the control plane, reached over SSH, then deleted](docs/media/realkvm.gif)
 
 This runs the same control plane against real libvirt/KVM inside a Linux VM.
 
