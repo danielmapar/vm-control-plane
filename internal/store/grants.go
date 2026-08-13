@@ -9,8 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// GrantDenialReason enumerates why a grant was refused (each is a named
-// test in the matrix — rows 6–9).
+// GrantDenialReason enumerates why a grant was refused.
 type GrantDenialReason string
 
 const (
@@ -21,28 +20,29 @@ const (
 	DenyEpochSuperseded GrantDenialReason = "epoch-superseded"
 )
 
-// ErrGrantDenied carries the admission predicate that failed. A denied
-// grant means: do NOT touch the substrate for this placement.
+// ErrGrantDenied carries the admission predicate that failed. A denied grant
+// means: do not touch the substrate for this placement.
 type ErrGrantDenied struct{ Reason GrantDenialReason }
 
 func (e *ErrGrantDenied) Error() string { return "store: grant denied: " + string(e.Reason) }
 
-// GrantExecution is the exposure proof (plan §6.2, ADR-0004): the daemon
-// calls this BEFORE its first substrate action for (vm, epoch), and acts
-// only after the grant COMMITS. The transition runs under the documented
-// lock order — VM row, then placement row — shared with tombstoning, so
-// grant ⊻ delete ⊻ unassign serialize on the same locks.
+// GrantExecution is the exposure proof: the daemon calls it before its first
+// substrate action for (vm, epoch), and acts only after the grant commits. The
+// transition runs under the documented lock order (VM row, then placement
+// row), shared with tombstoning, so exactly one of grant, delete, or unassign
+// wins on the same locks.
 //
 // Admission predicates, all checked under those locks:
 //   - the VM is not tombstoned,
-//   - the placement (vm, epoch) exists, is current (epoch matches the VM
-//     row), and is in state assigned (granted → idempotent replay: ok),
-//   - the requesting session is the node's CURRENT session (id AND
-//     generation) with an unexpired lease (database clock).
+//   - the placement (vm, epoch) exists, is current (its epoch matches the VM
+//     row), and is assigned (an already-granted placement is an idempotent
+//     replay),
+//   - the requesting session is the node's current session (id and generation)
+//     with an unexpired lease, against the database clock.
 //
-// A delayed grant after lease expiry, session replacement, or delete FAILS
-// admission — it cannot convert a safely-unexposed placement into sticky
-// exposure (matrix row 7).
+// A delayed grant arriving after lease expiry, session replacement, or delete
+// fails admission: it cannot convert a safely-unexposed placement into sticky
+// exposure.
 func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID, epoch int64) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -73,7 +73,7 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 
 	// Lock 2: the placement row.
 	var (
-		state    string
+		state    PlacementState
 		nodeName string
 	)
 	err = tx.QueryRow(ctx, `
@@ -86,7 +86,7 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 		return err
 	}
 	switch state {
-	case "granted", "assigned":
+	case PlacementGranted, PlacementAssigned:
 	default:
 		return &ErrGrantDenied{DenyNotAssigned}
 	}
@@ -94,10 +94,10 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 		return &ErrGrantDenied{DenyStaleSession}
 	}
 
-	// Session currency + lease, against the database clock — authorized
-	// for BOTH the initial transition AND the idempotent replay, so a
-	// wrong/expired/superseded daemon can never receive Granted=true even
-	// for an already-granted placement (batch-review finding [19]).
+	// Session currency and lease, against the database clock. This is checked
+	// for both the initial transition and the idempotent replay, so a wrong,
+	// expired, or superseded daemon can never receive Granted=true even for an
+	// already-granted placement.
 	var current, live bool
 	err = tx.QueryRow(ctx, `
 		SELECT (session_id = $2 AND session_generation = $3),
@@ -117,10 +117,9 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 		return &ErrGrantDenied{DenyLeaseExpired}
 	}
 
-	if state == "granted" {
-		// Authorized replay after a lost grant response (matrix row 6):
-		// the exposure fact is durable AND the requester is still the
-		// current live owner.
+	if state == PlacementGranted {
+		// Authorized replay after a lost grant response: the exposure fact is
+		// durable and the requester is still the current live owner.
 		return tx.Commit(ctx)
 	}
 	if _, err := tx.Exec(ctx, `
@@ -131,13 +130,13 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 	return tx.Commit(ctx)
 }
 
-// UnassignIfUngranted reverses a placement that was never exposed: under
-// the same lock order, it verifies state=assigned (a granted placement is
-// NEVER unassigned — that is the reschedule-safety rule, matrix rows 8–9),
-// releases the reservation, marks the ledger row torn_down, and returns
-// the VM to Pending with no node.
+// UnassignIfUngranted reverses a placement that was never exposed: under the
+// same lock order, it verifies the placement is still assigned (a granted
+// placement is never unassigned — that is the reschedule-safety rule), releases
+// the reservation, marks the ledger row torn_down, and returns the VM to
+// Pending with no node.
 //
-// Returns false (no error) when the placement turned out to be granted —
+// It returns false (and no error) when the placement turned out to be granted;
 // the caller parks the VM in Unknown instead.
 func (s *Store) UnassignIfUngranted(ctx context.Context, vmID uuid.UUID, epoch int64) (bool, error) {
 	tx, err := s.pool.Begin(ctx)
@@ -151,7 +150,7 @@ func (s *Store) UnassignIfUngranted(ctx context.Context, vmID uuid.UUID, epoch i
 	if _, err := tx.Exec(ctx, `SELECT 1 FROM vms WHERE id=$1 FOR UPDATE`, vmID); err != nil {
 		return false, err
 	}
-	var state string
+	var state PlacementState
 	err = tx.QueryRow(ctx, `
 		SELECT state FROM placements WHERE vm_id=$1 AND epoch=$2 FOR UPDATE`,
 		vmID, epoch).Scan(&state)
@@ -161,7 +160,7 @@ func (s *Store) UnassignIfUngranted(ctx context.Context, vmID uuid.UUID, epoch i
 	if err != nil {
 		return false, err
 	}
-	if state != "assigned" {
+	if state != PlacementAssigned {
 		return false, nil // granted (or already torn down): never unassign exposure
 	}
 

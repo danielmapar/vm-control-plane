@@ -4,16 +4,16 @@ import (
 	"context"
 )
 
-// IntentRow is the desired state of one VM for the daemon serving its
-// node — the poll response's raw material.
+// IntentRow is the desired state of one VM for the daemon serving its node:
+// the raw material for a poll response.
 type IntentRow struct {
 	VM       *VM
 	NodeName string
 }
 
-// ListIntentsForNodes returns every VM assigned to the given nodes,
-// including tombstoned ones (tombstones ARE intents — they drive
-// teardown). The result is an authoritative snapshot for those nodes.
+// ListIntentsForNodes returns every VM assigned to the given nodes, including
+// tombstoned ones, since a tombstone is itself an intent that drives teardown.
+// The result is an authoritative snapshot for those nodes.
 func (s *Store) ListIntentsForNodes(ctx context.Context, nodeNames []string) ([]*IntentRow, error) {
 	if len(nodeNames) == 0 {
 		return nil, nil

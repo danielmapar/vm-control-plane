@@ -29,7 +29,7 @@ func placeOnce(ctx context.Context, s *store.Store, vmID uuid.UUID, node *store.
 	if claim == nil {
 		return 0, errors.New("vm not claimable")
 	}
-	tx, err := s.CompleteClaimTx(ctx, vmID, claim.Token, time.Hour)
+	tx, err := s.CompleteClaimTx(ctx, vmID, claim.Token)
 	if err != nil {
 		return 0, err
 	}
@@ -132,7 +132,7 @@ func TestConcurrentPlacementNoOversubscription(t *testing.T) {
 				errs[i] = errors.New("no claimable row")
 				return
 			}
-			tx, err := s.CompleteClaimTx(ctx, claim.VM.ID, claim.Token, time.Hour)
+			tx, err := s.CompleteClaimTx(ctx, claim.VM.ID, claim.Token)
 			if err != nil {
 				errs[i] = err
 				return

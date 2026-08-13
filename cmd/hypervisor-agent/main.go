@@ -100,9 +100,9 @@ func main() {
 		StateDir: *stateDir,
 		Nodes:    specs,
 		// Host allocatable: the quota sum exactly (no overcommit in v0.1).
-		HostCPUs:   *nodeCPUs * int64(len(specs)),
-		HostMemory: *nodeMem << 30 * uint64(len(specs)),
-		HostDisk:   *nodeDisk << 30 * uint64(len(specs)),
+		HostCPUs:     *nodeCPUs * int64(len(specs)),
+		HostMemory:   *nodeMem << 30 * uint64(len(specs)),
+		HostDisk:     *nodeDisk << 30 * uint64(len(specs)),
 		Compute:      drv,
 		Log:          log,
 		DebugAddr:    *debug,

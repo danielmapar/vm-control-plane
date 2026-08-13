@@ -14,20 +14,20 @@ type NodeLossAction struct {
 	Node   string
 	Epoch  int64
 	// "rescheduled" (never granted — unassigned back to Pending) or
-	// "unknown" (granted — parked, never rescheduled; matrix rows 8–9).
+	// "unknown" (granted — parked, never rescheduled).
 	Outcome string
 }
 
-// ExpireNodeVMs applies the node-loss policy (plan §6.2, N2): for every VM
-// whose current placement sits on a node with an EXPIRED lease —
+// ExpireNodeVMs applies the node-loss policy: for every VM whose current
+// placement sits on a node with an expired lease —
 //
-//   - placement never granted → provably unexposed → unassign (capacity
+//   - placement never granted -> provably unexposed -> unassign (capacity
 //     released) and requeue for rescheduling under a new epoch;
-//   - placement granted → exposure recorded → park in UNKNOWN; never
+//   - placement granted -> exposure recorded -> park in UNKNOWN; never
 //     rescheduled automatically. Two VMs is worse than one late VM.
 //
-// A VM already UNKNOWN whose node's lease is live again is woken (evidence
-// will restore its phase through the normal convergence path).
+// A VM already UNKNOWN whose node's lease is live again is woken; evidence
+// will restore its phase through the normal convergence path.
 func (s *Store) ExpireNodeVMs(ctx context.Context) ([]NodeLossAction, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT v.id, v.name, v.node_name, v.placement_epoch, p.state
@@ -45,7 +45,7 @@ func (s *Store) ExpireNodeVMs(ctx context.Context) ([]NodeLossAction, error) {
 		name  string
 		node  string
 		epoch int64
-		state string
+		state PlacementState
 	}
 	var cands []candidate
 	for rows.Next() {
@@ -63,7 +63,7 @@ func (s *Store) ExpireNodeVMs(ctx context.Context) ([]NodeLossAction, error) {
 
 	var actions []NodeLossAction
 	for _, c := range cands {
-		if c.state == "assigned" {
+		if c.state == PlacementAssigned {
 			// Provably unexposed: UnassignIfUngranted re-verifies under the
 			// lock order — a racing grant makes it a no-op and the VM parks
 			// UNKNOWN on the next sweep instead.
@@ -78,12 +78,11 @@ func (s *Store) ExpireNodeVMs(ctx context.Context) ([]NodeLossAction, error) {
 			}
 			continue
 		}
-		// granted → UNKNOWN (single guarded statement; phase regression from
+		// granted -> UNKNOWN (single guarded statement; a phase regression from
 		// UNKNOWN happens only via fresh evidence in the convergence path).
-		// Entering UNKNOWN clears the applied-revision watermark so that
-		// stale pre-loss evidence cannot immediately re-converge when the
-		// node returns — a FRESH report from a live session is required
-		// (batch-review finding [10]).
+		// Entering UNKNOWN clears the applied-revision watermark so stale
+		// pre-loss evidence cannot immediately re-converge when the node
+		// returns: a fresh report from a live session is required.
 		tag, err := s.pool.Exec(ctx, `
 			UPDATE vms SET phase='UNKNOWN', applied_revision=0, observed_state='',
 				resource_version = resource_version + 1, updated_at = now()

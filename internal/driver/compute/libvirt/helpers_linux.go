@@ -97,13 +97,6 @@ func (d *Driver) teardownStorage(vmID string, epoch int64) error {
 	return nil
 }
 
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
-}
-
 // vlanFor maps a tenant network name to a stable VLAN id in [100, 4000).
 func vlanFor(network string) uint16 {
 	h := fnv.New32a()

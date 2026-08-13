@@ -1,24 +1,23 @@
-// Package domainxml hand-builds libvirt domain XML — deliberately, because
-// writing the XML is the hypervisor-layer lesson this project exists for
-// (plan D8), and because every identity decision the fencing protocols
-// need lives here:
+// Package domainxml hand-builds libvirt domain XML, deliberately, because
+// writing the XML is the hypervisor-layer lesson this project exists for, and
+// because every identity decision the fencing protocols need lives here:
 //
 //   - ownership metadata (node, VM UUID, placement epoch) in a custom
-//     namespace — what owner-scoped resync and epoch-surgical teardown
-//     filter on;
-//   - DETERMINISTIC MAC and OVS interfaceid derived from VM UUID + NIC
-//     index — libvirt would otherwise randomize them, and determinism is
-//     what makes port verification and drift repair possible (D9);
-//   - the management NIC rides our NAT network with <port isolated='yes'/>
-//     (guests reach host + egress, never each other — the precise claim);
-//   - the tenant NIC is <interface type='bridge'> + openvswitch virtualport
-//   - VLAN tag: libvirt creates the tap and attaches the tagged port
-//     atomically at domain start — taps do not exist earlier;
-//   - autostart is NEVER set: an unfenced boot after host restart would
-//     bypass every grant (autostart ownership is checked by drift).
+//     namespace, which owner-scoped resync and epoch-surgical teardown filter
+//     on;
+//   - a deterministic MAC and OVS interfaceid derived from the VM UUID and NIC
+//     index, since libvirt would otherwise randomize them and determinism is
+//     what makes port verification and drift repair possible;
+//   - the management NIC rides the NAT network with <port isolated='yes'/>
+//     (guests reach host and egress, never each other);
+//   - the tenant NIC is <interface type='bridge'> with an openvswitch
+//     virtualport and a VLAN tag, so libvirt creates the tap and attaches the
+//     tagged port atomically at domain start (taps do not exist earlier);
+//   - autostart is never set: an unfenced boot after host restart would bypass
+//     every grant.
 //
-// Pure Go, golden-tested on every platform: the builder is the one part of
-// the compute driver Windows can fully verify.
+// It is pure Go, golden-tested on every platform: the builder is the one part
+// of the compute driver Windows can fully verify.
 package domainxml
 
 import (
@@ -33,28 +32,28 @@ import (
 // Config is everything a domain definition needs. All fields are already
 // validated upstream; the builder is deterministic and side-effect free.
 type Config struct {
-	Name    string
-	VMID    uuid.UUID
-	Node    string
-	Epoch   int64
-	CPUs    uint32
-	MemoryB uint64
+	Name        string
+	VMID        uuid.UUID
+	Node        string
+	Epoch       int64
+	CPUs        uint32
+	MemoryBytes uint64
 	// Root disk (qcow2) and cloud-init seed ISO, absolute paths.
 	DiskPath string
 	SeedPath string
-	// Management network name (our NAT network, e.g. "vmc-mgmt").
+	// Management network name (the NAT network, e.g. "vmc-mgmt").
 	MgmtNetwork string
-	// Tenant attachment; empty TenantBridge means management-only.
+	// Tenant attachment; an empty TenantBridge means management-only.
 	TenantBridge string
 	TenantVLAN   uint16
-	// CPUSet pins the guest's vCPU + emulator threads to these host cores
-	// (libvirt cpuset syntax, e.g. "8-15"). Empty = no pinning. Used to keep
+	// CPUSet pins the guest's vCPU and emulator threads to these host cores
+	// (libvirt cpuset syntax, e.g. "8-15"). Empty means no pinning. It keeps
 	// nested-virt guests off the cores the control-plane stack runs on.
 	CPUSet string
 	// Emulated selects QEMU TCG software emulation (<domain type='qemu'>)
-	// instead of hardware KVM (<domain type='kvm'>). Slower, but needs no
-	// /dev/kvm and no hardware virtualization — so it runs reliably on a
-	// substrate whose nested VT-x is unstable (e.g. under VirtualBox).
+	// instead of hardware KVM (<domain type='kvm'>). It is slower, but needs no
+	// /dev/kvm and no hardware virtualization, so it runs reliably on a
+	// substrate whose nested VT-x is unstable (for example under VirtualBox).
 	Emulated bool
 }
 
@@ -66,18 +65,20 @@ func (c Config) domainType() string {
 	return "kvm"
 }
 
-// MAC derives the deterministic, locally-administered MAC for a NIC.
-// 52:54:00 is the QEMU/KVM prefix; the tail is content-addressed so the
-// same (vm, nic) always yields the same address — cloud-init's
-// network-config matches interfaces BY MAC.
+// writeLine appends one formatted line to a domain XML being built.
+type writeLine func(format string, args ...any)
+
+// MAC derives the deterministic, locally-administered MAC for a NIC. 52:54:00
+// is the QEMU/KVM prefix; the tail is content-addressed so the same (vm, nic)
+// always yields the same address, and cloud-init matches interfaces by MAC.
 func MAC(vmID uuid.UUID, nicIndex int) string {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s:nic-%d", vmID, nicIndex)))
 	return fmt.Sprintf("52:54:00:%02x:%02x:%02x", sum[0], sum[1], sum[2])
 }
 
-// InterfaceID derives the stable OVS interfaceid for a NIC (uuid5 in the
-// VM's namespace) — without it libvirt generates a random one per start,
-// and port repair could never re-identify its own port.
+// InterfaceID derives the stable OVS interfaceid for a NIC (a uuid5 in the VM's
+// namespace). Without it libvirt generates a random one per start, and port
+// repair could never re-identify its own port.
 func InterfaceID(vmID uuid.UUID, nicIndex int) string {
 	return uuid.NewSHA1(vmID, []byte(fmt.Sprintf("nic-%d", nicIndex))).String()
 }
@@ -87,45 +88,21 @@ func Build(cfg Config) (string, error) {
 	if cfg.Name == "" || cfg.VMID == uuid.Nil || cfg.Node == "" || cfg.Epoch < 1 {
 		return "", fmt.Errorf("domainxml: identity fields are mandatory (name/vmid/node/epoch)")
 	}
-	if cfg.CPUs < 1 || cfg.MemoryB < 1<<20 {
-		return "", fmt.Errorf("domainxml: implausible resources (cpus=%d mem=%d)", cfg.CPUs, cfg.MemoryB)
+	if cfg.CPUs < 1 || cfg.MemoryBytes < 1<<20 {
+		return "", fmt.Errorf("domainxml: implausible resources (cpus=%d mem=%d)", cfg.CPUs, cfg.MemoryBytes)
 	}
 	if cfg.DiskPath == "" || cfg.MgmtNetwork == "" {
 		return "", fmt.Errorf("domainxml: disk path and management network are mandatory")
 	}
 
 	var b strings.Builder
-	w := func(format string, args ...any) { fmt.Fprintf(&b, format+"\n", args...) }
+	w := writeLine(func(format string, args ...any) { fmt.Fprintf(&b, format+"\n", args...) })
 
 	w(`<domain type='%s'>`, cfg.domainType())
 	w(`  <name>%s</name>`, esc(cfg.Name))
 	w(`  <uuid>%s</uuid>`, cfg.VMID)
-	// Ownership metadata: the filter for owner-scoped resync and the fence
-	// for epoch-surgical teardown (plan §6.6).
-	w(`  <metadata>`)
-	w(`    <vmc:ownership xmlns:vmc="https://github.com/sigtunnel/vm-control-plane/ns/1">`)
-	w(`      <vmc:node>%s</vmc:node>`, esc(cfg.Node))
-	w(`      <vmc:vm-id>%s</vmc:vm-id>`, cfg.VMID)
-	w(`      <vmc:placement-epoch>%d</vmc:placement-epoch>`, cfg.Epoch)
-	w(`    </vmc:ownership>`)
-	w(`  </metadata>`)
-	w(`  <memory unit='bytes'>%d</memory>`, cfg.MemoryB)
-	w(`  <vcpu placement='static'>%d</vcpu>`, cfg.CPUs)
-	// Pin the guest's vCPU and emulator threads to dedicated host cores. Under
-	// VirtualBox's nested VT-x an L2 guest that is descheduled at a bad moment
-	// during boot wedges PERMANENTLY (proven: it never recovers even after all
-	// host load is removed). Keeping the vCPU thread on cores the control-plane
-	// stack never touches avoids that preemption. Only emitted when CPUSet is
-	// set, so the isolated integration test (which needs no pinning) is
-	// unaffected.
-	if cfg.CPUSet != "" {
-		w(`  <cputune>`)
-		w(`    <emulatorpin cpuset='%s'/>`, esc(cfg.CPUSet))
-		for i := uint32(0); i < cfg.CPUs; i++ {
-			w(`    <vcpupin vcpu='%d' cpuset='%s'/>`, i, esc(cfg.CPUSet))
-		}
-		w(`  </cputune>`)
-	}
+	writeOwnership(w, cfg)
+	writeResources(w, cfg)
 	w(`  <os>`)
 	w(`    <type arch='x86_64' machine='q35'>hvm</type>`)
 	w(`    <boot dev='hd'/>`)
@@ -135,38 +112,8 @@ func Build(cfg Config) (string, error) {
 	w(`  <on_reboot>restart</on_reboot>`)
 	w(`  <on_crash>destroy</on_crash>`)
 	w(`  <devices>`)
-	w(`    <disk type='file' device='disk'>`)
-	w(`      <driver name='qemu' type='qcow2'/>`)
-	w(`      <source file='%s'/>`, esc(cfg.DiskPath))
-	w(`      <target dev='vda' bus='virtio'/>`)
-	w(`    </disk>`)
-	if cfg.SeedPath != "" {
-		w(`    <disk type='file' device='cdrom'>`)
-		w(`      <driver name='qemu' type='raw'/>`)
-		w(`      <source file='%s'/>`, esc(cfg.SeedPath))
-		w(`      <target dev='sda' bus='sata'/>`)
-		w(`      <readonly/>`)
-		w(`    </disk>`)
-	}
-	// NIC 0: management — NAT network, guest-to-guest isolated.
-	w(`    <interface type='network'>`)
-	w(`      <source network='%s'/>`, esc(cfg.MgmtNetwork))
-	w(`      <mac address='%s'/>`, MAC(cfg.VMID, 0))
-	w(`      <model type='virtio'/>`)
-	w(`      <port isolated='yes'/>`)
-	w(`    </interface>`)
-	// NIC 1: tenant — OVS access port, tagged at attach by libvirt.
-	if cfg.TenantBridge != "" {
-		w(`    <interface type='bridge'>`)
-		w(`      <source bridge='%s'/>`, esc(cfg.TenantBridge))
-		w(`      <virtualport type='openvswitch'>`)
-		w(`        <parameters interfaceid='%s'/>`, InterfaceID(cfg.VMID, 1))
-		w(`      </virtualport>`)
-		w(`      <vlan><tag id='%d'/></vlan>`, cfg.TenantVLAN)
-		w(`      <mac address='%s'/>`, MAC(cfg.VMID, 1))
-		w(`      <model type='virtio'/>`)
-		w(`    </interface>`)
-	}
+	writeDisks(w, cfg)
+	writeInterfaces(w, cfg)
 	w(`    <console type='pty'/>`)
 	w(`    <rng model='virtio'><backend model='random'>/dev/urandom</backend></rng>`)
 	w(`  </devices>`)
@@ -174,16 +121,92 @@ func Build(cfg Config) (string, error) {
 	return b.String(), nil
 }
 
-// Ownership is the parsed metadata block — what resync extracts from live
-// domains to answer "is this ours, and which epoch?"
+// writeOwnership emits the vmc ownership block that resync and teardown filter
+// on.
+func writeOwnership(w writeLine, cfg Config) {
+	w(`  <metadata>`)
+	w(`    <vmc:ownership xmlns:vmc="https://github.com/sigtunnel/vm-control-plane/ns/1">`)
+	w(`      <vmc:node>%s</vmc:node>`, esc(cfg.Node))
+	w(`      <vmc:vm-id>%s</vmc:vm-id>`, cfg.VMID)
+	w(`      <vmc:placement-epoch>%d</vmc:placement-epoch>`, cfg.Epoch)
+	w(`    </vmc:ownership>`)
+	w(`  </metadata>`)
+}
+
+// writeResources emits memory, vCPUs, and optional CPU pinning. Under
+// VirtualBox's nested VT-x an L2 guest descheduled at a bad moment during boot
+// can wedge permanently, so pinning the vCPU threads onto cores the
+// control-plane stack never touches avoids that preemption. The cputune block
+// is emitted only when CPUSet is set, so the isolated integration test is
+// unaffected.
+func writeResources(w writeLine, cfg Config) {
+	w(`  <memory unit='bytes'>%d</memory>`, cfg.MemoryBytes)
+	w(`  <vcpu placement='static'>%d</vcpu>`, cfg.CPUs)
+	if cfg.CPUSet == "" {
+		return
+	}
+	w(`  <cputune>`)
+	w(`    <emulatorpin cpuset='%s'/>`, esc(cfg.CPUSet))
+	for i := uint32(0); i < cfg.CPUs; i++ {
+		w(`    <vcpupin vcpu='%d' cpuset='%s'/>`, i, esc(cfg.CPUSet))
+	}
+	w(`  </cputune>`)
+}
+
+// writeDisks emits the root disk and, when present, the read-only cloud-init
+// seed CD-ROM.
+func writeDisks(w writeLine, cfg Config) {
+	w(`    <disk type='file' device='disk'>`)
+	w(`      <driver name='qemu' type='qcow2'/>`)
+	w(`      <source file='%s'/>`, esc(cfg.DiskPath))
+	w(`      <target dev='vda' bus='virtio'/>`)
+	w(`    </disk>`)
+	if cfg.SeedPath == "" {
+		return
+	}
+	w(`    <disk type='file' device='cdrom'>`)
+	w(`      <driver name='qemu' type='raw'/>`)
+	w(`      <source file='%s'/>`, esc(cfg.SeedPath))
+	w(`      <target dev='sda' bus='sata'/>`)
+	w(`      <readonly/>`)
+	w(`    </disk>`)
+}
+
+// writeInterfaces emits the isolated management NIC and, when a tenant bridge
+// is set, the tagged OVS tenant NIC.
+func writeInterfaces(w writeLine, cfg Config) {
+	// NIC 0: management — NAT network, guest-to-guest isolated.
+	w(`    <interface type='network'>`)
+	w(`      <source network='%s'/>`, esc(cfg.MgmtNetwork))
+	w(`      <mac address='%s'/>`, MAC(cfg.VMID, 0))
+	w(`      <model type='virtio'/>`)
+	w(`      <port isolated='yes'/>`)
+	w(`    </interface>`)
+	if cfg.TenantBridge == "" {
+		return
+	}
+	// NIC 1: tenant — OVS access port, tagged at attach by libvirt.
+	w(`    <interface type='bridge'>`)
+	w(`      <source bridge='%s'/>`, esc(cfg.TenantBridge))
+	w(`      <virtualport type='openvswitch'>`)
+	w(`        <parameters interfaceid='%s'/>`, InterfaceID(cfg.VMID, 1))
+	w(`      </virtualport>`)
+	w(`      <vlan><tag id='%d'/></vlan>`, cfg.TenantVLAN)
+	w(`      <mac address='%s'/>`, MAC(cfg.VMID, 1))
+	w(`      <model type='virtio'/>`)
+	w(`    </interface>`)
+}
+
+// Ownership is the parsed metadata block: what resync extracts from live
+// domains to answer "is this ours, and which epoch?".
 type Ownership struct {
 	Node  string
 	VMID  uuid.UUID
 	Epoch int64
 }
 
-// ParseOwnership extracts the vmc ownership block from domain XML.
-// Domains without the block are FOREIGN: never adopted, never touched.
+// ParseOwnership extracts the vmc ownership block from domain XML. A domain
+// without the block is foreign: never adopted, never touched.
 func ParseOwnership(domXML string) (*Ownership, error) {
 	type meta struct {
 		Node  string `xml:"node"`

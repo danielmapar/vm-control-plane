@@ -1,8 +1,8 @@
-// Package reconciler is the level-triggered control loop (ADR-0003): each
-// pass claims dirty rows, computes ONE convergent transition from current
-// desired + observed state, and commits every durable side effect of that
-// transition inside the claim-guarded transaction (ADR-0002). Crash
-// recovery is a rescan, not a replay.
+// Package reconciler is the level-triggered control loop: each pass claims
+// dirty rows, computes one convergent transition from current desired and
+// observed state, and commits every durable side effect of that transition
+// inside the claim-guarded transaction. Crash recovery is a rescan, not a
+// replay.
 package reconciler
 
 import (
@@ -10,9 +10,6 @@ import (
 	"errors"
 	"log/slog"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"github.com/sigtunnel/vm-control-plane/internal/clock"
 	"github.com/sigtunnel/vm-control-plane/internal/faults"
@@ -63,6 +60,7 @@ type Loop struct {
 	cfg Config
 }
 
+// New returns a Loop with defaults applied to any unset Config field.
 func New(st *store.Store, cfg Config) *Loop {
 	cfg.defaults()
 	return &Loop{st: st, cfg: cfg}
@@ -76,16 +74,7 @@ func (l *Loop) Run(ctx context.Context) {
 			return
 		case <-l.cfg.Clock.After(l.cfg.Tick):
 		}
-		if _, err := l.st.ExpireOperations(ctx, nil); err != nil && ctx.Err() == nil {
-			l.cfg.Log.Warn("operation deadline sweep failed", "err", err)
-		}
-		if actions, err := l.st.ExpireNodeVMs(ctx); err != nil && ctx.Err() == nil {
-			l.cfg.Log.Warn("node-loss sweep failed", "err", err)
-		} else {
-			for _, a := range actions {
-				l.cfg.Log.Warn("node-loss action", "vm", a.VMName, "node", a.Node, "outcome", a.Outcome)
-			}
-		}
+		l.sweep(ctx)
 		claims, err := l.st.ClaimDirtyVMs(ctx, l.cfg.Owner, l.cfg.Lease, 10)
 		if err != nil {
 			if ctx.Err() == nil {
@@ -96,6 +85,22 @@ func (l *Loop) Run(ctx context.Context) {
 		for _, claim := range claims {
 			l.reconcile(ctx, claim)
 		}
+	}
+}
+
+// sweep runs the two time-driven policies that make stalls terminate: the
+// operation deadline sweep and the node-loss sweep.
+func (l *Loop) sweep(ctx context.Context) {
+	if _, err := l.st.ExpireOperations(ctx, nil); err != nil && ctx.Err() == nil {
+		l.cfg.Log.Warn("operation deadline sweep failed", "err", err)
+	}
+	actions, err := l.st.ExpireNodeVMs(ctx)
+	if err != nil && ctx.Err() == nil {
+		l.cfg.Log.Warn("node-loss sweep failed", "err", err)
+		return
+	}
+	for _, a := range actions {
+		l.cfg.Log.Warn("node-loss action", "vm", a.VMName, "node", a.Node, "outcome", a.Outcome)
 	}
 }
 
@@ -111,9 +116,9 @@ func (l *Loop) reconcile(ctx context.Context, claim *store.Claim) {
 	switch {
 	case vm.DeletedAt != nil:
 		err = l.reconcileDeleting(ctx, claim)
-	case vm.Phase == "PENDING":
+	case vm.Phase == store.PhasePending:
 		err = l.reconcilePending(ctx, claim)
-	case vm.Phase == "PROVISIONING" || vm.Phase == "RUNNING" || vm.Phase == "STOPPED" || vm.Phase == "UNKNOWN":
+	case isConvergencePhase(vm.Phase):
 		err = l.reconcileConvergence(ctx, claim)
 	default:
 		// Nothing to do; release with a long backoff.
@@ -128,7 +133,7 @@ func (l *Loop) reconcile(ctx context.Context, claim *store.Claim) {
 	case ctx.Err() != nil:
 	default:
 		log.Warn("transition failed; recording durable retry", "err", err)
-		opID := l.findOpenOperationID(ctx, vm.ID, vm.DesiredRevision)
+		opID, _ := l.st.FindOpenOperationID(ctx, nil, vm.ID, vm.DesiredRevision)
 		failedNow, recErr := l.st.RecordFailure(ctx, vm.ID, claim.Token, "transient", err.Error(),
 			l.cfg.ResyncWait, l.cfg.RetryBudget, opID)
 		if recErr != nil && !errors.Is(recErr, store.ErrClaimLost) {
@@ -140,8 +145,28 @@ func (l *Loop) reconcile(ctx context.Context, claim *store.Claim) {
 	}
 }
 
-// reconcilePending: schedule. Filter/score proposes; PlaceVM decides
-// inside the claim-guarded transaction.
+// isConvergencePhase reports whether a phase is one the convergence handler
+// drives. UNKNOWN is included so node-loss recovery flows through the ordinary
+// path.
+func isConvergencePhase(p store.Phase) bool {
+	switch p {
+	case store.PhaseProvisioning, store.PhaseRunning, store.PhaseStopped, store.PhaseUnknown:
+		return true
+	}
+	return false
+}
+
+// desiredStates maps a spec's power to the observed state that means "in sync"
+// and the phase to record once it is reached.
+func desiredStates(spec *vmcv1.VmSpec) (store.ObservedState, store.Phase) {
+	if spec.GetPower() == vmcv1.PowerState_POWER_STATE_STOPPED {
+		return store.ObservedShutoff, store.PhaseStopped
+	}
+	return store.ObservedRunning, store.PhaseRunning
+}
+
+// reconcilePending schedules the VM. The filter/score stage proposes; PlaceVM
+// decides inside the claim-guarded transaction.
 func (l *Loop) reconcilePending(ctx context.Context, claim *store.Claim) error {
 	vm := claim.VM
 	nodes, err := l.st.ReadyNodes(ctx)
@@ -154,7 +179,7 @@ func (l *Loop) reconcilePending(ctx context.Context, claim *store.Claim) error {
 	}
 
 	for _, candidate := range candidates {
-		tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token, 0)
+		tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token)
 		if err != nil {
 			return err
 		}
@@ -169,8 +194,8 @@ func (l *Loop) reconcilePending(ctx context.Context, claim *store.Claim) error {
 				continue // next candidate; our claim is still live
 			}
 			if errors.Is(err, store.ErrPlacementPreconditions) {
-				// Tombstone/phase moved after the claim: requeue; the
-				// rescan recomputes from fresh state.
+				// Tombstone or phase moved after the claim: requeue and let the
+				// rescan recompute from fresh state.
 				return l.completeNoop(ctx, claim, 0)
 			}
 			return err
@@ -188,11 +213,11 @@ func (l *Loop) reconcilePending(ctx context.Context, claim *store.Claim) error {
 	return l.markUnschedulable(ctx, claim)
 }
 
-// markUnschedulable is a condition, not an error loop (ADR-0003): surface
-// it in status and retry on resync.
+// markUnschedulable records a condition rather than looping on an error:
+// surface it in status and retry on resync.
 func (l *Loop) markUnschedulable(ctx context.Context, claim *store.Claim) error {
 	vm := claim.VM
-	tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token, l.cfg.PendingWait)
+	tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token)
 	if err != nil {
 		return err
 	}
@@ -202,13 +227,13 @@ func (l *Loop) markUnschedulable(ctx context.Context, claim *store.Claim) error 
 	}
 	setCondition(status, "Unschedulable", true, "NoCandidateNodes",
 		"no ready node satisfies constraints and capacity")
-	// Re-read version inside the tx for a clean CAS.
+	// Re-read the version inside the tx for a clean CAS.
 	fresh, err := l.st.GetVMByID(ctx, tx, vm.ID)
 	if err != nil {
 		_ = tx.Rollback(ctx)
 		return err
 	}
-	if _, err := l.st.UpdateVMStatus(ctx, tx, vm.ID, fresh.ResourceVersion, "PENDING", status); err != nil {
+	if _, err := l.st.UpdateVMStatus(ctx, tx, vm.ID, fresh.ResourceVersion, store.PhasePending, status); err != nil {
 		_ = tx.Rollback(ctx)
 		return err
 	}
@@ -219,41 +244,32 @@ func (l *Loop) markUnschedulable(ctx context.Context, claim *store.Claim) error 
 	return tx.Commit(ctx)
 }
 
-// reconcileConvergence: compare evidence with desire; complete operations
-// on EXACT revision matches (plan §6.5).
+// reconcileConvergence compares evidence with desire and completes operations
+// on exact revision matches.
 func (l *Loop) reconcileConvergence(ctx context.Context, claim *store.Claim) error {
 	vm := claim.VM
 
 	// Cheap pre-check from the claim snapshot; the authoritative decision is
 	// recomputed from the fresh row under the lock below.
-	wantState := "RUNNING"
-	if vm.Spec.GetPower() == vmcv1.PowerState_POWER_STATE_STOPPED {
-		wantState = "SHUTOFF"
-	}
+	wantState, _ := desiredStates(vm.Spec)
 	if vm.AppliedRevision != vm.DesiredRevision || vm.ObservedState != wantState {
-		// The agent drives; we wait (level-triggered — evidence wakes us).
+		// The agent drives; we wait. Reported evidence wakes us.
 		return l.completeNoop(ctx, claim, l.cfg.ResyncWait)
 	}
 
-	tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token, l.cfg.PendingWait*6)
+	tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token)
 	if err != nil {
 		return err
 	}
-	// Recompute convergence from the FRESH row under the lock — evidence,
-	// power, or a tombstone may have moved since the claim snapshot, and a
-	// stale DONE would overwrite it (batch-review finding [2]).
+	// Recompute convergence from the fresh row under the lock: evidence, power,
+	// or a tombstone may have moved since the claim snapshot, and writing DONE
+	// from a stale snapshot would overwrite it.
 	fresh, err := l.st.GetVMByID(ctx, tx, vm.ID)
 	if err != nil {
 		_ = tx.Rollback(ctx)
 		return err
 	}
-	freshWantRunning := fresh.Spec.GetPower() != vmcv1.PowerState_POWER_STATE_STOPPED
-	freshWantState := "RUNNING"
-	freshTarget := "RUNNING"
-	if !freshWantRunning {
-		freshWantState = "SHUTOFF"
-		freshTarget = "STOPPED"
-	}
+	freshWantState, targetPhase := desiredStates(fresh.Spec)
 	if fresh.DeletedAt != nil ||
 		fresh.DesiredRevision != vm.DesiredRevision ||
 		fresh.AppliedRevision != fresh.DesiredRevision ||
@@ -261,7 +277,6 @@ func (l *Loop) reconcileConvergence(ctx context.Context, claim *store.Claim) err
 		_ = tx.Rollback(ctx)
 		return l.completeNoop(ctx, claim, l.cfg.ResyncWait)
 	}
-	targetPhase := freshTarget
 	status := fresh.Status
 	if status == nil {
 		status = &vmcv1.VmStatus{}
@@ -272,7 +287,7 @@ func (l *Loop) reconcileConvergence(ctx context.Context, claim *store.Claim) err
 		_ = tx.Rollback(ctx)
 		return err
 	}
-	if err := l.terminalizeOps(ctx, tx, vm.ID, fresh.DesiredRevision); err != nil {
+	if err := l.st.TerminalizeRealizedOps(ctx, tx, vm.ID, fresh.DesiredRevision); err != nil {
 		_ = tx.Rollback(ctx)
 		return err
 	}
@@ -287,10 +302,10 @@ func (l *Loop) reconcileConvergence(ctx context.Context, claim *store.Claim) err
 	return nil
 }
 
-// reconcileDeleting: the agent drives teardown from the tombstone intent;
-// once the placement ledger shows torn_down (teardown receipt) — or the VM
-// was never placed — finalize: remove the row and terminalize the DELETE
-// operation in one transaction.
+// reconcileDeleting finalizes a tombstoned VM. The agent drives teardown from
+// the tombstone intent; once the placement ledger shows torn_down (a teardown
+// receipt), or the VM was never placed, this removes the row and terminalizes
+// the DELETE operation in one transaction.
 func (l *Loop) reconcileDeleting(ctx context.Context, claim *store.Claim) error {
 	vm := claim.VM
 
@@ -300,20 +315,19 @@ func (l *Loop) reconcileDeleting(ctx context.Context, claim *store.Claim) error 
 			return err
 		}
 		if errors.Is(err, store.ErrNotFound) {
-			// A missing ledger row for a positive epoch is CORRUPTION, not
-			// teardown proof — fail closed and park as cleanup debt
-			// (batch-review finding [12]).
+			// A missing ledger row for a positive epoch is corruption, not
+			// teardown proof: fail closed and park as cleanup debt.
 			l.cfg.Log.Error("placement ledger row missing for tombstoned vm — refusing to finalize",
 				"vm", vm.Name, "epoch", vm.PlacementEpoch)
 			return l.completeNoop(ctx, claim, l.cfg.PendingWait*6)
 		}
-		if p.State != "torn_down" {
+		if p.State != store.PlacementTornDown {
 			// Teardown not yet proven; the tombstone intent keeps driving it.
 			return l.completeNoop(ctx, claim, l.cfg.ResyncWait)
 		}
 	}
 
-	tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token, 0)
+	tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token)
 	if err != nil {
 		return err
 	}
@@ -328,16 +342,16 @@ func (l *Loop) reconcileDeleting(ctx context.Context, claim *store.Claim) error 
 			return err
 		}
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM vms WHERE id=$1`, vm.ID); err != nil {
+	if err := l.st.DeleteVMRow(ctx, tx, vm.ID); err != nil {
 		_ = tx.Rollback(ctx)
 		return err
 	}
-	if err := l.terminalizeOps(ctx, tx, vm.ID, vm.DesiredRevision); err != nil {
+	if err := l.st.TerminalizeRealizedOps(ctx, tx, vm.ID, vm.DesiredRevision); err != nil {
 		_ = tx.Rollback(ctx)
 		return err
 	}
 	// The row is gone; FinishClaim's guard would find nothing — the DELETE
-	// releases the claim with the row. Commit directly.
+	// released the claim with the row. Commit directly.
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
@@ -345,29 +359,9 @@ func (l *Loop) reconcileDeleting(ctx context.Context, claim *store.Claim) error 
 	return nil
 }
 
-// terminalizeOps completes operations for exactly the realized revision as
-// DONE, and any OLDER open operations as SUPERSEDED — every operation
-// terminates (D3).
-func (l *Loop) terminalizeOps(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, realizedRevision int64) error {
-	if _, err := tx.Exec(ctx, `
-		UPDATE operations SET state='DONE', finished_at=clock_timestamp()
-		WHERE resource_type='vm' AND resource_id=$1 AND target_revision=$2 AND state IN ('PENDING','RUNNING')`,
-		vmID, realizedRevision); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE operations SET state='SUPERSEDED',
-			error='a newer desired revision was realized first', finished_at=clock_timestamp()
-		WHERE resource_type='vm' AND resource_id=$1 AND target_revision<$2 AND state IN ('PENDING','RUNNING')`,
-		vmID, realizedRevision); err != nil {
-		return err
-	}
-	return nil
-}
-
-// completeNoop releases the claim with a backoff (waiting states).
+// completeNoop releases the claim with a backoff (used by waiting states).
 func (l *Loop) completeNoop(ctx context.Context, claim *store.Claim, backoff time.Duration) error {
-	tx, err := l.st.CompleteClaimTx(ctx, claim.VM.ID, claim.Token, backoff)
+	tx, err := l.st.CompleteClaimTx(ctx, claim.VM.ID, claim.Token)
 	if err != nil {
 		return err
 	}
@@ -376,18 +370,6 @@ func (l *Loop) completeNoop(ctx context.Context, claim *store.Claim, backoff tim
 		return err
 	}
 	return tx.Commit(ctx)
-}
-
-func (l *Loop) findOpenOperationID(ctx context.Context, vmID uuid.UUID, revision int64) *uuid.UUID {
-	var id uuid.UUID
-	err := l.st.Pool().QueryRow(ctx, `
-		SELECT id FROM operations
-		WHERE resource_id=$1 AND target_revision=$2 AND state IN ('PENDING','RUNNING')
-		ORDER BY created_at DESC LIMIT 1`, vmID, revision).Scan(&id)
-	if err != nil {
-		return nil
-	}
-	return &id
 }
 
 func setCondition(st *vmcv1.VmStatus, condType string, active bool, reason, message string) {

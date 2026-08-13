@@ -19,15 +19,14 @@ type Report struct {
 	Epoch           int64
 	Seq             int64
 	AppliedRevision int64
-	State           string // RUNNING | SHUTOFF | ABSENT
+	State           ObservedState
 	Detail          string
 }
 
-// ApplyReport stores observed evidence under the full fence: the session
-// must be the node's current one, the epoch must be the VM's current
-// placement, and (session_generation, seq) must exceed the stored watermark
-// lexicographically. Everything is checked in one statement so a stale
-// writer cannot interleave (plan §6.5).
+// ApplyReport stores observed evidence under the full fence: the session must
+// be the node's current one, the epoch must be the VM's current placement, and
+// (session_generation, seq) must exceed the stored watermark lexicographically.
+// Everything is checked in one statement so a stale writer cannot interleave.
 func (s *Store) ApplyReport(ctx context.Context, r Report) error {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE vms v SET
@@ -73,10 +72,10 @@ func (s *Store) NextActionAttempt(ctx context.Context, vmID uuid.UUID, epoch, re
 	return notBeforeMS, token, err
 }
 
-// RecordActionFailure bumps the durable attempt counter and pushes
-// not_before — an agent restart or duplicate intent cannot reset pacing
-// (plan D5). Accepted idempotently by attempt token: a stale token is a
-// no-op, and a fresh token is minted for the next attempt.
+// RecordActionFailure bumps the durable attempt counter and pushes not_before,
+// so an agent restart or duplicate intent cannot reset pacing. It is accepted
+// idempotently by attempt token: a stale token is a no-op, and a fresh token is
+// minted for the next attempt.
 func (s *Store) RecordActionFailure(ctx context.Context, vmID uuid.UUID, epoch, revision int64, token uuid.UUID, backoffMS int64) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE action_retries SET
@@ -89,8 +88,8 @@ func (s *Store) RecordActionFailure(ctx context.Context, vmID uuid.UUID, epoch, 
 }
 
 // ErrTeardownNotPermitted: a receipt targeted a placement that is neither
-// tombstoned nor superseded — tearing down a LIVE current placement is
-// refused (batch-review finding [24]).
+// tombstoned nor superseded, so tearing down a live current placement is
+// refused.
 var ErrTeardownNotPermitted = errors.New("store: teardown receipt refused for a live current placement")
 
 // MarkTeardownComplete records a teardown receipt under the VM→placement

@@ -13,15 +13,16 @@ import (
 	vmcv1 "github.com/sigtunnel/vm-control-plane/proto/vmc/v1"
 )
 
-// AgentServer implements vmc.v1.AgentService — the daemon-facing surface.
-// It is a thin fence around the store's protocols: registration, leases,
-// intent snapshots, grants, ordered reports, teardown receipts, and
-// durable action-retry pacing.
+// AgentServer implements vmc.v1.AgentService, the daemon-facing surface. It is
+// a thin fence around the store's protocols: registration, leases, intent
+// snapshots, grants, ordered reports, teardown receipts, and durable
+// action-retry pacing.
 type AgentServer struct {
 	vmcv1.UnimplementedAgentServiceServer
 	st *store.Store
 }
 
+// NewAgentServer returns an AgentServer backed by the given store.
 func NewAgentServer(st *store.Store) *AgentServer { return &AgentServer{st: st} }
 
 func (a *AgentServer) RegisterHost(ctx context.Context, req *vmcv1.RegisterHostRequest) (*vmcv1.RegisterHostResponse, error) {
@@ -86,7 +87,7 @@ func (a *AgentServer) Heartbeat(ctx context.Context, req *vmcv1.HeartbeatRequest
 	}
 	if err := a.st.Heartbeat(ctx, sess, lease); err != nil {
 		if errors.Is(err, store.ErrStaleSession) {
-			// The daemon's signal to HALT substrate actions (§6.3).
+			// The daemon's signal to halt substrate actions.
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
 		return nil, status.Error(codes.Internal, err.Error())
@@ -154,18 +155,14 @@ func (a *AgentServer) Report(ctx context.Context, req *vmcv1.ReportRequest) (*vm
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
 	}
-	stateName := map[vmcv1.ObservedState]string{
-		vmcv1.ObservedState_OBSERVED_STATE_RUNNING: "RUNNING",
-		vmcv1.ObservedState_OBSERVED_STATE_SHUTOFF: "SHUTOFF",
-		vmcv1.ObservedState_OBSERVED_STATE_ABSENT:  "ABSENT",
-	}[req.GetState()]
-	if stateName == "" {
+	state, ok := observedFromProto[req.GetState()]
+	if !ok {
 		return nil, status.Error(codes.InvalidArgument, "state must be specified")
 	}
 	err = a.st.ApplyReport(ctx, store.Report{
 		Session: sess, VMID: vmID, Epoch: req.GetPlacementEpoch(),
 		Seq: req.GetReportSeq(), AppliedRevision: req.GetAppliedRevision(),
-		State: stateName, Detail: req.GetDetail(),
+		State: state, Detail: req.GetDetail(),
 	})
 	if errors.Is(err, store.ErrStaleReport) {
 		// Fenced, not fatal: the daemon should not retry this report.
@@ -186,8 +183,8 @@ func (a *AgentServer) TeardownReceipt(ctx context.Context, req *vmcv1.TeardownRe
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
 	}
-	// Receipts are the one message a STALE session may deliver — but only
-	// for a placement its node actually owned (§6.4).
+	// Receipts are the one message a stale session may deliver, but only for a
+	// placement its node actually owned.
 	p, err := a.st.GetPlacement(ctx, nil, vmID, req.GetPlacementEpoch())
 	if errors.Is(err, store.ErrNotFound) {
 		return &vmcv1.TeardownReceiptResponse{}, nil // already finalized: idempotent

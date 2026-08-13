@@ -7,11 +7,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
-	vmcv1 "github.com/sigtunnel/vm-control-plane/proto/vmc/v1"
 )
 
-// Claim is a durable, token-based work claim on a VM row (ADR-0002).
+// Claim is a durable, token-based work claim on a VM row.
 type Claim struct {
 	Token     uuid.UUID
 	Owner     string
@@ -19,16 +17,16 @@ type Claim struct {
 	VM        *VM
 }
 
-// ErrClaimLost: the guarded commit found the claim gone, replaced, or its
-// lease expired — the whole transition must roll back. This is the loser's
-// error in every claim race, and it is always safe: level-triggered rescan
+// ErrClaimLost means the guarded commit found the claim gone, replaced, or its
+// lease expired, so the whole transition must roll back. It is the loser's
+// error in every claim race, and it is always safe: the level-triggered rescan
 // redoes the work.
 var ErrClaimLost = errors.New("store: claim lost (token replaced or lease expired)")
 
-// ClaimDirtyVMs atomically claims up to limit dirty rows: unrealized
-// desired revision or transitional phase, backoff elapsed, and no live
-// claim. One statement mints the token and sets the lease — there is no
-// window where a row is selected but unclaimed.
+// ClaimDirtyVMs atomically claims up to limit dirty rows: an unrealized
+// desired revision or transitional phase, backoff elapsed, and no live claim.
+// One statement mints the token and sets the lease, so there is no window
+// where a row is selected but unclaimed.
 func (s *Store) ClaimDirtyVMs(ctx context.Context, owner string, lease time.Duration, limit int) ([]*Claim, error) {
 	if limit <= 0 {
 		limit = 10
@@ -70,8 +68,8 @@ func (s *Store) ClaimDirtyVMs(ctx context.Context, owner string, lease time.Dura
 	return claims, rows.Err()
 }
 
-// RenewClaim extends the lease, guarded by the token. Long work renews;
-// a renewal that returns ErrClaimLost means stop immediately.
+// RenewClaim extends the lease, guarded by the token. Long-running work
+// renews; a renewal that returns ErrClaimLost means stop immediately.
 func (s *Store) RenewClaim(ctx context.Context, vmID uuid.UUID, token uuid.UUID, lease time.Duration) error {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE vms SET claim_expires_at = clock_timestamp() + $3
@@ -87,25 +85,21 @@ func (s *Store) RenewClaim(ctx context.Context, vmID uuid.UUID, token uuid.UUID,
 	return nil
 }
 
-// CompleteClaimTx begins the transition transaction and takes the VM row
-// lock WITHOUT releasing the claim: the lease-aware release is the LAST
-// statement, via FinishClaim, immediately before commit — checking the
-// lease in the first statement would leave a stall window in which an
-// expired worker could still commit (batch-review finding [0]).
+// CompleteClaimTx begins the transition transaction and takes the VM row lock
+// without releasing the claim. The lease-aware release is the last statement,
+// via FinishClaim, immediately before commit: verifying the lease only in this
+// first statement would leave a stall window in which an expired worker could
+// still commit.
 //
 // Usage: tx, _ := CompleteClaimTx(...); ...transition work...;
 // FinishClaim(ctx, tx, vmID, token, backoff); tx.Commit(ctx).
-//
-// The backoff parameter here is advisory documentation of intent only —
-// the value that matters is the one passed to FinishClaim.
-func (s *Store) CompleteClaimTx(ctx context.Context, vmID uuid.UUID, token uuid.UUID, backoff time.Duration) (pgx.Tx, error) {
-	_ = backoff // release happens in FinishClaim; kept for call-site clarity
+func (s *Store) CompleteClaimTx(ctx context.Context, vmID uuid.UUID, token uuid.UUID) (pgx.Tx, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// Lock the row and verify the claim is still ours and live — but do
-	// NOT release it yet; work happens under the held claim.
+	// Lock the row and verify the claim is still ours and live, but do not
+	// release it yet; the transition work runs under the held claim.
 	var ok bool
 	err = tx.QueryRow(ctx, `
 		SELECT claim_token = $2 AND claim_expires_at >= clock_timestamp()
@@ -120,10 +114,10 @@ func (s *Store) CompleteClaimTx(ctx context.Context, vmID uuid.UUID, token uuid.
 	return tx, nil
 }
 
-// FinishClaim is the transition's FINAL statement: it releases the claim
-// under the full guard (token + lease unexpired AT THIS MOMENT). Zero rows
-// means the lease lapsed during the work — the caller must roll back;
-// nothing durable escapes.
+// FinishClaim is the transition's final statement: it releases the claim under
+// the full guard (token, plus lease unexpired at this moment). Zero rows means
+// the lease lapsed during the work, so the caller must roll back and nothing
+// durable escapes.
 func (s *Store) FinishClaim(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, token uuid.UUID, backoff time.Duration) error {
 	tag, err := tx.Exec(ctx, `
 		UPDATE vms SET
@@ -142,10 +136,10 @@ func (s *Store) FinishClaim(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, toke
 	return nil
 }
 
-// RecordFailure durably records a failed attempt under the claim guard:
+// RecordFailure durably records a failed attempt under the claim guard: it
 // bumps attempts, stores the error class, schedules the next attempt, and
-// releases the claim. If budget is exhausted, parks the VM in FAILED and
-// terminalizes the operation — in the SAME transaction (plan D3/D5).
+// releases the claim. If the retry budget is exhausted, it parks the VM in
+// FAILED and terminalizes the operation in the same transaction.
 func (s *Store) RecordFailure(ctx context.Context, vmID uuid.UUID, token uuid.UUID, errClass, errMsg string, nextBackoff time.Duration, budget int, opID *uuid.UUID) (failed bool, err error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -191,38 +185,18 @@ func (s *Store) RecordFailure(ctx context.Context, vmID uuid.UUID, token uuid.UU
 	return failed, tx.Commit(ctx)
 }
 
-// prefixedVMColumns returns the vm column list qualified with an alias.
-func prefixedVMColumns(alias string) string {
-	return alias + `.id, ` + alias + `.name, ` + alias + `.spec, ` + alias + `.status, ` +
-		alias + `.phase, ` + alias + `.spec_generation, ` + alias + `.resource_version, ` +
-		alias + `.desired_revision, ` + alias + `.node_name, ` + alias + `.placement_epoch, ` +
-		alias + `.observed_state, ` + alias + `.applied_revision, ` +
-		alias + `.deleted_at, ` + alias + `.created_at, ` + alias + `.updated_at`
-}
-
 func scanClaimRow(rows pgx.Rows, c *Claim) (*VM, error) {
 	var (
 		vm         VM
 		specJSON   []byte
 		statusJSON []byte
 	)
-	err := rows.Scan(&c.Token, &c.Owner, &c.ExpiresAt,
-		&vm.ID, &vm.Name, &specJSON, &statusJSON, &vm.Phase,
-		&vm.SpecGeneration, &vm.ResourceVersion, &vm.DesiredRevision,
-		&vm.NodeName, &vm.PlacementEpoch, &vm.ObservedState, &vm.AppliedRevision,
-		&vm.DeletedAt, &vm.CreatedAt, &vm.UpdatedAt)
-	if err != nil {
+	dest := append([]any{&c.Token, &c.Owner, &c.ExpiresAt}, vmScanDest(&vm, &specJSON, &statusJSON)...)
+	if err := rows.Scan(dest...); err != nil {
 		return nil, err
 	}
-	vm.Spec = &vmcv1.VmSpec{}
-	if err := pju.Unmarshal(specJSON, vm.Spec); err != nil {
+	if err := decodeVMBlobs(&vm, specJSON, statusJSON); err != nil {
 		return nil, err
-	}
-	vm.Status = &vmcv1.VmStatus{}
-	if len(statusJSON) > 0 && string(statusJSON) != "{}" {
-		if err := pju.Unmarshal(statusJSON, vm.Status); err != nil {
-			return nil, err
-		}
 	}
 	return &vm, nil
 }

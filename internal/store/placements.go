@@ -15,7 +15,7 @@ type Placement struct {
 	Epoch    int64
 	NodeName string
 	HostID   string
-	State    string // assigned | granted | torn_down
+	State    PlacementState
 }
 
 // Resources is a reservation request.
@@ -33,7 +33,7 @@ var ErrPlacementPreconditions = errors.New("store: placement preconditions chang
 var (
 	// ErrNoCapacity: the all-predicate conditional reservation matched zero
 	// rows — capacity, labels, or lease changed between filter and commit.
-	// The caller tries the next candidate (D6).
+	// The caller tries the next candidate.
 	ErrNoCapacity = errors.New("store: reservation predicates failed (capacity/lease)")
 	// ErrActivePlacementExists: the partial unique index refused a second
 	// active placement — the schema-level fence against double placement.
@@ -53,13 +53,13 @@ var (
 //
 // Everything commits or rolls back with the claim guard.
 func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *Node, res Resources) (epoch int64, err error) {
-	// Recheck the placement preconditions UNDER the row lock, not from the
+	// Recheck the placement preconditions under the row lock, not from the
 	// claim snapshot: a tombstone or phase change arriving after the claim
-	// must abort placement (batch-review finding [3]).
+	// must abort placement.
 	var (
 		currentEpoch int64
 		deleted      bool
-		phase        string
+		phase        Phase
 	)
 	if err := tx.QueryRow(ctx,
 		`SELECT placement_epoch, deleted_at IS NOT NULL, phase
@@ -73,7 +73,7 @@ func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *No
 	if deleted {
 		return 0, fmt.Errorf("%w: vm is tombstoned", ErrPlacementPreconditions)
 	}
-	if phase != "PENDING" {
+	if phase != PhasePending {
 		return 0, fmt.Errorf("%w: phase %s", ErrPlacementPreconditions, phase)
 	}
 	epoch = currentEpoch + 1
@@ -124,10 +124,10 @@ func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *No
 	return epoch, nil
 }
 
-// ReleasePlacement tears down a placement's reservation and marks the
-// ledger row torn_down — idempotent: the DELETE ... RETURNING drives the
-// counter decrement, so a double release adjusts nothing (D6). Runs inside
-// the caller's guarded transaction (unassign or finalization).
+// ReleasePlacement tears down a placement's reservation and marks the ledger
+// row torn_down. It is idempotent: the DELETE ... RETURNING drives the counter
+// decrement, so a double release adjusts nothing. Runs inside the caller's
+// guarded transaction (unassign or finalization).
 func (s *Store) ReleasePlacement(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, epoch int64) error {
 	var (
 		node             string

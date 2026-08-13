@@ -74,7 +74,7 @@ func testDriver(t *testing.T) (*Driver, string) {
 func vmConfig(name string, epoch int64) compute.VMConfig {
 	return compute.VMConfig{
 		VMID: uuid.NewString(), Name: name, Node: "node-a", Epoch: epoch,
-		CPUs: 1, MemoryB: 1 << 30, Image: "ubuntu-24.04", DiskB: 4 << 30,
+		CPUs: 1, MemoryBytes: 1 << 30, Image: "ubuntu-24.04", RootDiskBytes: 4 << 30,
 		Running: true,
 	}
 }

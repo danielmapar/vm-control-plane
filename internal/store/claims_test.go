@@ -99,7 +99,7 @@ func TestExpiredClaimLoserLoses(t *testing.T) {
 	// A limps back and tries to commit its transition. CompleteClaimTx may
 	// even succeed in taking the row lock, but FinishClaim's lease guard is
 	// the real gate — the release is the LAST statement (finding [0]).
-	atx, err := s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token, 0)
+	atx, err := s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token)
 	if err == nil {
 		ferr := s.FinishClaim(ctx, atx, a[0].VM.ID, a[0].Token, 0)
 		_ = atx.Rollback(ctx)
@@ -111,7 +111,7 @@ func TestExpiredClaimLoserLoses(t *testing.T) {
 	}
 
 	// B's completion succeeds through the full protocol.
-	tx, err := s.CompleteClaimTx(ctx, b[0].VM.ID, b[0].Token, time.Hour)
+	tx, err := s.CompleteClaimTx(ctx, b[0].VM.ID, b[0].Token)
 	if err != nil {
 		t.Fatalf("B complete: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestExpiryWithoutTakeover(t *testing.T) {
 	}
 	time.Sleep(120 * time.Millisecond)
 
-	atx, err := s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token, 0)
+	atx, err := s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token)
 	if err == nil {
 		ferr := s.FinishClaim(ctx, atx, a[0].VM.ID, a[0].Token, 0)
 		_ = atx.Rollback(ctx)
@@ -242,7 +242,7 @@ func TestCompletionUnderObservationTraffic(t *testing.T) {
 		}
 	}
 
-	tx, err := s.CompleteClaimTx(ctx, claims[0].VM.ID, claims[0].Token, time.Hour)
+	tx, err := s.CompleteClaimTx(ctx, claims[0].VM.ID, claims[0].Token)
 	if err != nil {
 		t.Fatalf("completion must survive observation traffic: %v", err)
 	}
