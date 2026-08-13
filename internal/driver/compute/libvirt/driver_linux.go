@@ -30,6 +30,10 @@ type Config struct {
 	// this keeps L2 guests off the cores the control-plane stack runs on,
 	// preventing the boot-time preemption that permanently wedges them.
 	CPUSet string
+	// Emulated runs guests under QEMU TCG (software) instead of hardware KVM —
+	// no /dev/kvm, no nested VT-x, so it is stable on a substrate whose nested
+	// virtualization is not (the VirtualBox case). Slower to boot.
+	Emulated bool
 	// ResolveBacking maps an image name (e.g. "ubuntu-24.04") to a cached,
 	// verified backing qcow2 path. The image cache is pre-seeded by the
 	// spike/demo; a missing image is an error, never a silent download.
@@ -111,6 +115,7 @@ func (d *Driver) Ensure(ctx context.Context, cfg compute.VMConfig) (compute.Stat
 		MgmtNetwork:  d.cfg.MgmtNetwork,
 		TenantBridge: firstNonEmpty(cfg.Network, ""),
 		CPUSet:       d.cfg.CPUSet,
+		Emulated:     d.cfg.Emulated,
 	}
 	if cfg.Network != "" && d.cfg.TenantBridge != "" {
 		domCfg.TenantBridge = d.cfg.TenantBridge

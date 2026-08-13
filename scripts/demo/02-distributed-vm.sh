@@ -52,16 +52,20 @@ echo "operation $OP"
 bin/vmctl op wait "$OP" --timeout 4m
 bin/vmctl list vms
 
-echo "== 7. wait for the mgmt IP (newest real-1 lease) =="
+echo "== 7. wait for the mgmt IP (matched by the domain's MAC) =="
+# Match by the domain's own MAC, not hostname: until cloud-init sets the
+# hostname the lease shows "-", so a hostname match falls back to a stale
+# lease and probes a dead address (what made earlier runs "never answer SSH").
+MAC=$(virsh -c qemu:///system dumpxml real-1 2>/dev/null | grep -oiE '52:54:00:[0-9a-f:]+' | head -1)
 IP=""
 for i in $(seq 1 40); do
   IP=$(timeout 10 virsh -c qemu:///system net-dhcp-leases vmc-mgmt 2>/dev/null \
-        | awk '$6=="real-1"{print $1"T"$2, $5}' | sort -r | head -1 | awk '{print $2}' | cut -d/ -f1 || true)
+        | awk -v m="$MAC" 'tolower($3)==tolower(m){print $5}' | cut -d/ -f1 | head -1 || true)
   [ -n "$IP" ] && break
   sleep 3
 done
 [ -n "$IP" ] || { echo "no DHCP lease"; exit 1; }
-echo "guest IP: $IP"
+echo "guest IP: $IP (mac $MAC)"
 
 echo "== 8. SSH into the guest (retry until cloud-init brings up sshd) =="
 SSH_OK=""

@@ -39,6 +39,7 @@ func run() error {
 	sshKeyFile := flag.String("ssh-key-file", "", "libvirt: SSH public key for guests")
 	pinCPUSet := flag.String("pin-cpuset", "", "libvirt: pin guest vCPU+emulator to these host cores (nested-VirtualBox stability)")
 	noAgent := flag.Bool("no-agent", false, "run only embedded Postgres + control-plane (no agent) — for the DISTRIBUTED demo where the real libvirt agent runs on a separate hypervisor host and dials in")
+	emulated := flag.Bool("emulated", false, "libvirt: run guests under QEMU TCG (software) instead of hardware KVM — stable where nested virtualization is not")
 	flag.Parse()
 
 	// Catch SIGTERM as well as SIGINT: a process manager (or the demo's
@@ -144,6 +145,9 @@ func run() error {
 		}
 		if *pinCPUSet != "" {
 			agentArgs = append(agentArgs, "--pin-cpuset", *pinCPUSet)
+		}
+		if *emulated {
+			agentArgs = append(agentArgs, "--emulated")
 		}
 	} else {
 		debugPort, derr := freePort()

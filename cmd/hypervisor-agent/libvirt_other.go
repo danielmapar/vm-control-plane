@@ -11,6 +11,7 @@ import (
 
 type libvirtDriverOpts struct {
 	Socket, StorageRoot, MgmtNetwork, TenantBridge, SSHKeyFile, CPUSet string
+	Emulated                                                           bool
 }
 
 func newLibvirtDriver(context.Context, libvirtDriverOpts) (compute.Driver, error) {

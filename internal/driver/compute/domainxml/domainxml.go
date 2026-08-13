@@ -51,6 +51,19 @@ type Config struct {
 	// (libvirt cpuset syntax, e.g. "8-15"). Empty = no pinning. Used to keep
 	// nested-virt guests off the cores the control-plane stack runs on.
 	CPUSet string
+	// Emulated selects QEMU TCG software emulation (<domain type='qemu'>)
+	// instead of hardware KVM (<domain type='kvm'>). Slower, but needs no
+	// /dev/kvm and no hardware virtualization — so it runs reliably on a
+	// substrate whose nested VT-x is unstable (e.g. under VirtualBox).
+	Emulated bool
+}
+
+// domainType is the libvirt domain type: hardware KVM, or QEMU TCG emulation.
+func (c Config) domainType() string {
+	if c.Emulated {
+		return "qemu"
+	}
+	return "kvm"
 }
 
 // MAC derives the deterministic, locally-administered MAC for a NIC.
@@ -84,7 +97,7 @@ func Build(cfg Config) (string, error) {
 	var b strings.Builder
 	w := func(format string, args ...any) { fmt.Fprintf(&b, format+"\n", args...) }
 
-	w(`<domain type='kvm'>`)
+	w(`<domain type='%s'>`, cfg.domainType())
 	w(`  <name>%s</name>`, esc(cfg.Name))
 	w(`  <uuid>%s</uuid>`, cfg.VMID)
 	// Ownership metadata: the filter for owner-scoped resync and the fence
