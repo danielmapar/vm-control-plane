@@ -33,14 +33,18 @@ it from a normal (non-admin) shell.
 make dev
 ```
 
-This starts embedded Postgres, the control-plane, and a host agent (two logical
-nodes), then prints the address to point the CLI at:
+Leave that running. It starts the whole stack (embedded Postgres, the
+control-plane, and a host agent with two logical nodes) and picks a free port.
+Near the top of its output it prints the exact line to run so the CLI can find
+it, for example:
 
 ```
-export VMCTL_SERVER=127.0.0.1:<port>     # PowerShell: $env:VMCTL_SERVER='127.0.0.1:<port>'
+export VMCTL_SERVER=127.0.0.1:43243     # PowerShell: $env:VMCTL_SERVER='127.0.0.1:43243'
 ```
 
-Now use the operations below (`bin/vmctl ...`).
+Open a second terminal in the repo, copy that line from the output and run it,
+then use the operations below (`bin/vmctl ...`). Ctrl-C in the first terminal
+stops everything.
 
 ### 2. Real KVM (in a Linux VM)
 
