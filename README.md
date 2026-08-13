@@ -1,4 +1,4 @@
-# vm-control-plane
+# VM Control Plane
 
 A small, production-shaped VM control plane in Go. It has the same shape as real
 libvirt-based compute platforms like OpenStack Nova and KubeVirt: a state-owning
