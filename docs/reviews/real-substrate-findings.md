@@ -30,7 +30,7 @@ the seams between the Go code and real libvirt/qemu/Linux. Finding them is
 the whole reason the plan insisted on a real-substrate tier rather than
 declaring victory on fakes.
 
-## End-to-end capstone: what real KVM proves, and the VirtualBox wall
+## End-to-end capstone: it works — and the long chase that got there
 
 The capstone goal was one unbroken run: `vmctl create` → a real guest boots →
 SSH into it → `vmctl delete`, driven through the control plane. On real KVM,
@@ -52,49 +52,50 @@ every link is proven:
    uses, and it passes repeatedly even late in the investigation — so the
    substrate is healthy.
 
-The one thing that does **not** complete in a single agent-driven run — the
-guest answering SSH — is a VirtualBox limitation, and pinning it down took a
-long chain of eliminations (each an entry above or below):
+### The resolution: the capstone completes, and the "wedge" was a demo bug
 
-- **It is not the demo.** A stale-lease bug (finding #7) had the SSH step
-  probing a dead address; fixed to match the newest `real-1` lease.
-- **It is not disk contention alone.** Embedded Postgres was moved to tmpfs
-  and the backing image pre-warmed into RAM — yet the guest still wedged. (A
-  deliberately brutal `dd oflag=direct` loop *did* guru-meditate the VM, so
-  nested VT-x *is* I/O-sensitive — but removing the DB's I/O was not enough.)
-- **It is not CPU or scheduling.** Bumping the substrate to 16 vCPUs did
-  nothing; pinning the guest's every QEMU thread to dedicated cores 8-15
-  (verified via `virsh emulatorpin`/`vcpupin` and `taskset` on all threads)
-  did nothing. Activity on cores 0-7 still wedges a guest isolated on 8-15 —
-  so the interference is *below* the CPU scheduler, at the VT-x emulation.
-- **It is not libvirt introspection.** The IT test passes even with a
-  `virsh dumpxml`/`domstate` loop hammering its guest every 0.3 s.
-- **It is not the DB/control-plane sharing the VM.** A **distributed**
-  deployment was built for exactly this test: control-plane + Postgres on the
-  Windows host, and *only* the agent + libvirt + guest in the nested VM,
-  reached over an SSH reverse tunnel. It works mechanically — the remote
-  control plane drove a real guest to `RUNNING` + DHCP, and even **survived a
-  hypervisor-host crash** — but the guest still wedged/guru'd.
-- **It is not the poll rate.** Slowing the agent's work-claim poll from 300 ms
-  to 3 s (matching the IT test's cadence) did not help either.
+The full single-run capstone **works** — monolithic and distributed:
 
-What remains, by elimination, is the difference between the passing IT test and
-every failing run: a **long-running agent daemon co-located with a booting
-guest**. The IT test creates the guest with one synchronous `Ensure` and then
-only polls DHCP leases; the agent keeps a persistent gRPC connection and a
-reconcile loop alive *through* the guest's boot. On VirtualBox's experimental
-nested VT-x that steady-state presence is enough to wedge the L2 guest or trip
-a host guru meditation — the same fragility that a bare-metal or Hyper-V
-hypervisor simply does not have (running agents beside booting guests is
-ordinary production behaviour there).
+```
+== create a real VM ==   operation ... CREATE vm/real-1 DONE ; real-1 RUNNING node-a
+== wait for the mgmt IP (matched by the domain's MAC) ==   guest IP: 192.168.221.74
+== SSH into the guest ==   REAL-KVM GUEST REACHED: real-1 / 6.8.0-136-generic
+== delete ==   operation ... DELETE vm/real-1 DONE
+== demo complete: a real KVM guest was booted, reached over SSH, and deleted
+   through the control plane ==
+```
 
-**The honest conclusion for the interview:** the system works on real KVM —
-the control plane converges a real domain to `RUNNING` (monolithic and
-distributed), the guest boots and DHCPs through it, and the driver boots a
-guest all the way to SSH. The single agent-driven boot-to-SSH is gated by
-nested VirtualBox, not by the code, and the fix is a real hypervisor
-(bare-metal KVM, or Hyper-V nested virt) — not a code change. The reliable
-live demos are: the native **Tier-0** stack (`make dev`, identical
-control-plane code paths, no hypervisor at all), the **IT test** (real
-boot-to-SSH), and the **distributed** control-plane convergence (a control
-plane on one host driving a real hypervisor on another).
+The symptom that looked like an unfixable nested-virt "wedge" for a long time —
+`guest never answered SSH` — was a **bug in the demo's own lease matching**, not
+the hypervisor. The demo matched the guest's DHCP lease by its cloud-init
+hostname (`$6 == "real-1"`), but **until cloud-init sets the hostname the lease
+shows `-`**, so the match fell back to a *stale* lease from a prior guest and
+probed a dead address. The guest was booting fine at its real IP the whole time;
+the probe was knocking on the wrong door. This also confounded the elimination
+experiments above (16 vCPUs, CPU pinning, tmpfs, poll rate): each concluded
+"still wedged" while actually probing a stale lease. The fix is what the
+integration test always did — **match the lease by the domain's own MAC**
+(`virsh dumpxml` → `52:54:00:…`) — plus clearing the dnsmasq lease file on
+cleanup so stale leases can never reappear.
+
+What was **genuinely** VirtualBox's fault is the intermittent **guru
+meditation** — a real host-level fault (confirmed via `VBoxManage`, and
+reproducible on demand with a brutal `dd oflag=direct` loop, so nested VT-x is
+truly I/O-sensitive). It correlated with *accumulated* crashes degrading the
+substrate; on a freshly-booted, healthy substrate the demo runs clean. The
+**distributed** deployment further de-risks it by keeping the DB/control-plane
+load off the nested VM entirely.
+
+**The honest conclusion for the interview:** the system works end-to-end on
+real KVM — one command boots a real guest through the whole control plane,
+SSHes into it, and deletes it. Three ways to show it, simplest first:
+- **Tier-0** (`make dev`, native, no hypervisor) — the control-plane behaviour.
+- **Monolithic real-KVM** (`scripts/demo/01-real-kvm.sh`, in the substrate VM) —
+  the full capstone in one command.
+- **Distributed** (`scripts/demo/02-distributed.ps1`) — control-plane + Postgres
+  on one host driving the hypervisor agent on another over a tunnel; it even
+  **survives a hypervisor-host crash**.
+
+An `--emulated` (QEMU TCG) path also exists: it needs no nested virtualization
+at all (no guru risk), but cloud-init's SSH host-key generation under software
+emulation is impractically slow, so it is a fallback, not the demo.
