@@ -34,10 +34,9 @@ func claimCreate(ctx context.Context, s *store.Store, pool *pgxpool.Pool, key uu
 		return existing, tx.Commit(ctx)
 	}
 
-	op := &store.Operation{
+	op := store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: uuid.New(),
-		ResourceName: "web-1", Verb: "CREATE", TargetRevision: 1,
-		Deadline: time.Now().Add(time.Hour),
+		ResourceName: "web-1", Verb: store.VerbCreate, TargetRevision: 1,
 	}
 	created, err := s.CreateOperation(ctx, tx, op)
 	if err != nil {
@@ -50,7 +49,7 @@ func claimCreate(ctx context.Context, s *store.Store, pool *pgxpool.Pool, key uu
 }
 
 func TestEnvelopeReplayReturnsOriginal(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 	key := uuid.New()
@@ -70,7 +69,7 @@ func TestEnvelopeReplayReturnsOriginal(t *testing.T) {
 }
 
 func TestEnvelopeMismatchRejected(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 	key := uuid.New()
@@ -87,7 +86,7 @@ func TestEnvelopeMismatchRejected(t *testing.T) {
 // TestEnvelopeConcurrentSameKey: N racers, one key — exactly one operation
 // exists afterward and every racer that succeeded saw that same operation.
 func TestEnvelopeConcurrentSameKey(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 	key := uuid.New()
@@ -136,7 +135,7 @@ func TestEnvelopeConcurrentSameKey(t *testing.T) {
 // TestEnvelopeWinnerRollback: an envelope whose transaction rolled back
 // leaves nothing behind — the next claimant becomes the owner.
 func TestEnvelopeWinnerRollback(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 	key := uuid.New()
@@ -160,44 +159,43 @@ func TestEnvelopeWinnerRollback(t *testing.T) {
 }
 
 func TestTerminalResultsImmutable(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 
-	op, err := s.CreateOperation(ctx, nil, &store.Operation{
+	op, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: uuid.New(),
-		ResourceName: "x", Verb: "CREATE", TargetRevision: 1,
-		Deadline: time.Now().Add(time.Hour),
+		ResourceName: "x", Verb: store.VerbCreate, TargetRevision: 1,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	done, err := s.TerminalizeOperation(ctx, nil, op.ID, "DONE", "")
-	if err != nil || done.State != "DONE" {
+	done, err := s.TerminalizeOperation(ctx, nil, op.ID, store.OpDone, "")
+	if err != nil || done.State != store.OpDone {
 		t.Fatalf("terminalize: %v %+v", err, done)
 	}
 
 	// A later, conflicting terminalization must NOT rewrite the result.
-	again, err := s.TerminalizeOperation(ctx, nil, op.ID, "FAILED", "late loser")
+	again, err := s.TerminalizeOperation(ctx, nil, op.ID, store.OpFailed, "late loser")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if again.State != "DONE" || again.Error != "" {
+	if again.State != store.OpDone || again.Error != "" {
 		t.Fatalf("terminal result was rewritten: %+v", again)
 	}
 }
 
-// TestDeadlineExpiryTerminalizes: matrix row 20 — an operation with no
+// TestDeadlineExpiryTerminalizes — an operation with no
 // retry activity still terminates once its database-clock deadline passes.
 func TestDeadlineExpiryTerminalizes(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 
-	op, err := s.CreateOperation(ctx, nil, &store.Operation{
+	op, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: uuid.New(),
-		ResourceName: "stall", Verb: "CREATE", TargetRevision: 1,
+		ResourceName: "stall", Verb: store.VerbCreate, TargetRevision: 1,
 		DeadlineBudget: -time.Second, // database-clock deadline already past
 	})
 	if err != nil {
@@ -208,7 +206,7 @@ func TestDeadlineExpiryTerminalizes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(expired) != 1 || expired[0].ID != op.ID || expired[0].State != "DEADLINE_EXCEEDED" {
+	if len(expired) != 1 || expired[0].ID != op.ID || expired[0].State != store.OpDeadlineExceeded {
 		t.Fatalf("expiry: %+v", expired)
 	}
 
@@ -221,7 +219,7 @@ func TestDeadlineExpiryTerminalizes(t *testing.T) {
 
 // TestDeleteOperationOutlivesResource: operations are never FK-cascaded.
 func TestDeleteOperationOutlivesResource(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 
@@ -229,10 +227,9 @@ func TestDeleteOperationOutlivesResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	op, err := s.CreateOperation(ctx, nil, &store.Operation{
+	op, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID,
-		ResourceName: vm.Name, Verb: "DELETE", TargetRevision: 2,
-		Deadline: time.Now().Add(time.Hour),
+		ResourceName: vm.Name, Verb: store.VerbDelete, TargetRevision: 2,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -248,6 +245,3 @@ func TestDeleteOperationOutlivesResource(t *testing.T) {
 		t.Fatalf("delete operation must outlive its resource: %v %+v", err, got)
 	}
 }
-
-// pgtestNewDB shares the package's single TestMain (vm_test.go).
-func pgtestNewDB(t *testing.T) *pgxpool.Pool { return pgtest.NewDB(t) }

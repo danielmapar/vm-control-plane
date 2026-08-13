@@ -13,9 +13,9 @@ import (
 )
 
 // TestClaimExclusive: two workers scanning concurrently never claim the
-// same row (matrix row 3/4 foundation).
+// same row.
 func TestClaimExclusive(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	for _, n := range []string{"cl-a", "cl-b", "cl-c", "cl-d"} {
@@ -56,7 +56,7 @@ func TestClaimExclusive(t *testing.T) {
 
 // TestClaimedRowInvisible: a live claim hides the row from other scans.
 func TestClaimedRowInvisible(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 	if _, err := s.CreateVM(ctx, nil, uuid.New(), "cl-hidden", spec()); err != nil {
 		t.Fatal(err)
@@ -75,11 +75,10 @@ func TestClaimedRowInvisible(t *testing.T) {
 	}
 }
 
-// TestExpiredClaimReclaimable + the loser's completion loses: the core of
-// matrix row 4. Worker A's lease expires; worker B reclaims; A's guarded
-// completion must fail with ErrClaimLost and roll back everything.
+// TestExpiredClaimLoserLoses: worker A's lease expires; worker B reclaims; A's
+// guarded completion must fail with ErrClaimLost and roll back everything.
 func TestExpiredClaimLoserLoses(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 	if _, err := s.CreateVM(ctx, nil, uuid.New(), "cl-exp", spec()); err != nil {
 		t.Fatal(err)
@@ -98,8 +97,8 @@ func TestExpiredClaimLoserLoses(t *testing.T) {
 
 	// A limps back and tries to commit its transition. CompleteClaimTx may
 	// even succeed in taking the row lock, but FinishClaim's lease guard is
-	// the real gate — the release is the LAST statement (finding [0]).
-	atx, err := s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token, 0)
+	// the real gate — the release is the LAST statement.
+	atx, err := s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token)
 	if err == nil {
 		ferr := s.FinishClaim(ctx, atx, a[0].VM.ID, a[0].Token, 0)
 		_ = atx.Rollback(ctx)
@@ -111,7 +110,7 @@ func TestExpiredClaimLoserLoses(t *testing.T) {
 	}
 
 	// B's completion succeeds through the full protocol.
-	tx, err := s.CompleteClaimTx(ctx, b[0].VM.ID, b[0].Token, time.Hour)
+	tx, err := s.CompleteClaimTx(ctx, b[0].VM.ID, b[0].Token)
 	if err != nil {
 		t.Fatalf("B complete: %v", err)
 	}
@@ -124,9 +123,9 @@ func TestExpiredClaimLoserLoses(t *testing.T) {
 }
 
 // TestExpiryWithoutTakeover: even with NO takeover, an expired lease alone
-// blocks the commit (v6 review finding: a token must not outlive its lease).
+// blocks the commit (a token must not outlive its lease).
 func TestExpiryWithoutTakeover(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 	if _, err := s.CreateVM(ctx, nil, uuid.New(), "cl-exp2", spec()); err != nil {
 		t.Fatal(err)
@@ -137,7 +136,7 @@ func TestExpiryWithoutTakeover(t *testing.T) {
 	}
 	time.Sleep(120 * time.Millisecond)
 
-	atx, err := s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token, 0)
+	atx, err := s.CompleteClaimTx(ctx, a[0].VM.ID, a[0].Token)
 	if err == nil {
 		ferr := s.FinishClaim(ctx, atx, a[0].VM.ID, a[0].Token, 0)
 		_ = atx.Rollback(ctx)
@@ -149,10 +148,10 @@ func TestExpiryWithoutTakeover(t *testing.T) {
 	}
 }
 
-// TestRenewExtendsLease: renewal under the token keeps the claim alive;
-// renewal after expiry fails.
+// TestRenewSemantics: renewal under the token keeps the claim alive; renewal
+// after expiry fails.
 func TestRenewSemantics(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 	if _, err := s.CreateVM(ctx, nil, uuid.New(), "cl-renew", spec()); err != nil {
 		t.Fatal(err)
@@ -175,17 +174,17 @@ func TestRenewSemantics(t *testing.T) {
 }
 
 // TestFailureBudgetParksFailedAndTerminalizes: durable retry state and the
-// D3 guarantee that op wait cannot hang on a Failed resource.
+// guarantee that op wait cannot hang on a Failed resource.
 func TestFailureBudgetParksFailedAndTerminalizes(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 	vm, err := s.CreateVM(ctx, nil, uuid.New(), "cl-fail", spec())
 	if err != nil {
 		t.Fatal(err)
 	}
-	op, err := s.CreateOperation(ctx, nil, &store.Operation{
+	op, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID, ResourceName: vm.Name,
-		Verb: "CREATE", TargetRevision: 1, Deadline: time.Now().Add(time.Hour),
+		Verb: store.VerbCreate, TargetRevision: 1,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -214,16 +213,16 @@ func TestFailureBudgetParksFailedAndTerminalizes(t *testing.T) {
 	}
 	// …and the operation is terminal (op wait cannot hang).
 	final, err := s.GetOperation(ctx, nil, op.ID)
-	if err != nil || final.State != "FAILED" || !final.Terminal() {
+	if err != nil || final.State != store.OpFailed || !final.Terminal() {
 		t.Fatalf("operation not terminalized with the phase write: %v %+v", err, final)
 	}
 }
 
 // TestCompletionUnderObservationTraffic: resource_version churn from other
-// writers must not invalidate a valid completion (the reason the guard is
-// the claim token + lease, not the global version — ADR-0002).
+// writers must not invalidate a valid completion. The guard is the claim
+// token + lease, not the global version.
 func TestCompletionUnderObservationTraffic(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 	vm, err := s.CreateVM(ctx, nil, uuid.New(), "cl-obs", spec())
 	if err != nil {
@@ -242,7 +241,7 @@ func TestCompletionUnderObservationTraffic(t *testing.T) {
 		}
 	}
 
-	tx, err := s.CompleteClaimTx(ctx, claims[0].VM.ID, claims[0].Token, time.Hour)
+	tx, err := s.CompleteClaimTx(ctx, claims[0].VM.ID, claims[0].Token)
 	if err != nil {
 		t.Fatalf("completion must survive observation traffic: %v", err)
 	}

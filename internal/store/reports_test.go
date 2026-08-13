@@ -9,8 +9,10 @@ import (
 	"github.com/sigtunnel/vm-control-plane/internal/store"
 )
 
-// reportFixture: registered host, placed + granted VM — ready for evidence.
+// reportFixture returns a store with a placed and granted VM, ready for
+// evidence.
 func reportFixture(t *testing.T) (*store.Store, store.Session, *store.VM, int64) {
+	t.Helper()
 	s, sess, vm, epoch := grantFixture(t)
 	if err := s.GrantExecution(context.Background(), sess, vm.ID, epoch); err != nil {
 		t.Fatal(err)
@@ -19,25 +21,25 @@ func reportFixture(t *testing.T) (*store.Store, store.Session, *store.VM, int64)
 }
 
 //nolint:unparam // rev varies as evidence scenarios grow
-func mkReport(sess store.Session, vm *store.VM, epoch, seq, rev int64, state string) store.Report {
+func mkReport(sess store.Session, vm *store.VM, epoch, seq, rev int64, state store.ObservedState) store.Report {
 	return store.Report{Session: sess, VMID: vm.ID, Epoch: epoch, Seq: seq, AppliedRevision: rev, State: state}
 }
 
-// TestReportOrdering: matrix rows 17 — (session_generation, report_seq)
+// TestReportOrdering: (session_generation, report_seq)
 // lexicographic. A delayed RUNNING cannot overwrite newer SHUTOFF drift
 // evidence; a fresh session's seq 1 beats the old session's seq 99.
 func TestReportOrdering(t *testing.T) {
 	s, sess, vm, epoch := reportFixture(t)
 	ctx := context.Background()
 
-	if err := s.ApplyReport(ctx, mkReport(sess, vm, epoch, 1, 1, "RUNNING")); err != nil {
+	if err := s.ApplyReport(ctx, mkReport(sess, vm, epoch, 1, 1, store.ObservedRunning)); err != nil {
 		t.Fatalf("seq1: %v", err)
 	}
-	if err := s.ApplyReport(ctx, mkReport(sess, vm, epoch, 3, 1, "SHUTOFF")); err != nil {
+	if err := s.ApplyReport(ctx, mkReport(sess, vm, epoch, 3, 1, store.ObservedShutoff)); err != nil {
 		t.Fatalf("seq3: %v", err)
 	}
 	// Delayed seq2 (same session): rejected — SHUTOFF evidence stands.
-	err := s.ApplyReport(ctx, mkReport(sess, vm, epoch, 2, 1, "RUNNING"))
+	err := s.ApplyReport(ctx, mkReport(sess, vm, epoch, 2, 1, store.ObservedRunning))
 	if !errors.Is(err, store.ErrStaleReport) {
 		t.Fatalf("delayed same-session report: want ErrStaleReport, got %v", err)
 	}
@@ -58,11 +60,11 @@ func TestReportOrdering(t *testing.T) {
 			newSess = x
 		}
 	}
-	if err := s.ApplyReport(ctx, mkReport(newSess, vm, epoch, 1, 1, "RUNNING")); err != nil {
+	if err := s.ApplyReport(ctx, mkReport(newSess, vm, epoch, 1, 1, store.ObservedRunning)); err != nil {
 		t.Fatalf("new-session seq1 must beat old-session seq3 lexicographically: %v", err)
 	}
 	// Delayed old-session seq99: rejected (stale generation).
-	err = s.ApplyReport(ctx, mkReport(sess, vm, epoch, 99, 1, "SHUTOFF"))
+	err = s.ApplyReport(ctx, mkReport(sess, vm, epoch, 99, 1, store.ObservedShutoff))
 	if !errors.Is(err, store.ErrStaleReport) {
 		t.Fatalf("old-session high seq: want ErrStaleReport, got %v", err)
 	}
@@ -73,7 +75,7 @@ func TestReportEpochFence(t *testing.T) {
 	s, sess, vm, epoch := reportFixture(t)
 	ctx := context.Background()
 
-	err := s.ApplyReport(ctx, mkReport(sess, vm, epoch+7, 1, 1, "RUNNING"))
+	err := s.ApplyReport(ctx, mkReport(sess, vm, epoch+7, 1, 1, store.ObservedRunning))
 	if !errors.Is(err, store.ErrStaleReport) {
 		t.Fatalf("wrong-epoch report: want ErrStaleReport, got %v", err)
 	}
@@ -122,7 +124,7 @@ func TestActionPacingDurable(t *testing.T) {
 }
 
 // TestTeardownReceiptIdempotent: receipts release capacity exactly once
-// and survive replay (matrix row 16 foundation).
+// and survive replay.
 func TestTeardownReceiptIdempotent(t *testing.T) {
 	s, _, vm, epoch := reportFixture(t)
 	ctx := context.Background()
@@ -147,12 +149,12 @@ func TestTeardownReceiptIdempotent(t *testing.T) {
 		t.Fatalf("capacity after receipts: %+v", n)
 	}
 	p, err := s.GetPlacement(ctx, nil, vm.ID, epoch)
-	if err != nil || p.State != "torn_down" {
+	if err != nil || p.State != store.PlacementTornDown {
 		t.Fatalf("ledger after receipts: %+v", p)
 	}
 }
 
-// TestTeardownReceiptRefusesLiveVM: batch-review finding [24] — a receipt
+// TestTeardownReceiptRefusesLiveVM: a receipt
 // for the CURRENT placement of a non-tombstoned VM is refused; it can never
 // tear down a live VM. A tombstoned VM (or a superseded epoch) is allowed.
 func TestTeardownReceiptRefusesLiveVM(t *testing.T) {
@@ -176,7 +178,7 @@ func TestTeardownReceiptRefusesLiveVM(t *testing.T) {
 		t.Fatalf("receipt for tombstoned vm: %v", err)
 	}
 	p, err := s.GetPlacement(ctx, nil, vm.ID, epoch)
-	if err != nil || p.State != "torn_down" {
+	if err != nil || p.State != store.PlacementTornDown {
 		t.Fatalf("ledger after legitimate receipt: %v %+v", err, p)
 	}
 }

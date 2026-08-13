@@ -125,7 +125,7 @@ func TestLoadRejectsInvalid(t *testing.T) {
 }
 
 // TestManifestMatchesDoc: the rendered manifest body must appear verbatim in
-// docs/failpoints.md — the two cannot drift (finding [42]).
+// docs/failpoints.md — the two cannot drift.
 func TestManifestMatchesDoc(t *testing.T) {
 	doc, err := os.ReadFile(filepath.Join("..", "..", "docs", "failpoints.md"))
 	if err != nil {

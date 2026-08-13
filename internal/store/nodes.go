@@ -13,18 +13,18 @@ import (
 
 // Node is a logical scheduling partition served by a host daemon.
 type Node struct {
-	Name              string
-	HostID            string
-	SessionID         *uuid.UUID
-	SessionGeneration int64
-	LeaseExpiresAt    *time.Time
-	CPUs              int64
-	MemoryBytes       int64
-	DiskBytes         int64
-	ReservedCPUs      int64
-	ReservedMemory    int64
-	ReservedDisk      int64
-	Labels            map[string]string
+	Name                string
+	HostID              string
+	SessionID           *uuid.UUID
+	SessionGeneration   int64
+	LeaseExpiresAt      *time.Time
+	CPUs                int64
+	MemoryBytes         int64
+	DiskBytes           int64
+	ReservedCPUs        int64
+	ReservedMemoryBytes int64
+	ReservedDiskBytes   int64
+	Labels              map[string]string
 }
 
 // HostCapacity is what the daemon holding the host lock reports.
@@ -53,14 +53,16 @@ type Session struct {
 
 var (
 	// ErrQuotaExceedsHost: the sum of logical-node quotas does not fit the
-	// host allocatable (no overcommit in v0.1 — G4).
+	// host allocatable (no overcommit in v0.1).
 	ErrQuotaExceedsHost = errors.New("store: logical node quotas exceed host allocatable")
-	// ErrHostMismatch: a node identity tried to rebind to a different host
-	// (rejected while any exposure could exist — §6.3).
+	// ErrHostMismatch: a node identity tried to rebind to a different host.
 	ErrHostMismatch = errors.New("store: node is bound to a different host_id")
 	// ErrStaleSession: heartbeat or report from a superseded session.
 	ErrStaleSession = errors.New("store: stale node session")
 )
+
+const nodeColumns = `name, host_id, session_id, session_generation, lease_expires_at,
+	cpus, memory_bytes, disk_bytes, reserved_cpus, reserved_memory, reserved_disk, labels`
 
 // RegisterHost registers the physical host and its logical nodes in one
 // transaction, validating that quota sums fit host allocatable, minting a
@@ -86,9 +88,9 @@ func (s *Store) RegisterHost(ctx context.Context, hc HostCapacity, quotas []Node
 
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO hosts (host_id, cpus, memory_bytes, disk_bytes)
-		VALUES ($1,$2,$3,$4)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (host_id) DO UPDATE
-		SET cpus=$2, memory_bytes=$3, disk_bytes=$4, updated_at=now()`,
+		SET cpus = $2, memory_bytes = $3, disk_bytes = $4, updated_at = now()`,
 		hc.HostID, hc.CPUs, hc.MemoryBytes, hc.DiskBytes); err != nil {
 		return nil, err
 	}
@@ -111,7 +113,7 @@ func (s *Store) RegisterHost(ctx context.Context, hc HostCapacity, quotas []Node
 				session_id = gen_random_uuid(),
 				session_generation = nodes.session_generation + 1,
 				lease_expires_at = clock_timestamp() + $3,
-				cpus=$4, memory_bytes=$5, disk_bytes=$6, labels=$7,
+				cpus = $4, memory_bytes = $5, disk_bytes = $6, labels = $7,
 				updated_at = now()
 			WHERE nodes.host_id = $2
 			RETURNING session_id, session_generation`,
@@ -132,13 +134,13 @@ func (s *Store) RegisterHost(ctx context.Context, hc HostCapacity, quotas []Node
 	return sessions, nil
 }
 
-// Heartbeat extends a node lease, guarded by the session — a superseded
+// Heartbeat extends a node lease, guarded by the session. A superseded
 // daemon's heartbeat is rejected, which is its signal to halt substrate
-// actions (§6.3).
+// actions.
 func (s *Store) Heartbeat(ctx context.Context, sess Session, lease time.Duration) error {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE nodes SET lease_expires_at = clock_timestamp() + $4, updated_at = now()
-		WHERE name=$1 AND session_id=$2 AND session_generation=$3`,
+		WHERE name = $1 AND session_id = $2 AND session_generation = $3`,
 		sess.NodeName, sess.SessionID, sess.Generation, lease)
 	if err != nil {
 		return err
@@ -153,9 +155,7 @@ func (s *Store) Heartbeat(ctx context.Context, sess Session, lease time.Duration
 // input; the reservation statement rechecks lease validity atomically).
 func (s *Store) ReadyNodes(ctx context.Context) ([]*Node, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT name, host_id, session_id, session_generation, lease_expires_at,
-			cpus, memory_bytes, disk_bytes, reserved_cpus, reserved_memory,
-			reserved_disk, labels
+		SELECT `+nodeColumns+`
 		FROM nodes WHERE lease_expires_at >= clock_timestamp()
 		ORDER BY name`)
 	if err != nil {
@@ -176,9 +176,7 @@ func (s *Store) ReadyNodes(ctx context.Context) ([]*Node, error) {
 // GetNode fetches one node regardless of lease state.
 func (s *Store) GetNode(ctx context.Context, name string) (*Node, error) {
 	row := s.pool.QueryRow(ctx, `
-		SELECT name, host_id, session_id, session_generation, lease_expires_at,
-			cpus, memory_bytes, disk_bytes, reserved_cpus, reserved_memory,
-			reserved_disk, labels
+		SELECT `+nodeColumns+`
 		FROM nodes WHERE name = $1`, name)
 	n, err := scanNode(row)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -194,7 +192,7 @@ func scanNode(row pgx.Row) (*Node, error) {
 	)
 	if err := row.Scan(&n.Name, &n.HostID, &n.SessionID, &n.SessionGeneration,
 		&n.LeaseExpiresAt, &n.CPUs, &n.MemoryBytes, &n.DiskBytes,
-		&n.ReservedCPUs, &n.ReservedMemory, &n.ReservedDisk, &labels); err != nil {
+		&n.ReservedCPUs, &n.ReservedMemoryBytes, &n.ReservedDiskBytes, &labels); err != nil {
 		return nil, err
 	}
 	if err := json.Unmarshal(labels, &n.Labels); err != nil {

@@ -15,7 +15,7 @@ type Placement struct {
 	Epoch    int64
 	NodeName string
 	HostID   string
-	State    string // assigned | granted | torn_down
+	State    PlacementState
 }
 
 // Resources is a reservation request.
@@ -33,7 +33,7 @@ var ErrPlacementPreconditions = errors.New("store: placement preconditions chang
 var (
 	// ErrNoCapacity: the all-predicate conditional reservation matched zero
 	// rows — capacity, labels, or lease changed between filter and commit.
-	// The caller tries the next candidate (D6).
+	// The caller tries the next candidate.
 	ErrNoCapacity = errors.New("store: reservation predicates failed (capacity/lease)")
 	// ErrActivePlacementExists: the partial unique index refused a second
 	// active placement — the schema-level fence against double placement.
@@ -53,17 +53,17 @@ var (
 //
 // Everything commits or rolls back with the claim guard.
 func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *Node, res Resources) (epoch int64, err error) {
-	// Recheck the placement preconditions UNDER the row lock, not from the
+	// Recheck the placement preconditions under the row lock, not from the
 	// claim snapshot: a tombstone or phase change arriving after the claim
-	// must abort placement (batch-review finding [3]).
+	// must abort placement.
 	var (
 		currentEpoch int64
 		deleted      bool
-		phase        string
+		phase        Phase
 	)
 	if err := tx.QueryRow(ctx,
 		`SELECT placement_epoch, deleted_at IS NOT NULL, phase
-		 FROM vms WHERE id=$1 FOR UPDATE`, vmID,
+		 FROM vms WHERE id = $1 FOR UPDATE`, vmID,
 	).Scan(&currentEpoch, &deleted, &phase); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, ErrNotFound
@@ -73,7 +73,7 @@ func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *No
 	if deleted {
 		return 0, fmt.Errorf("%w: vm is tombstoned", ErrPlacementPreconditions)
 	}
-	if phase != "PENDING" {
+	if phase != PhasePending {
 		return 0, fmt.Errorf("%w: phase %s", ErrPlacementPreconditions, phase)
 	}
 	epoch = currentEpoch + 1
@@ -99,14 +99,14 @@ func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *No
 
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO reservations (vm_id, epoch, node_name, cpus, memory_bytes, disk_bytes)
-		VALUES ($1,$2,$3,$4,$5,$6)`,
+		VALUES ($1, $2, $3, $4, $5, $6)`,
 		vmID, epoch, node.Name, res.CPUs, res.MemoryBytes, res.DiskBytes); err != nil {
 		return 0, err
 	}
 
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO placements (vm_id, epoch, node_name, host_id, state)
-		VALUES ($1,$2,$3,$4,'assigned')`,
+		VALUES ($1, $2, $3, $4,'assigned')`,
 		vmID, epoch, node.Name, node.HostID); err != nil {
 		if isUniqueViolation(err) {
 			return 0, fmt.Errorf("%w (vm %s)", ErrActivePlacementExists, vmID)
@@ -115,19 +115,19 @@ func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *No
 	}
 
 	if _, err := tx.Exec(ctx, `
-		UPDATE vms SET node_name=$2, placement_epoch=$3, phase='PROVISIONING',
+		UPDATE vms SET node_name = $2, placement_epoch = $3, phase = 'PROVISIONING',
 			resource_version = resource_version + 1, updated_at = now()
-		WHERE id=$1`,
+		WHERE id = $1`,
 		vmID, node.Name, epoch); err != nil {
 		return 0, err
 	}
 	return epoch, nil
 }
 
-// ReleasePlacement tears down a placement's reservation and marks the
-// ledger row torn_down — idempotent: the DELETE ... RETURNING drives the
-// counter decrement, so a double release adjusts nothing (D6). Runs inside
-// the caller's guarded transaction (unassign or finalization).
+// ReleasePlacement tears down a placement's reservation and marks the ledger
+// row torn_down. It is idempotent: the DELETE ... RETURNING drives the counter
+// decrement, so a double release adjusts nothing. Runs inside the caller's
+// guarded transaction (unassign or finalization).
 func (s *Store) ReleasePlacement(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, epoch int64) error {
 	var (
 		node             string
@@ -135,7 +135,7 @@ func (s *Store) ReleasePlacement(ctx context.Context, tx pgx.Tx, vmID uuid.UUID,
 		reservationFound = true
 	)
 	err := tx.QueryRow(ctx, `
-		DELETE FROM reservations WHERE vm_id=$1 AND epoch=$2
+		DELETE FROM reservations WHERE vm_id = $1 AND epoch = $2
 		RETURNING node_name, cpus, memory_bytes, disk_bytes`,
 		vmID, epoch).Scan(&node, &cpus, &mem, &disk)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -158,7 +158,7 @@ func (s *Store) ReleasePlacement(ctx context.Context, tx pgx.Tx, vmID uuid.UUID,
 	}
 
 	if _, err := tx.Exec(ctx, `
-		UPDATE placements SET state='torn_down' WHERE vm_id=$1 AND epoch=$2`,
+		UPDATE placements SET state = 'torn_down' WHERE vm_id = $1 AND epoch = $2`,
 		vmID, epoch); err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (s *Store) GetPlacement(ctx context.Context, q querier, vmID uuid.UUID, epo
 	var p Placement
 	err := q.QueryRow(ctx, `
 		SELECT vm_id, epoch, node_name, host_id, state
-		FROM placements WHERE vm_id=$1 AND epoch=$2`, vmID, epoch).
+		FROM placements WHERE vm_id = $1 AND epoch = $2`, vmID, epoch).
 		Scan(&p.VMID, &p.Epoch, &p.NodeName, &p.HostID, &p.State)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound

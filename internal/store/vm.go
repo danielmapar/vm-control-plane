@@ -1,13 +1,15 @@
 // Package store is the single source of truth shared by the API and the
-// reconciler — they never talk to each other directly (ADR-0001/0002). All
-// row mutations compare-and-set resource_version: a stale writer loses
-// cleanly instead of silently overwriting.
+// reconciler; they never talk to each other directly, only through this
+// package. It is the only package that runs SQL. Every row mutation
+// compare-and-sets resource_version, so a stale writer loses cleanly instead
+// of silently overwriting.
 package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,13 +34,13 @@ type VM struct {
 	Name            string
 	Spec            *vmcv1.VmSpec
 	Status          *vmcv1.VmStatus
-	Phase           string
+	Phase           Phase
 	SpecGeneration  int64
 	ResourceVersion int64
 	DesiredRevision int64
 	NodeName        *string
 	PlacementEpoch  int64
-	ObservedState   string
+	ObservedState   ObservedState
 	AppliedRevision int64
 	DeletedAt       *time.Time
 	CreatedAt       time.Time
@@ -50,13 +52,17 @@ type Store struct {
 	pool *pgxpool.Pool
 }
 
+// New returns a Store backed by pool.
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
-// Pool exposes the underlying pool for transaction composition by higher
-// layers that must combine repositories in one transaction.
+// Pool exposes the underlying pool so higher layers can open a transaction and
+// combine several store methods atomically.
 func (s *Store) Pool() *pgxpool.Pool { return s.pool }
 
-// querier lets repository methods run inside or outside a transaction.
+// querier is the subset of pgx shared by *pgxpool.Pool and pgx.Tx. Methods
+// that accept a querier can compose inside a caller's transaction (pass the
+// tx) or run standalone (pass nil, which falls back to the pool); methods that
+// manage their own transaction take no querier and use the pool directly.
 type querier interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
@@ -64,21 +70,38 @@ type querier interface {
 }
 
 var (
-	pj  = protojson.MarshalOptions{UseProtoNames: false}
-	pju = protojson.UnmarshalOptions{DiscardUnknown: true}
+	protoJSON          = protojson.MarshalOptions{UseProtoNames: false}
+	protoJSONUnmarshal = protojson.UnmarshalOptions{DiscardUnknown: true}
 )
 
-const vmColumns = `id, name, spec, status, phase, spec_generation,
-	resource_version, desired_revision, node_name, placement_epoch,
-	observed_state, applied_revision, deleted_at, created_at, updated_at`
+// vmColumnNames is the single source of truth for the vms column order. Every
+// SELECT list and every Scan destination derives from it, so the query and the
+// scan can never drift apart.
+var vmColumnNames = []string{
+	"id", "name", "spec", "status", "phase", "spec_generation",
+	"resource_version", "desired_revision", "node_name", "placement_epoch",
+	"observed_state", "applied_revision", "deleted_at", "created_at", "updated_at",
+}
 
-// CreateVM inserts a new VM row (phase PENDING, generation 1, revision 1)
-// using the given querier (pass a tx to compose with operation insertion).
+// vmColumns is vmColumnNames as a SELECT list.
+var vmColumns = strings.Join(vmColumnNames, ", ")
+
+// prefixedVMColumns is vmColumns with each column qualified by a table alias.
+func prefixedVMColumns(alias string) string {
+	qualified := make([]string, len(vmColumnNames))
+	for i, col := range vmColumnNames {
+		qualified[i] = alias + "." + col
+	}
+	return strings.Join(qualified, ", ")
+}
+
+// CreateVM inserts a new VM row (phase PENDING, generation 1, revision 1).
+// Pass a tx to compose it with the operation insertion in one transaction.
 func (s *Store) CreateVM(ctx context.Context, q querier, id uuid.UUID, name string, spec *vmcv1.VmSpec) (*VM, error) {
 	if q == nil {
 		q = s.pool
 	}
-	specJSON, err := pj.Marshal(spec)
+	specJSON, err := protoJSON.Marshal(spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal spec: %w", err)
 	}
@@ -94,8 +117,8 @@ func (s *Store) CreateVM(ctx context.Context, q querier, id uuid.UUID, name stri
 	return vm, err
 }
 
-// GetVM fetches by name. Tombstoned rows are returned (deletion is a state,
-// not an absence, until teardown finalizes).
+// GetVM fetches by name. Tombstoned rows are returned: deletion is a state,
+// not an absence, until teardown finalizes.
 func (s *Store) GetVM(ctx context.Context, q querier, name string) (*VM, error) {
 	if q == nil {
 		q = s.pool
@@ -113,14 +136,21 @@ func (s *Store) GetVMByID(ctx context.Context, q querier, id uuid.UUID) (*VM, er
 	return scanVM(row)
 }
 
+// Page limits shared by the store and the API layer, so the clamp is
+// single-sourced rather than duplicated per package.
+const (
+	DefaultPageLimit = 100
+	MaxPageLimit     = 500
+)
+
 // ListVMs returns rows ordered by name after the given name (keyset
 // pagination; empty after = first page).
 func (s *Store) ListVMs(ctx context.Context, q querier, after string, limit int) ([]*VM, error) {
 	if q == nil {
 		q = s.pool
 	}
-	if limit <= 0 || limit > 500 {
-		limit = 100
+	if limit <= 0 || limit > MaxPageLimit {
+		limit = DefaultPageLimit
 	}
 	rows, err := q.Query(ctx, `
 		SELECT `+vmColumns+` FROM vms
@@ -140,22 +170,22 @@ func (s *Store) ListVMs(ctx context.Context, q querier, after string, limit int)
 	return out, rows.Err()
 }
 
-// UpdateVMStatus writes status+phase under a resource_version CAS. The
+// UpdateVMStatus writes status and phase under a resource_version CAS. The
 // caller passes the version it read; a concurrent writer makes this return
-// ErrStaleWrite, and the caller re-reads and recomputes (level-triggered
-// loops make that safe by construction).
-func (s *Store) UpdateVMStatus(ctx context.Context, q querier, id uuid.UUID, expectVersion int64, phase string, status *vmcv1.VmStatus) (*VM, error) {
+// ErrStaleWrite, and the caller re-reads and recomputes. Level-triggered loops
+// make that safe by construction.
+func (s *Store) UpdateVMStatus(ctx context.Context, q querier, id uuid.UUID, expectVersion int64, phase Phase, status *vmcv1.VmStatus) (*VM, error) {
 	if q == nil {
 		q = s.pool
 	}
-	statusJSON, err := pj.Marshal(status)
+	statusJSON, err := protoJSON.Marshal(status)
 	if err != nil {
 		return nil, fmt.Errorf("marshal status: %w", err)
 	}
 	row := q.QueryRow(ctx, `
-		UPDATE vms SET status=$3, phase=$4,
+		UPDATE vms SET status = $3, phase = $4,
 			resource_version = resource_version + 1, updated_at = now()
-		WHERE id=$1 AND resource_version=$2
+		WHERE id = $1 AND resource_version = $2
 		RETURNING `+vmColumns,
 		id, expectVersion, statusJSON, phase)
 	vm, err := scanVM(row)
@@ -165,11 +195,10 @@ func (s *Store) UpdateVMStatus(ctx context.Context, q querier, id uuid.UUID, exp
 	return vm, err
 }
 
-// TombstoneVM marks deletion: sets deleted_at and bumps the desired
-// revision — deletion is one more desired state, driven through the same
-// reconciliation machinery (ADR-0003). The API owns ONLY the tombstone;
-// phase belongs to the reconciler (plan §6 writer table — PR 4-8 review
-// triage). Set-once: a replay against an already-tombstoned row returns it
+// TombstoneVM marks deletion: it sets deleted_at and bumps the desired
+// revision, so deletion becomes one more desired state driven through the same
+// reconciliation machinery. The API owns only the tombstone; the reconciler
+// owns phase. Set-once: a replay against an already-tombstoned row returns it
 // unchanged, with no version bump and no CAS conflict.
 func (s *Store) TombstoneVM(ctx context.Context, q querier, id uuid.UUID, expectVersion int64) (*VM, error) {
 	if q == nil {
@@ -182,7 +211,7 @@ func (s *Store) TombstoneVM(ctx context.Context, q querier, id uuid.UUID, expect
 			resource_version = resource_version + 1,
 			next_attempt_at = clock_timestamp(),
 			updated_at = now()
-		WHERE id=$1 AND resource_version=$2 AND deleted_at IS NULL
+		WHERE id = $1 AND resource_version = $2 AND deleted_at IS NULL
 		RETURNING `+vmColumns,
 		id, expectVersion)
 	vm, err := scanVM(row)
@@ -203,26 +232,26 @@ func (s *Store) TombstoneVM(ctx context.Context, q querier, id uuid.UUID, expect
 	return nil, fmt.Errorf("tombstone: unexpected zero-row update for vm %s", id)
 }
 
-// UpdateVMPower rewrites the ONLY v0.1-mutable spec field under the CAS:
-// bumps spec_generation and desired_revision, wakes the queue. The caller
-// passes the whole updated spec (power flipped) — protojson is rewritten
-// atomically with the version bump.
+// UpdateVMPower rewrites the spec's power field (the only mutable spec field in
+// v0.1) under the CAS: it bumps spec_generation and desired_revision and wakes
+// the queue. The caller passes the whole updated spec (power flipped); the
+// protojson blob is rewritten atomically with the version bump.
 func (s *Store) UpdateVMPower(ctx context.Context, q querier, id uuid.UUID, expectVersion int64, spec *vmcv1.VmSpec) (*VM, error) {
 	if q == nil {
 		q = s.pool
 	}
-	specJSON, err := pj.Marshal(spec)
+	specJSON, err := protoJSON.Marshal(spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal spec: %w", err)
 	}
 	row := q.QueryRow(ctx, `
-		UPDATE vms SET spec=$3,
+		UPDATE vms SET spec = $3,
 			spec_generation = spec_generation + 1,
 			desired_revision = desired_revision + 1,
 			next_attempt_at = clock_timestamp(),
 			resource_version = resource_version + 1,
 			updated_at = now()
-		WHERE id=$1 AND resource_version=$2 AND deleted_at IS NULL
+		WHERE id = $1 AND resource_version = $2 AND deleted_at IS NULL
 		RETURNING `+vmColumns,
 		id, expectVersion, specJSON)
 	vm, err := scanVM(row)
@@ -232,11 +261,18 @@ func (s *Store) UpdateVMPower(ctx context.Context, q querier, id uuid.UUID, expe
 	return vm, err
 }
 
-// staleOrMissing disambiguates a zero-row CAS UPDATE: stale version vs
+// DeleteVMRow removes a VM row inside the caller's transaction. It is the final
+// step of finalization, once teardown is proven.
+func (s *Store) DeleteVMRow(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+	_, err := tx.Exec(ctx, `DELETE FROM vms WHERE id = $1`, id)
+	return err
+}
+
+// staleOrMissing disambiguates a zero-row CAS update: stale version vs a
 // genuinely absent row.
 func staleOrMissing(ctx context.Context, q querier, id uuid.UUID) error {
 	var exists bool
-	if err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM vms WHERE id=$1)`, id).Scan(&exists); err != nil {
+	if err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM vms WHERE id = $1)`, id).Scan(&exists); err != nil {
 		return err
 	}
 	if exists {
@@ -245,31 +281,48 @@ func staleOrMissing(ctx context.Context, q querier, id uuid.UUID) error {
 	return ErrNotFound
 }
 
+// vmScanDest returns the Scan destinations for vmColumnNames, in order. Both
+// scanVM and scanClaimRow build their Scan call from it so the destination
+// order stays locked to the column order.
+func vmScanDest(vm *VM, specJSON, statusJSON *[]byte) []any {
+	return []any{
+		&vm.ID, &vm.Name, specJSON, statusJSON, &vm.Phase,
+		&vm.SpecGeneration, &vm.ResourceVersion, &vm.DesiredRevision,
+		&vm.NodeName, &vm.PlacementEpoch, &vm.ObservedState, &vm.AppliedRevision,
+		&vm.DeletedAt, &vm.CreatedAt, &vm.UpdatedAt,
+	}
+}
+
+// decodeVMBlobs unmarshals the spec/status protojson columns into vm.
+func decodeVMBlobs(vm *VM, specJSON, statusJSON []byte) error {
+	vm.Spec = &vmcv1.VmSpec{}
+	if err := protoJSONUnmarshal.Unmarshal(specJSON, vm.Spec); err != nil {
+		return fmt.Errorf("unmarshal spec: %w", err)
+	}
+	vm.Status = &vmcv1.VmStatus{}
+	if len(statusJSON) > 0 && string(statusJSON) != "{}" {
+		if err := protoJSONUnmarshal.Unmarshal(statusJSON, vm.Status); err != nil {
+			return fmt.Errorf("unmarshal status: %w", err)
+		}
+	}
+	return nil
+}
+
 func scanVM(row pgx.Row) (*VM, error) {
 	var (
 		vm         VM
 		specJSON   []byte
 		statusJSON []byte
 	)
-	err := row.Scan(&vm.ID, &vm.Name, &specJSON, &statusJSON, &vm.Phase,
-		&vm.SpecGeneration, &vm.ResourceVersion, &vm.DesiredRevision,
-		&vm.NodeName, &vm.PlacementEpoch, &vm.ObservedState, &vm.AppliedRevision,
-		&vm.DeletedAt, &vm.CreatedAt, &vm.UpdatedAt)
+	err := row.Scan(vmScanDest(&vm, &specJSON, &statusJSON)...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	vm.Spec = &vmcv1.VmSpec{}
-	if err := pju.Unmarshal(specJSON, vm.Spec); err != nil {
-		return nil, fmt.Errorf("unmarshal spec: %w", err)
-	}
-	vm.Status = &vmcv1.VmStatus{}
-	if len(statusJSON) > 0 && string(statusJSON) != "{}" {
-		if err := pju.Unmarshal(statusJSON, vm.Status); err != nil {
-			return nil, fmt.Errorf("unmarshal status: %w", err)
-		}
+	if err := decodeVMBlobs(&vm, specJSON, statusJSON); err != nil {
+		return nil, err
 	}
 	return &vm, nil
 }

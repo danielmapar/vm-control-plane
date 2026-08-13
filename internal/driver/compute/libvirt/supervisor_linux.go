@@ -1,9 +1,9 @@
 //go:build linux
 
 // Package libvirt is the real compute driver. The connection supervisor
-// exists because go-libvirt's RPCs take no context (plan D8): a hung call
+// exists because go-libvirt's RPCs take no context: a hung call
 // can only be abandoned by closing the transport, after which the client
-// must reconnect and RE-OBSERVE before retrying an ambiguous mutation. The
+// must reconnect and re-observe before retrying an ambiguous mutation. The
 // M0 probe (scripts/spike/golibvirt-probe) demonstrates the exact failure
 // this is designed around.
 package libvirt

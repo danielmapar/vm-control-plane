@@ -1,4 +1,4 @@
-// Package scheduler is the pure filter/score stage (plan D6). It proposes
+// Package scheduler is the pure filter/score stage. It proposes
 // candidates; the store's PlaceVM makes the decision real by rechecking
 // every hard predicate atomically inside the claim-guarded transaction —
 // this package can therefore be simple, and wrong-by-staleness safely.
@@ -31,7 +31,7 @@ func FromSpec(spec *vmcv1.VmSpec) Request {
 
 // Candidates filters Ready nodes (capacity headroom, label constraints)
 // and orders them by least-allocated spread. The returned order is a
-// PROPOSAL: PlaceVM's conditional reservation is the authority, and a
+// proposal: PlaceVM's conditional reservation is the authority, and a
 // zero-row result there simply advances to the next candidate.
 func Candidates(nodes []*store.Node, req Request) []*store.Node {
 	var fit []*store.Node
@@ -40,8 +40,8 @@ func Candidates(nodes []*store.Node, req Request) []*store.Node {
 			continue
 		}
 		if n.ReservedCPUs+req.Resources.CPUs > n.CPUs ||
-			n.ReservedMemory+req.Resources.MemoryBytes > n.MemoryBytes ||
-			n.ReservedDisk+req.Resources.DiskBytes > n.DiskBytes {
+			n.ReservedMemoryBytes+req.Resources.MemoryBytes > n.MemoryBytes ||
+			n.ReservedDiskBytes+req.Resources.DiskBytes > n.DiskBytes {
 			continue
 		}
 		fit = append(fit, n)
@@ -56,10 +56,10 @@ func Candidates(nodes []*store.Node, req Request) []*store.Node {
 // utilizations, so one saturated dimension cannot hide behind two idle ones.
 func allocRatio(n *store.Node) float64 {
 	r := ratio(n.ReservedCPUs, n.CPUs)
-	if m := ratio(n.ReservedMemory, n.MemoryBytes); m > r {
+	if m := ratio(n.ReservedMemoryBytes, n.MemoryBytes); m > r {
 		r = m
 	}
-	if d := ratio(n.ReservedDisk, n.DiskBytes); d > r {
+	if d := ratio(n.ReservedDiskBytes, n.DiskBytes); d > r {
 		r = d
 	}
 	return r

@@ -141,7 +141,7 @@ func TestGrantCachedPerEpoch(t *testing.T) {
 }
 
 // TestGrantDeniedNoSubstrateAction: a denied grant means the placement is
-// not ours — the driver must never be touched (matrix row 7).
+// not ours — the driver must never be touched.
 func TestGrantDeniedNoSubstrateAction(t *testing.T) {
 	fc := newFakeClient()
 	fc.grantDenied = "epoch-superseded"
@@ -162,7 +162,7 @@ func TestGrantDeniedNoSubstrateAction(t *testing.T) {
 }
 
 // TestHaltStopsNewActions: a stale session (replacement daemon) halts the
-// executor before any new substrate mutation (matrix row 10).
+// executor before any new substrate mutation.
 func TestHaltStopsNewActions(t *testing.T) {
 	fc := newFakeClient()
 	drv := fake.New()
@@ -222,8 +222,8 @@ func TestEnsureFailureReportsActionFailed(t *testing.T) {
 	}
 }
 
-// TestHostLockExclusive: one daemon per host; stale locks from dead pids
-// are stolen, live ones are not.
+// TestHostLockExclusive: a held host lock blocks a second acquirer, and once
+// released the lock can be acquired again.
 func TestHostLockExclusive(t *testing.T) {
 	dir := t.TempDir()
 	unlock, err := acquireHostLock(dir)

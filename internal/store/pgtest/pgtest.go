@@ -1,6 +1,6 @@
 // Package pgtest runs one embedded PostgreSQL per test package and hands
 // each test its own database. The configuration is deliberate, not default
-// (plan D11, all verified on the Windows dev machine):
+// (all verified on the Windows dev machine):
 //
 //   - pinned PostgreSQL major version, matching CI — no floating majors;
 //   - UTF-8 + locale C: Windows initdb otherwise defaults to WIN1252 and
@@ -74,7 +74,7 @@ func Main(m *testing.M) int {
 
 	// The :0 probe listener closes before postgres binds — another parallel
 	// package can grab the port in between. Retry with a fresh port on bind
-	// failure (PR 4-8 review triage).
+	// failure.
 	started := false
 	for attempt := 0; attempt < 3 && !started; attempt++ {
 		pg = embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().

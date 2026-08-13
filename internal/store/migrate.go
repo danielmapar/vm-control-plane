@@ -19,7 +19,7 @@ var migrationFS embed.FS
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	// One dedicated connection holds the advisory lock for the whole run:
 	// concurrent processes (api + controller roles starting together)
-	// serialize here instead of racing DDL (PR 4-8 triage).
+	// serialize here instead of racing DDL.
 	lockConn, err := pool.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("migration lock conn: %w", err)
@@ -30,9 +30,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 	defer func() { _, _ = lockConn.Exec(context.WithoutCancel(ctx), `SELECT pg_advisory_unlock(727274)`) }()
 
-	// Run ALL DDL through the LOCKED connection, not the pool — otherwise a
+	// Run all DDL through the locked connection, not the pool — otherwise a
 	// pool with MaxConns=1 deadlocks (the lock holds the only connection)
-	// and concurrent waiters can exhaust a small pool (batch-review [41]).
+	// and concurrent waiters can exhaust a small pool.
 	if _, err := lockConn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		filename text PRIMARY KEY,
 		applied_at timestamptz NOT NULL DEFAULT now()
@@ -57,7 +57,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		}
 		var applied bool
 		if err := tx.QueryRow(ctx,
-			`SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename=$1)`, name,
+			`SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename = $1)`, name,
 		).Scan(&applied); err != nil {
 			_ = tx.Rollback(ctx)
 			return err

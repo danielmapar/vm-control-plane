@@ -1,20 +1,20 @@
-// Package seed builds cloud-init NoCloud seed ISOs in pure Go (plan D9):
+// Package seed builds cloud-init NoCloud seed ISOs in pure Go:
 // no genisoimage/cloud-localds dependency, unit-testable on Windows.
 //
 // NoCloud contract (cloudinit NoCloud datasource): a volume labeled
 // "CIDATA" carrying user-data, meta-data, and optionally network-config.
 // The pieces this package gets right on purpose:
 //
-//   - meta-data carries a STABLE instance-id (the VM UUID): cloud-init
+//   - meta-data carries a stable instance-id (the VM UUID): cloud-init
 //     re-runs first-boot config when the instance-id changes, so the id
 //     must not change across reboots or re-ensures;
 //   - user-data installs the SSH key and disables password auth — without
 //     authorized keys the boot-to-SSH acceptance test has nothing to
-//     authenticate with (v4 review finding);
-//   - network-config v2 matches interfaces BY MAC (deterministic, from
+//     authenticate with;
+//   - network-config v2 matches interfaces by MAC (deterministic, from
 //     domainxml.MAC) — enumeration order is not a safe identifier; the
 //     management NIC uses DHCP and owns the default route, the tenant NIC
-//     is static with NO default route (the management/tenant split).
+//     is static with no default route (the management/tenant split).
 package seed
 
 import (
@@ -101,8 +101,8 @@ func networkConfig(cfg Config) string {
 	fmt.Fprintf(&b, "    match: {macaddress: \"%s\"}\n", cfg.MgmtMAC)
 	b.WriteString("    set-name: mgmt0\n    dhcp4: true\n")
 	if cfg.TenantMAC != "" {
-		// Tenant: static, NO default route — tenant networks carry tenant
-		// traffic, never the guest's way out (D9).
+		// Tenant: static, no default route — tenant networks carry tenant
+		// traffic, never the guest's way out.
 		b.WriteString("  tenant:\n")
 		fmt.Fprintf(&b, "    match: {macaddress: \"%s\"}\n", cfg.TenantMAC)
 		b.WriteString("    set-name: tenant0\n    dhcp4: false\n")

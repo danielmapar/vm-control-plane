@@ -19,7 +19,7 @@ func TestEpochQualifiedPaths(t *testing.T) {
 		t.Fatalf("disk path: %s, want %s", disk, want)
 	}
 	// Epoch 4's artifacts are DIFFERENT paths — an old epoch's late
-	// teardown lexically cannot name a new epoch's files (matrix row 14).
+	// teardown lexically cannot name a new epoch's files.
 	if l.RootDisk("node-a", vmID, 4) == disk {
 		t.Fatal("epochs must not share paths")
 	}

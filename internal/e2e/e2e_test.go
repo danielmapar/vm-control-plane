@@ -1,4 +1,4 @@
-// Package e2e_test is the BLACK-BOX harness (plan §10): real binaries,
+// Package e2e_test is the black-box harness: real binaries,
 // real processes, real kill -9. The in-process tests elsewhere step through
 // barriers; these prove the same claims with nothing shared but the
 // database and the wire.
@@ -242,7 +242,7 @@ func TestE2ECreateToRunningAcrossNodes(t *testing.T) {
 	}
 }
 
-// TestE2EControllerExternalKillRecovery: matrix rows 3/4 black-box with a
+// TestE2EControllerExternalKillRecovery: black-box with a
 // GENUINE external SIGKILL (not a voluntary exit). The controller pauses at
 // a failpoint after claiming the VM; the harness detects the claim in the
 // database and calls Process.Kill(); a clean restart converges the VM with
@@ -304,7 +304,7 @@ func TestE2EControllerExternalKillRecovery(t *testing.T) {
 	}
 }
 
-// TestE2EControllerCrashRecovery: matrix rows 3/4 with a voluntary exit-137
+// TestE2EControllerCrashRecovery: recovery from a voluntary exit-137
 // crash (a controlled crash, not an external signal — see the external-kill
 // test above for a genuine SIGKILL). Proves restart-rescan recovery.
 func TestE2EControllerCrashRecovery(t *testing.T) {
@@ -399,7 +399,7 @@ func TestE2EDeleteLifecycle(t *testing.T) {
 	}
 }
 
-// TestE2EControllerCrashBeforeFinalization: matrix row 16 black-box — the
+// TestE2EControllerCrashBeforeFinalization: black-box — the
 // controller crashes at the finalization boundary (teardown receipt already
 // committed, row removal pending); a clean restart finalizes exactly once
 // and the DELETE operation completes. (Agent-side unlink/fsync/receipt crash

@@ -70,7 +70,7 @@ func TestResyncDetectsAndRepairsDrift(t *testing.T) {
 	}
 }
 
-// TestHeartbeatStaleSessionHalts: matrix row 10 — a FailedPrecondition
+// TestHeartbeatStaleSessionHalts: a FailedPrecondition
 // heartbeat (replacement daemon registered) halts new substrate actions.
 func TestHeartbeatStaleSessionHalts(t *testing.T) {
 	fc := newFakeClient()
@@ -98,7 +98,7 @@ func TestHeartbeatStaleSessionHalts(t *testing.T) {
 	}
 }
 
-// TestTombstoneNotResurrectedByResync: batch-review finding [27] — after a
+// TestTombstoneNotResurrectedByResync: after a
 // delete, the resync loop must NEVER redispatch the old intent. The
 // tombstone removes the working-set entry, so Observe sees ABSENT and does
 // nothing; the domain stays gone across multiple resync periods.

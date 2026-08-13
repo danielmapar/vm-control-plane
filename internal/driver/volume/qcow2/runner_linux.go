@@ -2,10 +2,10 @@
 
 // Package qcow2 runner: the Linux executor behind the portable core. It
 // turns the pure argv/layout/validation logic into real filesystem effects
-// with the durability ordering the plan requires (D10): create to a temp
+// with the durability ordering the plan requires: create to a temp
 // name, fdatasync the file, publish with no-replace semantics, then fsync
 // the containing directory — rename alone does not survive a host crash.
-// Teardown is symmetric: unlink, then fsync the directory, BEFORE any
+// Teardown is symmetric: unlink, then fsync the directory, before any
 // receipt is issued.
 package qcow2
 
@@ -20,6 +20,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/google/uuid"
 )
 
 // Runner executes qcow2 operations under a canonical storage root.
@@ -29,6 +31,15 @@ type Runner struct {
 
 // NewRunner returns a runner rooted at root (e.g. /var/lib/vmc).
 func NewRunner(root string) *Runner { return &Runner{Layout: Layout{Root: root}} }
+
+// parseVMID parses a VM UUID string.
+func parseVMID(vmID string) (uuid.UUID, error) {
+	id, err := uuid.Parse(vmID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("qcow2: bad vm id %q: %w", vmID, err)
+	}
+	return id, nil
+}
 
 // EnsureOverlay converges the root overlay for (node, vm, epoch): if a valid
 // file already exists (format/size/backing validated) it is a no-op; a
@@ -114,16 +125,16 @@ func (r *Runner) WriteSeed(node, vmID string, epoch int64, iso []byte) (string, 
 }
 
 // TeardownEpoch removes the entire (node, vm, epoch) artifact directory,
-// then fsyncs its parent — durable teardown, BEFORE any receipt is issued
-// (plan D10). Idempotent. Refuses to touch anything outside the storage
-// root, re-verifying containment at the moment of deletion (D15).
+// then fsyncs its parent — durable teardown, before any receipt is issued.
+// Idempotent. Refuses to touch anything outside the storage
+// root, re-verifying containment at the moment of deletion.
 func (r *Runner) TeardownEpoch(node, vmID string, epoch int64) error {
 	id, err := parseVMID(vmID)
 	if err != nil {
 		return err
 	}
 	dir := r.Layout.VolumeDir(node, id, epoch)
-	if !r.Layout.Contains(dir + "/x") { // dir itself must be strictly inside
+	if !r.Layout.Contains(dir) { // the directory must be strictly inside the root
 		return fmt.Errorf("qcow2: refusing to remove outside the storage root: %s", dir)
 	}
 	// Reject symlinked components: a swapped symlink must not redirect the
@@ -198,7 +209,7 @@ func fsyncDir(path string) error {
 }
 
 // assertNoSymlink walks from root to target and fails if any component is a
-// symlink — the removal path must be exactly what its name says (D15).
+// symlink — the removal path must be exactly what its name says.
 func assertNoSymlink(root, target string) error {
 	rel, err := filepath.Rel(root, target)
 	if err != nil {
@@ -228,7 +239,7 @@ func run(ctx context.Context, args []string) error {
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	// Own process group so a killed parent takes the child with it (D5).
+	// Own process group so a killed parent takes the child with it.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))

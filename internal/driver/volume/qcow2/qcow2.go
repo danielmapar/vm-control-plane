@@ -1,24 +1,13 @@
-// Package qcow2 is the real volume driver's PORTABLE core: command
-// construction, path layout, ownership containment, and publication
-// ordering are pure logic — golden-tested on every platform — while the
-// actual qemu-img execution and fsync-durability live behind a small
-// Runner interface whose production implementation is Linux-only.
+// Package qcow2 is the real volume driver's portable core: command
+// construction, path layout, ownership containment, and publish/teardown
+// ordering are pure logic, golden-tested on every platform. Only qemu-img
+// execution and fsync durability live in the Runner, which is Linux-only
+// (runner_linux.go).
 //
-// The sharp edges this package encodes (plan D10, all review-sourced):
-//
-//   - `qemu-img create -b` WITHOUT `-F` fails on modern qemu-img, and
-//     WITHOUT an explicit size silently inherits the backing image's —
-//     the requested 10GiB would be ignored;
-//   - creation goes to a temp name in the destination directory and is
-//     published with no-replace semantics, then the DIRECTORY is fsynced
-//     (rename alone is not host-crash durable);
-//   - artifact paths are epoch-qualified
-//     (<root>/<node>/<vm>/<epoch>/root.qcow2) and every destructive path
-//     re-verifies containment under the canonical storage root, rejecting
-//     symlinks — an old epoch's late teardown cannot touch a new epoch's
-//     files, and nothing outside the root is ever unlinked (D15);
-//   - a pre-existing file is accepted only after `qemu-img info` validates
-//     format, virtual size, and backing path — existence is not evidence.
+// qemu-img's sharp edges (the mandatory -F and explicit size, the no-replace
+// publish with a directory fsync, epoch-qualified paths, the containment
+// re-check, and validate-before-accept) are documented at the function that
+// encodes each.
 package qcow2
 
 import (
@@ -51,24 +40,16 @@ func (l Layout) SeedISO(node string, vmID uuid.UUID, epoch int64) string {
 	return l.VolumeDir(node, vmID, epoch) + "/seed.iso"
 }
 
-// parseVMID parses a VM UUID string (shared by the Linux runner).
-func parseVMID(vmID string) (uuid.UUID, error) {
-	id, err := uuid.Parse(vmID)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("qcow2: bad vm id %q: %w", vmID, err)
-	}
-	return id, nil
-}
-
 // TempFor returns the unpublished temp name for a final path. Only the
 // final name counts as existing; anything with this suffix is scavenger
 // garbage after a crash.
 func TempFor(final string) string { return final + ".tmp-unpublished" }
 
-// Contains reports whether path is inside the canonical root — the guard
-// every unlink and every teardown MUST pass (D15). Purely lexical here;
-// the Linux runner additionally rejects symlinked components at open time
-// (O_NOFOLLOW).
+// Contains reports whether path is strictly inside the canonical root: a proper
+// descendant, never the root itself and never escaping it via "..". It is the
+// guard every unlink and every teardown directory must pass. The check is
+// purely lexical; the Linux runner additionally rejects symlinked components at
+// open time (O_NOFOLLOW).
 func (l Layout) Contains(path string) bool {
 	root := filepath.ToSlash(filepath.Clean(l.Root))
 	p := filepath.ToSlash(filepath.Clean(path))
@@ -106,12 +87,12 @@ func CreateBlankArgs(tempPath string, sizeBytes uint64) ([]string, error) {
 }
 
 // InfoArgs builds the validated-ensure probe: format, virtual size, and
-// backing chain are checked against expectations before ANY pre-existing
-// file is accepted (existence is not evidence — matrix row 11).
+// backing chain are checked against expectations before any pre-existing
+// file is accepted (existence is not evidence).
 //
-// -U (force-share) is REQUIRED here: on idempotent replay the overlay may be
+// -U (force-share) is required here: on idempotent replay the overlay may be
 // held by a running QEMU, and a plain `qemu-img info` would fail to get the
-// lock (the QEMU image-locking case, plan D10). -U is safe because info is
+// lock (the QEMU image-locking case). -U is safe because info is
 // read-only — it is only unsafe for mutations, which this never performs.
 func InfoArgs(path string) []string {
 	return []string{"qemu-img", "info", "-U", "--output=json", "--backing-chain", path}
@@ -138,7 +119,7 @@ func Validate(got Info, wantBacking string, wantSize uint64) error {
 	return nil
 }
 
-// CachePath is the content-addressed backing-image location: the digest IS
+// CachePath is the content-addressed backing-image location: the digest is
 // the filename, so a verified download can be published with no-replace
 // semantics and shared by every overlay that references it.
 func (l Layout) CachePath(sha256Hex string) (string, error) {

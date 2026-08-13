@@ -46,7 +46,7 @@ func TestCreateGetRoundTrip(t *testing.T) {
 	if got.Spec.Cpus != 2 || got.Spec.Image != "ubuntu-24.04" {
 		t.Fatalf("spec did not round-trip: %+v", got.Spec)
 	}
-	if got.Phase != "PENDING" {
+	if got.Phase != store.PhasePending {
 		t.Fatalf("phase = %q, want PENDING", got.Phase)
 	}
 }

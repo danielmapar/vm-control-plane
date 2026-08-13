@@ -12,11 +12,6 @@ import (
 	libvirtdrv "github.com/sigtunnel/vm-control-plane/internal/driver/compute/libvirt"
 )
 
-type libvirtDriverOpts struct {
-	Socket, StorageRoot, MgmtNetwork, TenantBridge, SSHKeyFile, CPUSet string
-	Emulated                                                           bool
-}
-
 // newLibvirtDriver builds the real driver and ensures the management NAT
 // network exists before the agent serves any intent.
 func newLibvirtDriver(ctx context.Context, o libvirtDriverOpts) (compute.Driver, error) {

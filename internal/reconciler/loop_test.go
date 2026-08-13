@@ -52,10 +52,9 @@ func createVM(t *testing.T, s *store.Store, name string) (*store.VM, *store.Oper
 	if err != nil {
 		t.Fatal(err)
 	}
-	op, err := s.CreateOperation(ctx, nil, &store.Operation{
+	op, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID, ResourceName: name,
-		Verb: "CREATE", TargetRevision: vm.DesiredRevision,
-		Deadline: time.Now().Add(time.Hour),
+		Verb: store.VerbCreate, TargetRevision: vm.DesiredRevision,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +101,7 @@ func TestLoopSchedulesAndConverges(t *testing.T) {
 	// Loop places the VM.
 	waitFor(t, "placement", 10*time.Second, func() bool {
 		got, err := s.GetVM(ctx, nil, "loop-1")
-		return err == nil && got.Phase == "PROVISIONING" && got.PlacementEpoch == 1
+		return err == nil && got.Phase == store.PhaseProvisioning && got.PlacementEpoch == 1
 	})
 
 	got, err := s.GetVM(ctx, nil, "loop-1")
@@ -129,11 +128,11 @@ func TestLoopSchedulesAndConverges(t *testing.T) {
 	// Loop converges and terminalizes.
 	waitFor(t, "convergence", 10*time.Second, func() bool {
 		got, err := s.GetVM(ctx, nil, "loop-1")
-		return err == nil && got.Phase == "RUNNING"
+		return err == nil && got.Phase == store.PhaseRunning
 	})
 	waitFor(t, "operation DONE", 10*time.Second, func() bool {
 		final, err := s.GetOperation(ctx, nil, op.ID)
-		return err == nil && final.State == "DONE"
+		return err == nil && final.State == store.OpDone
 	})
 }
 
@@ -167,14 +166,14 @@ func TestLoopUnschedulableCondition(t *testing.T) {
 		return false
 	})
 	got, err := s.GetVM(ctx, nil, "huge")
-	if err != nil || got.Phase != "PENDING" {
+	if err != nil || got.Phase != store.PhasePending {
 		t.Fatalf("unschedulable VM must stay PENDING: %v %s", err, got.Phase)
 	}
 }
 
 // TestLoopDeletionFinalizes: tombstone → (simulated) teardown receipt →
 // finalization removes the row and completes the DELETE operation, which
-// remains queryable (matrix rows 15–16 foundation).
+// remains queryable.
 func TestLoopDeletionFinalizes(t *testing.T) {
 	s, sess := fixture(t)
 	ctx := context.Background()
@@ -200,10 +199,9 @@ func TestLoopDeletionFinalizes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delOp, err := s.CreateOperation(ctx, nil, &store.Operation{
+	delOp, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID, ResourceName: "del-loop",
-		Verb: "DELETE", TargetRevision: dead.DesiredRevision,
-		Deadline: time.Now().Add(time.Hour),
+		Verb: store.VerbDelete, TargetRevision: dead.DesiredRevision,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -226,7 +224,7 @@ func TestLoopDeletionFinalizes(t *testing.T) {
 	})
 	waitFor(t, "delete op DONE", 10*time.Second, func() bool {
 		final, err := s.GetOperation(ctx, nil, delOp.ID)
-		return err == nil && final.State == "DONE"
+		return err == nil && final.State == store.OpDone
 	})
 	// Capacity released.
 	n, err := s.GetNode(ctx, "node-a")
@@ -236,7 +234,7 @@ func TestLoopDeletionFinalizes(t *testing.T) {
 }
 
 // TestLoopSupersedesOlderOperations: a newer revision realized first moves
-// older open operations to SUPERSEDED — op wait never hangs (D3).
+// older open operations to SUPERSEDED — op wait never hangs.
 func TestLoopSupersedesOlderOperations(t *testing.T) {
 	s, sess := fixture(t)
 	ctx := context.Background()
@@ -273,6 +271,6 @@ func TestLoopSupersedesOlderOperations(t *testing.T) {
 
 	waitFor(t, "create op SUPERSEDED", 10*time.Second, func() bool {
 		final, err := s.GetOperation(ctx, nil, createOp.ID)
-		return err == nil && final.State == "SUPERSEDED"
+		return err == nil && final.State == store.OpSuperseded
 	})
 }

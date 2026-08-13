@@ -9,7 +9,7 @@ import (
 
 // canonicalHash returns the sha256 of the deterministic serialization of a
 // request with its idempotency key cleared. This is the "canonical request
-// hash" the envelope compares (D3): same key + same hash → original
+// hash" the envelope compares: same key + same hash → original
 // operation; same key + different hash → FAILED_PRECONDITION.
 //
 // Determinism note: proto.MarshalOptions{Deterministic: true} guarantees

@@ -17,7 +17,7 @@ var fixedID = uuid.MustParse("7e2f8a1c-9d3b-4e5f-8a6b-1c2d3e4f5a6b")
 func fullConfig() Config {
 	return Config{
 		Name: "web-1", VMID: fixedID, Node: "node-a", Epoch: 3,
-		CPUs: 2, MemoryB: 2 << 30,
+		CPUs: 2, MemoryBytes: 2 << 30,
 		DiskPath:     "/var/lib/vmc/node-a/" + fixedID.String() + "/3/root.qcow2",
 		SeedPath:     "/var/lib/vmc/node-a/" + fixedID.String() + "/3/seed.iso",
 		MgmtNetwork:  "vmc-mgmt",

@@ -14,7 +14,7 @@ import (
 // grantFixture: registered host with two nodes, one placed VM.
 func grantFixture(t *testing.T) (*store.Store, store.Session, *store.VM, int64) {
 	t.Helper()
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	sessions, err := s.RegisterHost(ctx, host("h1"), twoNodes(), time.Minute)
@@ -51,7 +51,7 @@ func TestGrantHappyPathAndReplay(t *testing.T) {
 		t.Fatalf("grant: %v", err)
 	}
 	p, err := s.GetPlacement(ctx, nil, vm.ID, epoch)
-	if err != nil || p.State != "granted" {
+	if err != nil || p.State != store.PlacementGranted {
 		t.Fatalf("placement: %v %+v", err, p)
 	}
 	// Matrix row 6: the grant response was lost; replay is idempotent.
@@ -60,7 +60,7 @@ func TestGrantHappyPathAndReplay(t *testing.T) {
 	}
 }
 
-// TestGrantAfterSessionReplacement: matrix row 7 — a delayed grant from
+// TestGrantAfterSessionReplacement — a delayed grant from
 // the OLD daemon fails admission after a replacement registered.
 func TestGrantAfterSessionReplacement(t *testing.T) {
 	s, oldSess, vm, epoch := grantFixture(t)
@@ -77,9 +77,9 @@ func TestGrantAfterSessionReplacement(t *testing.T) {
 	}
 }
 
-// TestGrantAfterLeaseExpiry: matrix row 7 — no heartbeat, no grant.
+// TestGrantAfterLeaseExpiry — no heartbeat, no grant.
 func TestGrantAfterLeaseExpiry(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 	sessions, err := s.RegisterHost(ctx, host("h1"), twoNodes(), 100*time.Millisecond)
 	if err != nil {
@@ -113,7 +113,7 @@ func TestGrantAfterLeaseExpiry(t *testing.T) {
 	}
 }
 
-// TestGrantVsDelete: matrix row 7/15 — a tombstone committed before the
+// TestGrantVsDelete — a tombstone committed before the
 // grant makes admission fail; the daemon never touches the substrate.
 func TestGrantVsDelete(t *testing.T) {
 	s, sess, vm, epoch := grantFixture(t)
@@ -135,7 +135,7 @@ func TestGrantVsDelete(t *testing.T) {
 }
 
 // TestUnassignVsGrant: exactly one of {grant, unassign} wins, whichever
-// commits first — the placements row serializes them (matrix rows 7–8).
+// commits first — the placements row serializes them.
 func TestUnassignVsGrant(t *testing.T) {
 	// Order 1: unassign first → grant must fail (placement torn down).
 	s, sess, vm, epoch := grantFixture(t)
@@ -166,7 +166,7 @@ func TestUnassignVsGrant(t *testing.T) {
 }
 
 // TestUnassignReturnsVMToPending: the never-granted path releases capacity
-// and requeues (matrix row 8).
+// and requeues.
 func TestUnassignReturnsVMToPending(t *testing.T) {
 	s, _, vm, epoch := grantFixture(t)
 	ctx := context.Background()
@@ -175,7 +175,7 @@ func TestUnassignReturnsVMToPending(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := s.GetVM(ctx, nil, vm.Name)
-	if err != nil || got.Phase != "PENDING" || got.NodeName != nil {
+	if err != nil || got.Phase != store.PhasePending || got.NodeName != nil {
 		t.Fatalf("vm after unassign: %v %+v", err, got)
 	}
 	n, err := s.GetNode(ctx, "node-a")

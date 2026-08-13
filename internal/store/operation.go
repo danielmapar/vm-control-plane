@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,27 +17,18 @@ type Operation struct {
 	ResourceType   string
 	ResourceID     uuid.UUID
 	ResourceName   string
-	Verb           string
+	Verb           Verb
 	TargetRevision int64
-	State          string
+	State          OperationState
 	Error          string
 	Deadline       time.Time
-	// DeadlineBudget is the per-verb duration used at INSERT; the stored
-	// Deadline is computed from the database clock, never the API host's.
-	DeadlineBudget time.Duration
 	CreatedAt      time.Time
 	FinishedAt     *time.Time
 }
 
-// Terminal reports whether the operation state is final. Terminal results
-// are immutable: TerminalizeOperation refuses to touch them.
-func (o *Operation) Terminal() bool {
-	switch o.State {
-	case "DONE", "FAILED", "SUPERSEDED", "DEADLINE_EXCEEDED":
-		return true
-	}
-	return false
-}
+// Terminal reports whether the operation state is final. Terminal results are
+// immutable: TerminalizeOperation refuses to touch them.
+func (o *Operation) Terminal() bool { return o.State.terminal() }
 
 // Envelope is a stored idempotency envelope.
 type Envelope struct {
@@ -50,25 +42,30 @@ type Envelope struct {
 	CreatedAt    time.Time
 }
 
-// ErrEnvelopeMismatch: same idempotency key, different method or request —
-// never silently answered with an unrelated operation (D3).
+// ErrEnvelopeMismatch means the same idempotency key was reused with a
+// different method or request; it is never silently answered with an unrelated
+// operation.
 var ErrEnvelopeMismatch = errors.New("store: idempotency key reused with a different request")
 
-// ErrEnvelopeIncomplete: the envelope row exists but its winner has not
-// committed an operation yet (concurrent create in flight, or the winner
+// ErrEnvelopeIncomplete means the envelope row exists but its winner has not
+// committed an operation yet (a concurrent create is in flight, or the winner
 // rolled back). Callers retry briefly, then surface a retryable error.
 var ErrEnvelopeIncomplete = errors.New("store: envelope exists without a committed operation")
 
 const opColumns = `id, resource_type, resource_id, resource_name, verb,
 	target_revision, state, error, deadline, created_at, finished_at`
 
-// ClaimEnvelope is the serialization point for a mutating verb (D3): it
-// inserts the envelope row, or — on conflict — compares the canonical
-// request hash and returns the winner's operation.
+// defaultOperationDeadline bounds an operation when the caller gives no per-verb
+// budget.
+const defaultOperationDeadline = 15 * time.Minute
+
+// ClaimEnvelope is the serialization point for a mutating verb: it inserts the
+// envelope row, or (on conflict) compares the canonical request hash and
+// returns the winner's operation.
 //
-// Returns (nil, nil) when this caller inserted the envelope and owns the
-// verb: it must create the operation and CompleteEnvelope inside the SAME
-// transaction, so the envelope never points at nothing after commit.
+// It returns (nil, nil) when this caller inserted the envelope and owns the
+// verb: the caller must then create the operation and call CompleteEnvelope in
+// the same transaction, so the envelope never points at nothing after commit.
 func (s *Store) ClaimEnvelope(ctx context.Context, tx pgx.Tx, key uuid.UUID, method, apiVersion, resourceType, resourceName string, requestHash []byte) (*Operation, error) {
 	tag, err := tx.Exec(ctx, `
 		INSERT INTO idempotency_envelopes (key, method, api_version, resource_type, resource_name, request_hash)
@@ -90,16 +87,17 @@ func (s *Store) ClaimEnvelope(ctx context.Context, tx pgx.Tx, key uuid.UUID, met
 		Scan(&env.Key, &env.Method, &env.APIVersion, &env.ResourceType,
 			&env.ResourceName, &env.RequestHash, &env.OperationID, &env.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		// The conflicting insert has not committed yet (or rolled back):
-		// invisible under READ COMMITTED. The caller retries briefly.
+		// The conflicting insert has not committed yet (or rolled back), so it
+		// is invisible under READ COMMITTED. The caller retries briefly.
 		return nil, ErrEnvelopeIncomplete
 	}
 	if err != nil {
 		return nil, err
 	}
+	// The request hash is not secret material, so a plain compare is fine.
 	if env.Method != method || env.APIVersion != apiVersion ||
 		env.ResourceType != resourceType || env.ResourceName != resourceName ||
-		!hashEqual(env.RequestHash, requestHash) {
+		!bytes.Equal(env.RequestHash, requestHash) {
 		return nil, fmt.Errorf("%w: key %s first used by %s on %s/%s",
 			ErrEnvelopeMismatch, key, env.Method, env.ResourceType, env.ResourceName)
 	}
@@ -109,7 +107,7 @@ func (s *Store) ClaimEnvelope(ctx context.Context, tx pgx.Tx, key uuid.UUID, met
 	return s.GetOperation(ctx, tx, *env.OperationID)
 }
 
-// CompleteEnvelope points the envelope at the operation it produced. Must
+// CompleteEnvelope points the envelope at the operation it produced. It must
 // run in the same transaction as ClaimEnvelope's insert and the operation
 // insert.
 func (s *Store) CompleteEnvelope(ctx context.Context, tx pgx.Tx, key, operationID uuid.UUID) error {
@@ -125,24 +123,38 @@ func (s *Store) CompleteEnvelope(ctx context.Context, tx pgx.Tx, key, operationI
 	return nil
 }
 
-// CreateOperation inserts a PENDING operation. The deadline is computed
-// from the DATABASE clock plus the per-verb budget — an API host with a
-// skewed clock cannot lengthen or shorten operation lifetimes (D3; PR 4-8
-// review triage).
-func (s *Store) CreateOperation(ctx context.Context, q querier, op *Operation) (*Operation, error) {
+// CreateOperationParams is the input to CreateOperation. Operation is the
+// stored result; keeping them separate means a caller never populates
+// result-only fields (State, Deadline) that creation would ignore.
+type CreateOperationParams struct {
+	ID             uuid.UUID
+	ResourceType   string
+	ResourceID     uuid.UUID
+	ResourceName   string
+	Verb           Verb
+	TargetRevision int64
+	// DeadlineBudget is the per-verb duration; the stored deadline is computed
+	// from it against the database clock. Zero means defaultOperationDeadline;
+	// a negative value is legal so tests can mint already-expired operations.
+	DeadlineBudget time.Duration
+}
+
+// CreateOperation inserts a PENDING operation. The deadline is computed from
+// the database clock plus the per-verb budget, so an API host with a skewed
+// clock cannot lengthen or shorten operation lifetimes.
+func (s *Store) CreateOperation(ctx context.Context, q querier, p CreateOperationParams) (*Operation, error) {
 	if q == nil {
 		q = s.pool
 	}
-	budget := op.DeadlineBudget
+	budget := p.DeadlineBudget
 	if budget == 0 {
-		budget = 15 * time.Minute
+		budget = defaultOperationDeadline
 	}
-	// Negative budgets are legal (tests mint already-expired operations).
 	row := q.QueryRow(ctx, `
 		INSERT INTO operations (id, resource_type, resource_id, resource_name, verb, target_revision, state, deadline)
 		VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', clock_timestamp() + $7)
 		RETURNING `+opColumns,
-		op.ID, op.ResourceType, op.ResourceID, op.ResourceName, op.Verb, op.TargetRevision, budget)
+		p.ID, p.ResourceType, p.ResourceID, p.ResourceName, p.Verb, p.TargetRevision, budget)
 	return scanOperation(row)
 }
 
@@ -155,22 +167,19 @@ func (s *Store) GetOperation(ctx context.Context, q querier, id uuid.UUID) (*Ope
 	return scanOperation(row)
 }
 
-// TerminalizeOperation moves a non-terminal operation to a terminal state.
-// Terminal results are immutable: a second terminalization is a no-op that
-// returns the already-terminal row — late convergence can never rewrite a
-// result (D3).
-func (s *Store) TerminalizeOperation(ctx context.Context, q querier, id uuid.UUID, state, errMsg string) (*Operation, error) {
+// TerminalizeOperation moves a non-terminal operation to a terminal state. A
+// second terminalization is a no-op that returns the already-terminal row, so
+// late convergence can never rewrite a result.
+func (s *Store) TerminalizeOperation(ctx context.Context, q querier, id uuid.UUID, state OperationState, errMsg string) (*Operation, error) {
 	if q == nil {
 		q = s.pool
 	}
-	switch state {
-	case "DONE", "FAILED", "SUPERSEDED", "DEADLINE_EXCEEDED":
-	default:
+	if !state.terminal() {
 		return nil, fmt.Errorf("terminalize: %q is not a terminal state", state)
 	}
 	row := q.QueryRow(ctx, `
-		UPDATE operations SET state=$2, error=$3, finished_at=clock_timestamp()
-		WHERE id=$1 AND state IN ('PENDING','RUNNING')
+		UPDATE operations SET state = $2, error = $3, finished_at = clock_timestamp()
+		WHERE id = $1 AND state IN ('PENDING','RUNNING')
 		RETURNING `+opColumns,
 		id, state, errMsg)
 	op, err := scanOperation(row)
@@ -185,18 +194,58 @@ func (s *Store) TerminalizeOperation(ctx context.Context, q querier, id uuid.UUI
 	return op, err
 }
 
+// TerminalizeRealizedOps completes the operations targeting exactly the
+// realized revision as DONE, and supersedes any older still-open operations
+// for the same resource. Every operation terminates. Runs inside the caller's
+// transaction.
+func (s *Store) TerminalizeRealizedOps(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, realizedRevision int64) error {
+	if _, err := tx.Exec(ctx, `
+		UPDATE operations SET state = 'DONE', finished_at = clock_timestamp()
+		WHERE resource_type = 'vm' AND resource_id = $1 AND target_revision = $2 AND state IN ('PENDING','RUNNING')`,
+		vmID, realizedRevision); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `
+		UPDATE operations SET state = 'SUPERSEDED',
+			error = 'a newer desired revision was realized first', finished_at = clock_timestamp()
+		WHERE resource_type = 'vm' AND resource_id = $1 AND target_revision < $2 AND state IN ('PENDING','RUNNING')`,
+		vmID, realizedRevision)
+	return err
+}
+
+// FindOpenOperationID returns the most recent still-open operation for a
+// resource and target revision, or nil if there is none. It is best-effort:
+// callers use it to attach a failure to the operation the client is awaiting.
+func (s *Store) FindOpenOperationID(ctx context.Context, q querier, vmID uuid.UUID, revision int64) (*uuid.UUID, error) {
+	if q == nil {
+		q = s.pool
+	}
+	var id uuid.UUID
+	err := q.QueryRow(ctx, `
+		SELECT id FROM operations
+		WHERE resource_id = $1 AND target_revision = $2 AND state IN ('PENDING','RUNNING')
+		ORDER BY created_at DESC LIMIT 1`, vmID, revision).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
+}
+
 // ExpireOperations terminalizes every non-terminal operation whose
-// database-clock deadline has passed — the mechanism that makes operations
-// terminate even when no retry budget is being consumed. Returns the
-// expired operations.
+// database-clock deadline has passed. This is the mechanism that makes
+// operations terminate even when no retry budget is being consumed. It returns
+// the expired operations.
 func (s *Store) ExpireOperations(ctx context.Context, q querier) ([]*Operation, error) {
 	if q == nil {
 		q = s.pool
 	}
 	rows, err := q.Query(ctx, `
-		UPDATE operations SET state='DEADLINE_EXCEEDED',
-			error='operation deadline exceeded; resource state unchanged (no unsafe cleanup)',
-			finished_at=clock_timestamp()
+		UPDATE operations SET state = 'DEADLINE_EXCEEDED',
+			error = 'operation deadline exceeded; resource state unchanged (no unsafe cleanup)',
+			finished_at = clock_timestamp()
 		WHERE state IN ('PENDING','RUNNING') AND deadline <= clock_timestamp()
 		RETURNING `+opColumns)
 	if err != nil {
@@ -226,17 +275,4 @@ func scanOperation(row pgx.Row) (*Operation, error) {
 		return nil, err
 	}
 	return &op, nil
-}
-
-func hashEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	// Not secret material; constant-time comparison is unnecessary.
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

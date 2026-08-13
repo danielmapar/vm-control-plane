@@ -27,6 +27,7 @@ type Driver struct {
 	FailTeardown func(vmID string) error
 }
 
+// New returns an empty fake driver.
 func New() *Driver { return &Driver{domains: map[string]*domain{}} }
 
 func key(vmID string, epoch int64) string { return fmt.Sprintf("%s/%d", vmID, epoch) }

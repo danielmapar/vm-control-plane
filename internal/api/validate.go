@@ -9,7 +9,7 @@ import (
 
 // dnsLabel: what we accept as a resource name (also becomes a libvirt
 // domain name and file-path component later — strict input validation here
-// is part of D15's containment story).
+// is part of the containment story).
 var dnsLabel = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
 func validateName(name string) error {
@@ -49,7 +49,7 @@ func validateSpec(spec *vmcv1.VmSpec) error {
 	return nil
 }
 
-// normalizeSpec applies defaults on a CLONE before hashing — the caller's
+// normalizeSpec applies defaults on a clone before hashing — the caller's
 // request is never mutated, and the hash sees the same bytes a defaulted
 // replay would send.
 func normalizeSpec(spec *vmcv1.VmSpec) {

@@ -13,35 +13,29 @@ import (
 	vmcv1 "github.com/sigtunnel/vm-control-plane/proto/vmc/v1"
 )
 
-// AgentServer implements vmc.v1.AgentService — the daemon-facing surface.
-// It is a thin fence around the store's protocols: registration, leases,
-// intent snapshots, grants, ordered reports, teardown receipts, and
-// durable action-retry pacing.
+// AgentServer implements vmc.v1.AgentService, the daemon-facing surface. It is
+// a thin fence around the store's protocols: registration, leases, intent
+// snapshots, grants, ordered reports, teardown receipts, and durable
+// action-retry pacing.
 type AgentServer struct {
 	vmcv1.UnimplementedAgentServiceServer
 	st *store.Store
 }
 
+// NewAgentServer returns an AgentServer backed by the given store.
 func NewAgentServer(st *store.Store) *AgentServer { return &AgentServer{st: st} }
 
+// RegisterHost registers the physical host and its logical nodes, returning one
+// session per node. Node quotas must be in range and their sum must fit the
+// host's capacity.
 func (a *AgentServer) RegisterHost(ctx context.Context, req *vmcv1.RegisterHostRequest) (*vmcv1.RegisterHostResponse, error) {
-	const maxBytes = int64(1) << 50 // 1 PiB — practical ceiling, guards uint64→int64 wrap
-	toInt64 := func(v uint64) (int64, bool) { return int64(v), v <= uint64(maxBytes) }
-	quotas := make([]store.NodeQuota, 0, len(req.GetNodes()))
-	for _, n := range req.GetNodes() {
-		mem, okM := toInt64(n.GetMemoryBytes())
-		disk, okD := toInt64(n.GetDiskBytes())
-		if n.GetCpus() < 1 || n.GetCpus() > 4096 || !okM || !okD || mem < 1 || disk < 1 {
-			return nil, status.Error(codes.InvalidArgument, "node quota out of range")
-		}
-		quotas = append(quotas, store.NodeQuota{
-			Name: n.GetName(), CPUs: n.GetCpus(),
-			MemoryBytes: mem, DiskBytes: disk, Labels: n.GetLabels(),
-		})
+	quotas, err := nodeQuotas(req.GetNodes())
+	if err != nil {
+		return nil, err
 	}
-	hMem, okHM := toInt64(req.GetMemoryBytes())
-	hDisk, okHD := toInt64(req.GetDiskBytes())
-	if req.GetCpus() < 1 || !okHM || !okHD {
+	hMem, hMemOK := checkedBytes(req.GetMemoryBytes())
+	hDisk, hDiskOK := checkedBytes(req.GetDiskBytes())
+	if req.GetCpus() < 1 || !hMemOK || !hDiskOK {
 		return nil, status.Error(codes.InvalidArgument, "host capacity out of range")
 	}
 	lease := 15 * time.Second
@@ -75,6 +69,8 @@ func (a *AgentServer) RegisterHost(ctx context.Context, req *vmcv1.RegisterHostR
 	return resp, nil
 }
 
+// Heartbeat renews a node's lease. A superseded session is rejected, which is
+// the daemon's signal to halt substrate actions.
 func (a *AgentServer) Heartbeat(ctx context.Context, req *vmcv1.HeartbeatRequest) (*vmcv1.HeartbeatResponse, error) {
 	sess, err := sessionFromProto(req.GetSession())
 	if err != nil {
@@ -86,7 +82,7 @@ func (a *AgentServer) Heartbeat(ctx context.Context, req *vmcv1.HeartbeatRequest
 	}
 	if err := a.st.Heartbeat(ctx, sess, lease); err != nil {
 		if errors.Is(err, store.ErrStaleSession) {
-			// The daemon's signal to HALT substrate actions (§6.3).
+			// The daemon's signal to halt substrate actions.
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
 		return nil, status.Error(codes.Internal, err.Error())
@@ -94,6 +90,9 @@ func (a *AgentServer) Heartbeat(ctx context.Context, req *vmcv1.HeartbeatRequest
 	return &vmcv1.HeartbeatResponse{}, nil
 }
 
+// PollIntents returns the authoritative desired-state snapshot for the caller's
+// nodes, including tombstones (which drive teardown), each stamped with its
+// current attempt pacing.
 func (a *AgentServer) PollIntents(ctx context.Context, req *vmcv1.PollIntentsRequest) (*vmcv1.PollIntentsResponse, error) {
 	names := make([]string, 0, len(req.GetSessions()))
 	for _, s := range req.GetSessions() {
@@ -122,14 +121,16 @@ func (a *AgentServer) PollIntents(ctx context.Context, req *vmcv1.PollIntentsReq
 	return resp, nil
 }
 
+// RequestGrant admits (or denies) execution for a placement. A denial carries
+// the reason and means the daemon must not touch the substrate for it.
 func (a *AgentServer) RequestGrant(ctx context.Context, req *vmcv1.RequestGrantRequest) (*vmcv1.RequestGrantResponse, error) {
 	sess, err := sessionFromProto(req.GetSession())
 	if err != nil {
 		return nil, err
 	}
-	vmID, err := uuid.Parse(req.GetVmId())
+	vmID, err := vmIDArg(req.GetVmId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
+		return nil, err
 	}
 	err = a.st.GrantExecution(ctx, sess, vmID, req.GetPlacementEpoch())
 	var denied *store.ErrGrantDenied
@@ -145,27 +146,25 @@ func (a *AgentServer) RequestGrant(ctx context.Context, req *vmcv1.RequestGrantR
 	}
 }
 
+// Report records one piece of ordered observed-state evidence. A stale report
+// (superseded session or epoch) is fenced with FailedPrecondition.
 func (a *AgentServer) Report(ctx context.Context, req *vmcv1.ReportRequest) (*vmcv1.ReportResponse, error) {
 	sess, err := sessionFromProto(req.GetSession())
 	if err != nil {
 		return nil, err
 	}
-	vmID, err := uuid.Parse(req.GetVmId())
+	vmID, err := vmIDArg(req.GetVmId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
+		return nil, err
 	}
-	stateName := map[vmcv1.ObservedState]string{
-		vmcv1.ObservedState_OBSERVED_STATE_RUNNING: "RUNNING",
-		vmcv1.ObservedState_OBSERVED_STATE_SHUTOFF: "SHUTOFF",
-		vmcv1.ObservedState_OBSERVED_STATE_ABSENT:  "ABSENT",
-	}[req.GetState()]
-	if stateName == "" {
+	state, ok := observedFromProto[req.GetState()]
+	if !ok {
 		return nil, status.Error(codes.InvalidArgument, "state must be specified")
 	}
 	err = a.st.ApplyReport(ctx, store.Report{
 		Session: sess, VMID: vmID, Epoch: req.GetPlacementEpoch(),
 		Seq: req.GetReportSeq(), AppliedRevision: req.GetAppliedRevision(),
-		State: stateName, Detail: req.GetDetail(),
+		State: state, Detail: req.GetDetail(),
 	})
 	if errors.Is(err, store.ErrStaleReport) {
 		// Fenced, not fatal: the daemon should not retry this report.
@@ -177,17 +176,19 @@ func (a *AgentServer) Report(ctx context.Context, req *vmcv1.ReportRequest) (*vm
 	return &vmcv1.ReportResponse{}, nil
 }
 
+// TeardownReceipt records that a placement's substrate was torn down, releasing
+// its reserved capacity. It is the one message a stale session may still deliver.
 func (a *AgentServer) TeardownReceipt(ctx context.Context, req *vmcv1.TeardownReceiptRequest) (*vmcv1.TeardownReceiptResponse, error) {
 	sess, err := sessionFromProto(req.GetSession())
 	if err != nil {
 		return nil, err
 	}
-	vmID, err := uuid.Parse(req.GetVmId())
+	vmID, err := vmIDArg(req.GetVmId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
+		return nil, err
 	}
-	// Receipts are the one message a STALE session may deliver — but only
-	// for a placement its node actually owned (§6.4).
+	// Receipts are the one message a stale session may deliver, but only for a
+	// placement its node actually owned.
 	p, err := a.st.GetPlacement(ctx, nil, vmID, req.GetPlacementEpoch())
 	if errors.Is(err, store.ErrNotFound) {
 		return &vmcv1.TeardownReceiptResponse{}, nil // already finalized: idempotent
@@ -204,20 +205,59 @@ func (a *AgentServer) TeardownReceipt(ctx context.Context, req *vmcv1.TeardownRe
 	return &vmcv1.TeardownReceiptResponse{}, nil
 }
 
+// actionRetryBackoffMS is the server-controlled backoff between substrate
+// action attempts.
+const actionRetryBackoffMS = 2000
+
+// ActionFailed records a failed substrate action so the server can pace the
+// next attempt; the daemon never decides its own backoff.
 func (a *AgentServer) ActionFailed(ctx context.Context, req *vmcv1.ActionFailedRequest) (*vmcv1.ActionFailedResponse, error) {
-	vmID, err := uuid.Parse(req.GetVmId())
+	vmID, err := vmIDArg(req.GetVmId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
+		return nil, err
 	}
 	token, err := uuid.Parse(req.GetAttemptToken())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "attempt_token must be a UUID")
 	}
-	// Exponential-ish pacing server-side; the daemon never decides backoff.
-	if err := a.st.RecordActionFailure(ctx, vmID, req.GetPlacementEpoch(), req.GetDesiredRevision(), token, 2000); err != nil {
+	if err := a.st.RecordActionFailure(ctx, vmID, req.GetPlacementEpoch(), req.GetDesiredRevision(), token, actionRetryBackoffMS); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &vmcv1.ActionFailedResponse{}, nil
+}
+
+// checkedBytes converts a byte count to int64, accepting only values in
+// [1, 1 PiB]. The ceiling is far above any real capacity and guards the
+// uint64->int64 conversion against wrapping to a negative value.
+func checkedBytes(v uint64) (int64, bool) {
+	const maxBytes = uint64(1) << 50 // 1 PiB
+	return int64(v), v >= 1 && v <= maxBytes
+}
+
+// vmIDArg parses the vm_id field shared by the agent RPCs.
+func vmIDArg(raw string) (uuid.UUID, error) {
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
+	}
+	return id, nil
+}
+
+// nodeQuotas converts and range-checks the advertised logical-node quotas.
+func nodeQuotas(nodes []*vmcv1.NodeQuota) ([]store.NodeQuota, error) {
+	quotas := make([]store.NodeQuota, 0, len(nodes))
+	for _, n := range nodes {
+		mem, memOK := checkedBytes(n.GetMemoryBytes())
+		disk, diskOK := checkedBytes(n.GetDiskBytes())
+		if n.GetCpus() < 1 || n.GetCpus() > 4096 || !memOK || !diskOK {
+			return nil, status.Error(codes.InvalidArgument, "node quota out of range")
+		}
+		quotas = append(quotas, store.NodeQuota{
+			Name: n.GetName(), CPUs: n.GetCpus(),
+			MemoryBytes: mem, DiskBytes: disk, Labels: n.GetLabels(),
+		})
+	}
+	return quotas, nil
 }
 
 func sessionFromProto(p *vmcv1.NodeSession) (store.Session, error) {

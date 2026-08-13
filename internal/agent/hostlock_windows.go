@@ -11,7 +11,7 @@ import (
 )
 
 // acquireHostLock takes an OS-held exclusive lock via LockFileEx on an open
-// handle (batch-review finding [33]): Windows releases it when the process
+// handle: Windows releases it when the process
 // dies, so there is no PID-file race. One daemon per host.
 func acquireHostLock(stateDir string) (func(), error) {
 	if stateDir == "" {

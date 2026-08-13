@@ -1,25 +1,25 @@
 // Package compute defines the portable compute-driver contract. The real
 // implementation (go-libvirt) is Linux-only behind build tags; the fake is
-// first-class (plan D12): it powers the Windows-native demo, fast E2E, and
-// most of the chaos matrix.
+// first-class: it powers the Windows-native demo, the fast E2E suite, and most
+// of the chaos matrix.
 package compute
 
 import "context"
 
-// VMConfig is what a driver needs to realize one VM placement. Node, VM,
+// VMConfig is what a driver needs to realize one VM placement. The node, VM,
 // and epoch identity ride along because every artifact a driver creates is
-// ownership-stamped (plan §6.6).
+// stamped with that ownership.
 type VMConfig struct {
-	VMID    string
-	Name    string
-	Node    string
-	Epoch   int64
-	CPUs    uint32
-	MemoryB uint64
-	Image   string
-	DiskB   uint64
-	Network string
-	Running bool // desired power state
+	VMID          string
+	Name          string
+	Node          string
+	Epoch         int64
+	CPUs          uint32
+	MemoryBytes   uint64
+	Image         string
+	RootDiskBytes uint64
+	Network       string
+	Running       bool // desired power state
 }
 
 // State is the driver-observed condition of a VM.

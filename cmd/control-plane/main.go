@@ -1,5 +1,5 @@
 // Command control-plane hosts the gRPC API, the reconciler, and the
-// scheduler behind role flags (ADR-0001). The API and reconciler share only
+// scheduler behind role flags. The API and reconciler share only
 // the store — they never call each other.
 package main
 
@@ -26,7 +26,7 @@ import (
 
 func main() {
 	var (
-		listen = flag.String("listen", "127.0.0.1:7070", "gRPC listen address (loopback by default — D15)")
+		listen = flag.String("listen", "127.0.0.1:7070", "gRPC listen address (loopback by default)")
 		dbURL  = flag.String("db-url", os.Getenv("VMC_DB_URL"), "PostgreSQL URL (or VMC_DB_URL)")
 		role   = flag.String("role", "api,controller", "comma-separated roles to run")
 	)

@@ -29,7 +29,7 @@ func placeOnce(ctx context.Context, s *store.Store, vmID uuid.UUID, node *store.
 	if claim == nil {
 		return 0, errors.New("vm not claimable")
 	}
-	tx, err := s.CompleteClaimTx(ctx, vmID, claim.Token, time.Hour)
+	tx, err := s.CompleteClaimTx(ctx, vmID, claim.Token)
 	if err != nil {
 		return 0, err
 	}
@@ -45,8 +45,43 @@ func placeOnce(ctx context.Context, s *store.Store, vmID uuid.UUID, node *store.
 	return epoch, tx.Commit(ctx)
 }
 
+// claimAndPlace claims one dirty VM (SKIP LOCKED hands concurrent workers
+// different rows) and places it on node, so the only contention is on the
+// node's reservation counters. It returns ErrNoCapacity when the reservation
+// is rejected.
+func claimAndPlace(ctx context.Context, s *store.Store, node *store.Node, res store.Resources) error {
+	var claim *store.Claim
+	for attempt := 0; attempt < 50 && claim == nil; attempt++ {
+		claims, err := s.ClaimDirtyVMs(ctx, "w", time.Minute, 1)
+		if err != nil {
+			return err
+		}
+		if len(claims) == 1 {
+			claim = claims[0]
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if claim == nil {
+		return errors.New("no claimable row")
+	}
+	tx, err := s.CompleteClaimTx(ctx, claim.VM.ID, claim.Token)
+	if err != nil {
+		return err
+	}
+	if _, err := s.PlaceVM(ctx, tx, claim.VM.ID, node, res); err != nil {
+		_ = tx.Rollback(ctx)
+		return err
+	}
+	if err := s.FinishClaim(ctx, tx, claim.VM.ID, claim.Token, time.Hour); err != nil {
+		_ = tx.Rollback(ctx)
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 func TestPlaceReservesAndBumpsEpoch(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	if _, err := s.RegisterHost(ctx, host("h1"), twoNodes(), time.Minute); err != nil {
@@ -70,7 +105,7 @@ func TestPlaceReservesAndBumpsEpoch(t *testing.T) {
 	}
 
 	placed, err := s.GetVM(ctx, nil, "pl-1")
-	if err != nil || placed.Phase != "PROVISIONING" || *placed.NodeName != "node-a" || placed.PlacementEpoch != 1 {
+	if err != nil || placed.Phase != store.PhaseProvisioning || *placed.NodeName != "node-a" || placed.PlacementEpoch != 1 {
 		t.Fatalf("vm after place: %v %+v", err, placed)
 	}
 	n, err := s.GetNode(ctx, "node-a")
@@ -79,11 +114,11 @@ func TestPlaceReservesAndBumpsEpoch(t *testing.T) {
 	}
 }
 
-// TestConcurrentPlacementNoOversubscription: matrix row 5. Node capacity
+// TestConcurrentPlacementNoOversubscription. Node capacity
 // fits ONE of the two concurrent requests; the single-statement conditional
 // reservation must admit exactly one.
 func TestConcurrentPlacementNoOversubscription(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	quota := []store.NodeQuota{{Name: "small", CPUs: 3, MemoryBytes: 8 << 30, DiskBytes: 100 << 30}}
@@ -112,42 +147,7 @@ func TestConcurrentPlacementNoOversubscription(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			// Each worker claims ONE dirty row (SKIP LOCKED hands them
-			// different rows) and places whatever it claimed on the same
-			// small node — the contention is on the node counters.
-			var claim *store.Claim
-			for attempt := 0; attempt < 50; attempt++ {
-				claims, err := s.ClaimDirtyVMs(ctx, "w", time.Minute, 1)
-				if err != nil {
-					errs[i] = err
-					return
-				}
-				if len(claims) == 1 {
-					claim = claims[0]
-					break
-				}
-				time.Sleep(10 * time.Millisecond)
-			}
-			if claim == nil {
-				errs[i] = errors.New("no claimable row")
-				return
-			}
-			tx, err := s.CompleteClaimTx(ctx, claim.VM.ID, claim.Token, time.Hour)
-			if err != nil {
-				errs[i] = err
-				return
-			}
-			if _, err := s.PlaceVM(ctx, tx, claim.VM.ID, node, res); err != nil {
-				_ = tx.Rollback(ctx)
-				errs[i] = err
-				return
-			}
-			if err := s.FinishClaim(ctx, tx, claim.VM.ID, claim.Token, time.Hour); err != nil {
-				_ = tx.Rollback(ctx)
-				errs[i] = err
-				return
-			}
-			errs[i] = tx.Commit(ctx)
+			errs[i] = claimAndPlace(ctx, s, node, res)
 		}(i)
 	}
 	wg.Wait()
@@ -175,7 +175,7 @@ func TestConcurrentPlacementNoOversubscription(t *testing.T) {
 // TestOneActivePlacementSchemaEnforced: the partial unique index — not
 // code — forbids a second active placement.
 func TestOneActivePlacementSchemaEnforced(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 	pool := s.Pool()
 
@@ -207,7 +207,7 @@ func TestOneActivePlacementSchemaEnforced(t *testing.T) {
 
 // TestReleaseIdempotent: double release adjusts counters exactly once.
 func TestReleaseIdempotent(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	if _, err := s.RegisterHost(ctx, host("h1"), twoNodes(), time.Minute); err != nil {
@@ -240,11 +240,11 @@ func TestReleaseIdempotent(t *testing.T) {
 		}
 	}
 	n, err := s.GetNode(ctx, "node-a")
-	if err != nil || n.ReservedCPUs != 0 || n.ReservedMemory != 0 {
+	if err != nil || n.ReservedCPUs != 0 || n.ReservedMemoryBytes != 0 {
 		t.Fatalf("double release must adjust exactly once: %+v", n)
 	}
 	p, err := s.GetPlacement(ctx, nil, vm.ID, epoch)
-	if err != nil || p.State != "torn_down" {
+	if err != nil || p.State != store.PlacementTornDown {
 		t.Fatalf("placement state: %v %+v", err, p)
 	}
 }
@@ -253,7 +253,7 @@ func TestReleaseIdempotent(t *testing.T) {
 // enforces node liveness — a filter working from a stale snapshot cannot
 // place onto a dead node.
 func TestExpiredLeaseRejectsReservation(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	if _, err := s.RegisterHost(ctx, host("h1"), twoNodes(), 50*time.Millisecond); err != nil {

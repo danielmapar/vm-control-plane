@@ -25,14 +25,14 @@ type Config struct {
 	MgmtNetwork      string // libvirt NAT network for the management NIC
 	TenantBridge     string // OVS integration bridge (empty = mgmt-only)
 	SSHAuthorizedKey string // injected into every guest via cloud-init
-	// CPUSet pins every guest's vCPU+emulator threads to these host cores
-	// (libvirt cpuset, e.g. "8-15"). Empty = no pinning. On nested VirtualBox
-	// this keeps L2 guests off the cores the control-plane stack runs on,
-	// preventing the boot-time preemption that permanently wedges them.
+	// CPUSet pins every guest's vCPU and emulator threads to these host cores
+	// (libvirt cpuset, e.g. "8-15"); empty means no pinning. Pinning keeps a
+	// guest off the cores the control-plane stack runs on, which avoids
+	// boot-time preemption on unstable nested virtualization.
 	CPUSet string
-	// Emulated runs guests under QEMU TCG (software) instead of hardware KVM —
-	// no /dev/kvm, no nested VT-x, so it is stable on a substrate whose nested
-	// virtualization is not (the VirtualBox case). Slower to boot.
+	// Emulated runs guests under QEMU TCG (software) instead of hardware KVM, so
+	// it needs no /dev/kvm and is stable where nested virtualization is not.
+	// Slower to boot.
 	Emulated bool
 	// ResolveBacking maps an image name (e.g. "ubuntu-24.04") to a cached,
 	// verified backing qcow2 path. The image cache is pre-seeded by the
@@ -64,114 +64,33 @@ func New(cfg Config) *Driver {
 
 var _ compute.Driver = (*Driver)(nil)
 
-// Ensure converges the substrate for one placement: backing image → sized
-// overlay → cloud-init seed → domain XML → define-if-absent (matched by name
-// + owner metadata + epoch) → start/stop to match desired power. Every step
-// is idempotent so redelivery converges.
+// Ensure converges the substrate for one placement: backing image, sized
+// overlay, cloud-init seed, domain XML, define-if-absent (matched by name,
+// owner metadata, and epoch), then start/stop to match desired power. Every
+// step is idempotent so redelivery converges.
 func (d *Driver) Ensure(ctx context.Context, cfg compute.VMConfig) (compute.State, error) {
 	vmID, err := uuid.Parse(cfg.VMID)
 	if err != nil {
 		return compute.StateAbsent, fmt.Errorf("libvirt: bad vm id: %w", err)
 	}
 
-	backing, backingSize, err := d.cfg.ResolveBacking(ctx, cfg.Image)
+	diskPath, seedPath, err := d.prepareStorage(ctx, vmID, cfg)
 	if err != nil {
-		return compute.StateAbsent, fmt.Errorf("libvirt: resolve image %q: %w", cfg.Image, err)
+		return compute.StateAbsent, err
 	}
-	if cfg.DiskB < backingSize {
-		return compute.StateAbsent, fmt.Errorf("libvirt: requested disk %d < backing size %d", cfg.DiskB, backingSize)
-	}
-
-	diskPath, err := d.runner.EnsureOverlay(ctx, cfg.Node, cfg.VMID, cfg.Epoch, backing, cfg.DiskB)
+	xml, err := domainxml.Build(d.buildDomainConfig(vmID, cfg, diskPath, seedPath))
 	if err != nil {
 		return compute.StateAbsent, err
 	}
 
-	iso := &bytes.Buffer{}
-	seedCfg := seed.Config{
-		InstanceID:       cfg.VMID,
-		Hostname:         cfg.Name,
-		SSHAuthorizedKey: d.cfg.SSHAuthorizedKey,
-		MgmtMAC:          domainxml.MAC(vmID, 0),
-	}
-	if cfg.Network != "" && d.cfg.TenantBridge != "" {
-		seedCfg.TenantMAC = domainxml.MAC(vmID, 1)
-		// A trivial deterministic tenant address for the demo; real IPAM
-		// lands with the network resource.
-		seedCfg.TenantCIDR = tenantAddr(vmID)
-	}
-	if err := seed.Build(iso, seedCfg); err != nil {
-		return compute.StateAbsent, err
-	}
-	seedPath, err := d.runner.WriteSeed(cfg.Node, cfg.VMID, cfg.Epoch, iso.Bytes())
-	if err != nil {
-		return compute.StateAbsent, err
-	}
-
-	domCfg := domainxml.Config{
-		Name: cfg.Name, VMID: vmID, Node: cfg.Node, Epoch: cfg.Epoch,
-		CPUs: cfg.CPUs, MemoryB: cfg.MemoryB,
-		DiskPath: diskPath, SeedPath: seedPath,
-		MgmtNetwork:  d.cfg.MgmtNetwork,
-		TenantBridge: firstNonEmpty(cfg.Network, ""),
-		CPUSet:       d.cfg.CPUSet,
-		Emulated:     d.cfg.Emulated,
-	}
-	if cfg.Network != "" && d.cfg.TenantBridge != "" {
-		domCfg.TenantBridge = d.cfg.TenantBridge
-		domCfg.TenantVLAN = vlanFor(cfg.Network)
-	} else {
-		domCfg.TenantBridge = ""
-	}
-	xml, err := domainxml.Build(domCfg)
-	if err != nil {
-		return compute.StateAbsent, err
-	}
-
-	// Define-if-absent (matched by owner metadata + epoch), then start/stop.
 	var state compute.State
 	err = d.sup.call(ctx, func(l *golibvirt.Libvirt) error {
-		dom, lookErr := l.DomainLookupByName(cfg.Name)
-		if lookErr != nil {
-			if !golibvirt.IsNotFound(lookErr) {
-				return lookErr
-			}
-			defined, defErr := l.DomainDefineXML(xml)
-			if defErr != nil {
-				return defErr
-			}
-			dom = defined
-		} else {
-			// A domain with our name exists — confirm it is OURS at this
-			// epoch before touching it (owner-scoped; never adopt foreign).
-			if err := d.assertOwned(l, dom, vmID, cfg.Epoch); err != nil {
-				return err
-			}
+		dom, err := d.defineOrAdopt(l, cfg.Name, vmID, cfg.Epoch, xml)
+		if err != nil {
+			return err
 		}
-		// Never autostart (the XML omits it); ensure power matches.
-		running, reason, stErr := l.DomainGetState(dom, 0)
-		_ = reason
-		if stErr != nil {
-			return stErr
-		}
-		isRunning := golibvirt.DomainState(running) == golibvirt.DomainRunning
-		switch {
-		case cfg.Running && !isRunning:
-			if err := l.DomainCreate(dom); err != nil {
-				return err
-			}
-			state = compute.StateRunning
-		case !cfg.Running && isRunning:
-			if err := d.gracefulStop(ctx, l, dom); err != nil {
-				return err
-			}
-			state = compute.StateShutoff
-		case cfg.Running:
-			state = compute.StateRunning
-		default:
-			state = compute.StateShutoff
-		}
-		return nil
+		state, err = d.convergePower(ctx, l, dom, cfg.Running)
+		return err
 	})
 	if err != nil {
 		return compute.StateAbsent, err
@@ -179,9 +98,117 @@ func (d *Driver) Ensure(ctx context.Context, cfg compute.VMConfig) (compute.Stat
 	return state, nil
 }
 
-// Observe returns the current state of the domain, scoped to our ownership
-// at the given epoch. A foreign or wrong-epoch domain reads as ABSENT
-// (owner-scoped resync, plan §6.6).
+// tenantAttached reports whether this placement wants a tenant NIC.
+func (d *Driver) tenantAttached(cfg compute.VMConfig) bool {
+	return cfg.Network != "" && d.cfg.TenantBridge != ""
+}
+
+// prepareStorage resolves the backing image, creates the sized root overlay,
+// and writes the cloud-init seed ISO, returning their durable paths.
+func (d *Driver) prepareStorage(ctx context.Context, vmID uuid.UUID, cfg compute.VMConfig) (diskPath, seedPath string, err error) {
+	backing, backingSize, err := d.cfg.ResolveBacking(ctx, cfg.Image)
+	if err != nil {
+		return "", "", fmt.Errorf("libvirt: resolve image %q: %w", cfg.Image, err)
+	}
+	if cfg.RootDiskBytes < backingSize {
+		return "", "", fmt.Errorf("libvirt: requested disk %d < backing size %d", cfg.RootDiskBytes, backingSize)
+	}
+	diskPath, err = d.runner.EnsureOverlay(ctx, cfg.Node, cfg.VMID, cfg.Epoch, backing, cfg.RootDiskBytes)
+	if err != nil {
+		return "", "", err
+	}
+	seedPath, err = d.buildSeed(vmID, cfg)
+	if err != nil {
+		return "", "", err
+	}
+	return diskPath, seedPath, nil
+}
+
+// buildSeed renders the cloud-init NoCloud ISO for this VM and persists it.
+func (d *Driver) buildSeed(vmID uuid.UUID, cfg compute.VMConfig) (string, error) {
+	seedCfg := seed.Config{
+		InstanceID:       cfg.VMID,
+		Hostname:         cfg.Name,
+		SSHAuthorizedKey: d.cfg.SSHAuthorizedKey,
+		MgmtMAC:          domainxml.MAC(vmID, 0),
+	}
+	if d.tenantAttached(cfg) {
+		seedCfg.TenantMAC = domainxml.MAC(vmID, 1)
+		// A deterministic tenant address for the demo; real IPAM lands with the
+		// network resource.
+		seedCfg.TenantCIDR = tenantAddr(vmID)
+	}
+	iso := &bytes.Buffer{}
+	if err := seed.Build(iso, seedCfg); err != nil {
+		return "", err
+	}
+	return d.runner.WriteSeed(cfg.Node, cfg.VMID, cfg.Epoch, iso.Bytes())
+}
+
+// buildDomainConfig assembles the domain definition inputs, including the
+// optional tenant attachment.
+func (d *Driver) buildDomainConfig(vmID uuid.UUID, cfg compute.VMConfig, diskPath, seedPath string) domainxml.Config {
+	domCfg := domainxml.Config{
+		Name: cfg.Name, VMID: vmID, Node: cfg.Node, Epoch: cfg.Epoch,
+		CPUs: cfg.CPUs, MemoryBytes: cfg.MemoryBytes,
+		DiskPath: diskPath, SeedPath: seedPath,
+		MgmtNetwork: d.cfg.MgmtNetwork,
+		CPUSet:      d.cfg.CPUSet,
+		Emulated:    d.cfg.Emulated,
+	}
+	if d.tenantAttached(cfg) {
+		domCfg.TenantBridge = d.cfg.TenantBridge
+		domCfg.TenantVLAN = vlanFor(cfg.Network)
+	}
+	return domCfg
+}
+
+// defineOrAdopt returns the domain, defining it from xml if absent. An existing
+// same-named domain is adopted only after its ownership metadata confirms it is
+// ours at this epoch; a foreign domain is refused.
+func (d *Driver) defineOrAdopt(l *golibvirt.Libvirt, name string, vmID uuid.UUID, epoch int64, xml string) (golibvirt.Domain, error) {
+	dom, lookErr := l.DomainLookupByName(name)
+	if lookErr != nil {
+		if !golibvirt.IsNotFound(lookErr) {
+			return dom, lookErr
+		}
+		return l.DomainDefineXML(xml)
+	}
+	if err := d.assertOwned(l, dom, vmID, epoch); err != nil {
+		return dom, err
+	}
+	return dom, nil
+}
+
+// convergePower starts or gracefully stops the domain to match wantRunning and
+// returns the resulting state. The domain is never autostarted (the XML omits
+// it), so power is driven only here.
+func (d *Driver) convergePower(ctx context.Context, l *golibvirt.Libvirt, dom golibvirt.Domain, wantRunning bool) (compute.State, error) {
+	stateCode, _, err := l.DomainGetState(dom, 0)
+	if err != nil {
+		return compute.StateAbsent, err
+	}
+	isRunning := golibvirt.DomainState(stateCode) == golibvirt.DomainRunning
+	switch {
+	case wantRunning && !isRunning:
+		if err := l.DomainCreate(dom); err != nil {
+			return compute.StateAbsent, err
+		}
+		return compute.StateRunning, nil
+	case !wantRunning && isRunning:
+		if err := d.gracefulStop(ctx, l, dom); err != nil {
+			return compute.StateAbsent, err
+		}
+		return compute.StateShutoff, nil
+	case wantRunning:
+		return compute.StateRunning, nil
+	default:
+		return compute.StateShutoff, nil
+	}
+}
+
+// Observe returns the current state of the domain, scoped to our ownership at
+// the given epoch. A foreign or wrong-epoch domain reads as absent.
 func (d *Driver) Observe(ctx context.Context, vmID string, epoch int64) (compute.State, error) {
 	id, err := uuid.Parse(vmID)
 	if err != nil {
@@ -239,18 +266,17 @@ func (d *Driver) Teardown(ctx context.Context, vmID string, epoch int64) error {
 	if err != nil {
 		return err
 	}
-	// Storage teardown is durable and happens after the domain is gone.
-	// We tear down by the node we own; the executor supplies node via a
-	// separate call path — here we can only clean by (vm, epoch) under the
-	// storage root prefix, which TeardownEpoch does per node internally.
+	// Storage teardown is durable and runs after the domain is gone. The
+	// compute.Driver.Teardown signature carries no node, so teardownStorage
+	// scans the storage root and removes this (vm, epoch)'s artifacts under
+	// whichever node directory holds them.
 	return d.teardownStorage(vmID, epoch)
 }
 
 func (d *Driver) gracefulStop(ctx context.Context, l *golibvirt.Libvirt, dom golibvirt.Domain) error {
-	if err := l.DomainShutdown(dom); err != nil && !golibvirt.IsNotFound(err) {
-		// Fall through to forced destroy.
-		_ = err
-	}
+	// Best-effort ACPI shutdown; on any error we fall through to the poll loop
+	// and, past the deadline, a forced destroy.
+	_ = l.DomainShutdown(dom)
 	deadline := time.Now().Add(d.cfg.StopDeadline)
 	for time.Now().Before(deadline) {
 		select {

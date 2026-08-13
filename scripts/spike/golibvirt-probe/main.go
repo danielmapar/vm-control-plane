@@ -1,15 +1,15 @@
 // Command golibvirt-probe establishes, with the exact client library the
-// agent will use, the fact the connection supervisor (plan D8) is designed
-// around: a go-libvirt MUTATION can land on the server while the client
+// agent will use, the fact the connection supervisor is designed
+// around: a go-libvirt mutation can land on the server while the client
 // never sees the response — and the only safe recovery is to poison the
-// transport, reconnect, and RE-OBSERVE before retrying.
+// transport, reconnect, and re-observe before retrying.
 //
 // Probe sequence:
 //
 //  1. lifecycle: define → lookup (idempotent re-check) → start → destroy →
 //     undefine of a run-scoped trivial domain.
 //  2. gated mutation: through a response-gating proxy, issue
-//     DomainDefineXML and WITHHOLD the server's response. An independent
+//     DomainDefineXML and withhold the server's response. An independent
 //     observer connection confirms the domain landed while the caller is
 //     still blocked — the ambiguous-outcome window made visible.
 //  3. poison + re-observe: close the proxied transport; assert the blocked
@@ -127,7 +127,7 @@ func gatedMutationProbe(name string) error {
 		defineErr <- err
 	}()
 
-	// Independent observer: the mutation must LAND while the caller blocks.
+	// Independent observer: the mutation must land while the caller blocks.
 	observer, err := connect()
 	if err != nil {
 		gate.closeAll()
@@ -151,7 +151,7 @@ func gatedMutationProbe(name string) error {
 		return fmt.Errorf("caller returned (%v) while its response was withheld — gate leaked", err)
 	default:
 		// Blocked, as designed around: the caller cannot know its define
-		// succeeded. This is exactly why retries must re-observe (D8).
+		// succeeded. This is exactly why retries must re-observe.
 	}
 
 	// Poison the transport (the supervisor's only recourse) and require the

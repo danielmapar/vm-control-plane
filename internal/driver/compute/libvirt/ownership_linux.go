@@ -5,9 +5,6 @@ package libvirt
 import (
 	"errors"
 	"fmt"
-	"hash/fnv"
-	"os"
-	"path/filepath"
 
 	golibvirt "github.com/digitalocean/go-libvirt"
 	"github.com/google/uuid"
@@ -69,50 +66,4 @@ func (d *Driver) assertOwned(l *golibvirt.Libvirt, dom golibvirt.Domain, id uuid
 			dom.Name, own.VMID, own.Epoch, id, epoch)
 	}
 	return nil
-}
-
-// teardownStorage removes the (vm, epoch) storage directory under whatever
-// node owns it — scanned, because the Teardown interface has vm+epoch but
-// not node. Contained and idempotent.
-func (d *Driver) teardownStorage(vmID string, epoch int64) error {
-	entries, err := os.ReadDir(d.cfg.StorageRoot)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	for _, e := range entries {
-		if !e.IsDir() || e.Name() == "cache" {
-			continue
-		}
-		node := e.Name()
-		dir := filepath.Join(d.cfg.StorageRoot, node, vmID, fmt.Sprintf("%d", epoch))
-		if _, err := os.Stat(dir); err == nil {
-			if err := d.runner.TeardownEpoch(node, vmID, epoch); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
-}
-
-// vlanFor maps a tenant network name to a stable VLAN id in [100, 4000).
-func vlanFor(network string) uint16 {
-	h := fnv.New32a()
-	_, _ = h.Write([]byte(network))
-	return uint16(100 + h.Sum32()%3900)
-}
-
-// tenantAddr derives a deterministic demo tenant IP (10.100.x.y/24) from
-// the VM UUID. Real IPAM lands with the network resource.
-func tenantAddr(id uuid.UUID) string {
-	return fmt.Sprintf("10.100.%d.%d/24", id[14]%254+1, id[15]%253+2)
 }
