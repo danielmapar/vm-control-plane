@@ -116,48 +116,47 @@ host and the agent in the VM over an SSH tunnel:
 changes, and deletes are asynchronous: each returns an operation id you can wait
 on. Sizes accept `MiB` or `GiB` (for example `2GiB`), or raw bytes.
 
-**Create a VM.** Declares the desired VM and returns an operation id; the control
-plane provisions it in the background.
+- **Create a VM:** declares the desired VM and returns an operation id; the
+  control plane provisions it in the background. Add `--network <tenant-net>` to
+  attach a tenant network, or `--idempotency-key <uuid>` to safely replay a
+  create after an ambiguous failure (you get the original operation back, not a
+  second VM).
 
-```
-bin/vmctl create vm web-1 --cpu 2 --memory 2GiB --image ubuntu-24.04 --disk 10GiB
-```
+  ```
+  bin/vmctl create vm web-1 --cpu 2 --memory 2GiB --image ubuntu-24.04 --disk 10GiB
+  ```
 
-Optional flags: `--network <tenant-net>` to attach a tenant network, and
-`--idempotency-key <uuid>` to safely replay a create after an ambiguous failure
-(you get the original operation back, not a second VM).
+- **Wait for an operation, or inspect it:** `op wait` blocks until the operation
+  reaches a terminal state (DONE, FAILED, and so on); `op get` prints its current
+  state.
 
-**Wait for an operation, or inspect it.** `op wait` blocks until the operation
-reaches a terminal state (DONE, FAILED, and so on); `op get` prints its current
-state.
+  ```
+  bin/vmctl op wait <operation-id> --timeout 4m
+  bin/vmctl op get  <operation-id>
+  ```
 
-```
-bin/vmctl op wait <operation-id> --timeout 4m
-bin/vmctl op get  <operation-id>
-```
+- **List VMs, or show one:** the `REVISION` column is `applied/desired`; watch it
+  converge as the control plane reconciles.
 
-**List VMs, or show one.** The `REVISION` column is `applied/desired`; watch it
-converge as the control plane reconciles.
+  ```
+  bin/vmctl list vms
+  bin/vmctl get vm web-1
+  ```
 
-```
-bin/vmctl list vms
-bin/vmctl get vm web-1
-```
+- **Stop or start a VM:** power is the mutable part of the spec in v0.1; each
+  returns an operation that converges the running state.
 
-**Stop or start a VM.** Power is the mutable part of the spec in v0.1; each
-returns an operation that converges the running state.
+  ```
+  bin/vmctl stop  vm web-1
+  bin/vmctl start vm web-1
+  ```
 
-```
-bin/vmctl stop  vm web-1
-bin/vmctl start vm web-1
-```
+- **Delete a VM:** tombstones it, then the control plane reconciles the teardown
+  (storage and networking) and finalizes.
 
-**Delete a VM.** Tombstones it, then the control plane reconciles the teardown
-(storage and networking) and finalizes.
-
-```
-bin/vmctl delete vm web-1
-```
+  ```
+  bin/vmctl delete vm web-1
+  ```
 
 ## Crash safety
 
