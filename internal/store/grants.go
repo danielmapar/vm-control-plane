@@ -123,7 +123,7 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 		return tx.Commit(ctx)
 	}
 	if _, err := tx.Exec(ctx, `
-		UPDATE placements SET state = 'granted', granted_at=clock_timestamp()
+		UPDATE placements SET state = 'granted', granted_at = clock_timestamp()
 		WHERE vm_id = $1 AND epoch = $2`, vmID, epoch); err != nil {
 		return err
 	}

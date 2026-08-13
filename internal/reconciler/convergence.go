@@ -17,7 +17,7 @@ func (l *Loop) reconcileConvergence(ctx context.Context, claim *store.Claim) err
 	wantState, _ := desiredStates(vm.Spec)
 	if vm.AppliedRevision != vm.DesiredRevision || vm.ObservedState != wantState {
 		// The agent drives; we wait. Reported evidence wakes us.
-		return l.completeNoop(ctx, claim, l.cfg.ResyncWait)
+		return l.releaseClaim(ctx, claim, l.cfg.ResyncWait)
 	}
 
 	tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token)
@@ -37,9 +37,9 @@ func (l *Loop) reconcileConvergence(ctx context.Context, claim *store.Claim) err
 		fresh.DesiredRevision != vm.DesiredRevision ||
 		fresh.AppliedRevision != fresh.DesiredRevision ||
 		fresh.ObservedState != freshWantState {
-		// Release the lock before completeNoop re-claims the row.
+		// Release the lock before releaseClaim re-claims the row.
 		_ = tx.Rollback(ctx)
-		return l.completeNoop(ctx, claim, l.cfg.ResyncWait)
+		return l.releaseClaim(ctx, claim, l.cfg.ResyncWait)
 	}
 	st := fresh.Status
 	if st == nil {

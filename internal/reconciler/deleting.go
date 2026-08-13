@@ -25,11 +25,11 @@ func (l *Loop) reconcileDeleting(ctx context.Context, claim *store.Claim) error 
 			// teardown proof: fail closed and park as cleanup debt.
 			l.cfg.Log.Error("placement ledger row missing for tombstoned vm — refusing to finalize",
 				"vm", vm.Name, "epoch", vm.PlacementEpoch)
-			return l.completeNoop(ctx, claim, l.cfg.PendingWait*6)
+			return l.releaseClaim(ctx, claim, l.cfg.PendingWait*6)
 		}
 		if p.State != store.PlacementTornDown {
 			// Teardown not yet proven; the tombstone intent keeps driving it.
-			return l.completeNoop(ctx, claim, l.cfg.ResyncWait)
+			return l.releaseClaim(ctx, claim, l.cfg.ResyncWait)
 		}
 	}
 

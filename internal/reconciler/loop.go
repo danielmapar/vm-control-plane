@@ -124,7 +124,7 @@ func (l *Loop) reconcile(ctx context.Context, claim *store.Claim) {
 		err = l.reconcileConvergence(ctx, claim)
 	default:
 		// Nothing to do; release with a long backoff.
-		err = l.completeNoop(ctx, claim, l.cfg.PendingWait)
+		err = l.releaseClaim(ctx, claim, l.cfg.PendingWait)
 	}
 
 	switch {
@@ -169,8 +169,8 @@ func desiredStates(spec *vmcv1.VmSpec) (store.ObservedState, store.Phase) {
 	return store.ObservedRunning, store.PhaseRunning
 }
 
-// completeNoop releases the claim with a backoff (used by waiting states).
-func (l *Loop) completeNoop(ctx context.Context, claim *store.Claim, backoff time.Duration) error {
+// releaseClaim releases the claim with a backoff (used by waiting states).
+func (l *Loop) releaseClaim(ctx context.Context, claim *store.Claim, backoff time.Duration) error {
 	tx, err := l.st.CompleteClaimTx(ctx, claim.VM.ID, claim.Token)
 	if err != nil {
 		return err

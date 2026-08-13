@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -93,9 +94,10 @@ func (s *Store) ClaimEnvelope(ctx context.Context, tx pgx.Tx, key uuid.UUID, met
 	if err != nil {
 		return nil, err
 	}
+	// The request hash is not secret material, so a plain compare is fine.
 	if env.Method != method || env.APIVersion != apiVersion ||
 		env.ResourceType != resourceType || env.ResourceName != resourceName ||
-		!hashEqual(env.RequestHash, requestHash) {
+		!bytes.Equal(env.RequestHash, requestHash) {
 		return nil, fmt.Errorf("%w: key %s first used by %s on %s/%s",
 			ErrEnvelopeMismatch, key, env.Method, env.ResourceType, env.ResourceName)
 	}
@@ -176,7 +178,7 @@ func (s *Store) TerminalizeOperation(ctx context.Context, q querier, id uuid.UUI
 		return nil, fmt.Errorf("terminalize: %q is not a terminal state", state)
 	}
 	row := q.QueryRow(ctx, `
-		UPDATE operations SET state = $2, error = $3, finished_at=clock_timestamp()
+		UPDATE operations SET state = $2, error = $3, finished_at = clock_timestamp()
 		WHERE id = $1 AND state IN ('PENDING','RUNNING')
 		RETURNING `+opColumns,
 		id, state, errMsg)
@@ -198,15 +200,15 @@ func (s *Store) TerminalizeOperation(ctx context.Context, q querier, id uuid.UUI
 // transaction.
 func (s *Store) TerminalizeRealizedOps(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, realizedRevision int64) error {
 	if _, err := tx.Exec(ctx, `
-		UPDATE operations SET state = 'DONE', finished_at=clock_timestamp()
+		UPDATE operations SET state = 'DONE', finished_at = clock_timestamp()
 		WHERE resource_type = 'vm' AND resource_id = $1 AND target_revision = $2 AND state IN ('PENDING','RUNNING')`,
 		vmID, realizedRevision); err != nil {
 		return err
 	}
 	_, err := tx.Exec(ctx, `
 		UPDATE operations SET state = 'SUPERSEDED',
-			error = 'a newer desired revision was realized first', finished_at=clock_timestamp()
-		WHERE resource_type = 'vm' AND resource_id = $1 AND target_revision<$2 AND state IN ('PENDING','RUNNING')`,
+			error = 'a newer desired revision was realized first', finished_at = clock_timestamp()
+		WHERE resource_type = 'vm' AND resource_id = $1 AND target_revision < $2 AND state IN ('PENDING','RUNNING')`,
 		vmID, realizedRevision)
 	return err
 }
@@ -243,7 +245,7 @@ func (s *Store) ExpireOperations(ctx context.Context, q querier) ([]*Operation, 
 	rows, err := q.Query(ctx, `
 		UPDATE operations SET state = 'DEADLINE_EXCEEDED',
 			error = 'operation deadline exceeded; resource state unchanged (no unsafe cleanup)',
-			finished_at=clock_timestamp()
+			finished_at = clock_timestamp()
 		WHERE state IN ('PENDING','RUNNING') AND deadline <= clock_timestamp()
 		RETURNING `+opColumns)
 	if err != nil {
@@ -273,17 +275,4 @@ func scanOperation(row pgx.Row) (*Operation, error) {
 		return nil, err
 	}
 	return &op, nil
-}
-
-func hashEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	// Not secret material; a constant-time comparison is unnecessary.
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

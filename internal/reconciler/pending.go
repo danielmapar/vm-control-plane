@@ -29,7 +29,7 @@ func (l *Loop) reconcilePending(ctx context.Context, claim *store.Claim) error {
 			if errors.Is(err, store.ErrPlacementPreconditions) {
 				// Tombstone or phase moved after the claim: requeue and let the
 				// rescan recompute from fresh state.
-				return l.completeNoop(ctx, claim, 0)
+				return l.releaseClaim(ctx, claim, 0)
 			}
 			return err
 		}

@@ -74,8 +74,8 @@ func main() {
 		Nodes:    specs,
 		// Host allocatable: the quota sum exactly (no overcommit in v0.1).
 		HostCPUs:     opts.nodeCPUs * int64(len(specs)),
-		HostMemory:   opts.nodeMemoryGiB << 30 * uint64(len(specs)),
-		HostDisk:     opts.nodeDiskGiB << 30 * uint64(len(specs)),
+		HostMemory:   (opts.nodeMemoryGiB << 30) * uint64(len(specs)),
+		HostDisk:     (opts.nodeDiskGiB << 30) * uint64(len(specs)),
 		Compute:      drv,
 		Log:          log,
 		DebugAddr:    opts.debug,
