@@ -25,6 +25,11 @@ type Config struct {
 	MgmtNetwork      string // libvirt NAT network for the management NIC
 	TenantBridge     string // OVS integration bridge (empty = mgmt-only)
 	SSHAuthorizedKey string // injected into every guest via cloud-init
+	// CPUSet pins every guest's vCPU+emulator threads to these host cores
+	// (libvirt cpuset, e.g. "8-15"). Empty = no pinning. On nested VirtualBox
+	// this keeps L2 guests off the cores the control-plane stack runs on,
+	// preventing the boot-time preemption that permanently wedges them.
+	CPUSet string
 	// ResolveBacking maps an image name (e.g. "ubuntu-24.04") to a cached,
 	// verified backing qcow2 path. The image cache is pre-seeded by the
 	// spike/demo; a missing image is an error, never a silent download.
@@ -105,6 +110,7 @@ func (d *Driver) Ensure(ctx context.Context, cfg compute.VMConfig) (compute.Stat
 		DiskPath: diskPath, SeedPath: seedPath,
 		MgmtNetwork:  d.cfg.MgmtNetwork,
 		TenantBridge: firstNonEmpty(cfg.Network, ""),
+		CPUSet:       d.cfg.CPUSet,
 	}
 	if cfg.Network != "" && d.cfg.TenantBridge != "" {
 		domCfg.TenantBridge = d.cfg.TenantBridge

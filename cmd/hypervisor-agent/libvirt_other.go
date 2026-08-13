@@ -10,7 +10,7 @@ import (
 )
 
 type libvirtDriverOpts struct {
-	Socket, StorageRoot, MgmtNetwork, TenantBridge, SSHKeyFile string
+	Socket, StorageRoot, MgmtNetwork, TenantBridge, SSHKeyFile, CPUSet string
 }
 
 func newLibvirtDriver(context.Context, libvirtDriverOpts) (compute.Driver, error) {

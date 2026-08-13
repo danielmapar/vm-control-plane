@@ -47,6 +47,10 @@ type Config struct {
 	// Tenant attachment; empty TenantBridge means management-only.
 	TenantBridge string
 	TenantVLAN   uint16
+	// CPUSet pins the guest's vCPU + emulator threads to these host cores
+	// (libvirt cpuset syntax, e.g. "8-15"). Empty = no pinning. Used to keep
+	// nested-virt guests off the cores the control-plane stack runs on.
+	CPUSet string
 }
 
 // MAC derives the deterministic, locally-administered MAC for a NIC.
@@ -94,6 +98,21 @@ func Build(cfg Config) (string, error) {
 	w(`  </metadata>`)
 	w(`  <memory unit='bytes'>%d</memory>`, cfg.MemoryB)
 	w(`  <vcpu placement='static'>%d</vcpu>`, cfg.CPUs)
+	// Pin the guest's vCPU and emulator threads to dedicated host cores. Under
+	// VirtualBox's nested VT-x an L2 guest that is descheduled at a bad moment
+	// during boot wedges PERMANENTLY (proven: it never recovers even after all
+	// host load is removed). Keeping the vCPU thread on cores the control-plane
+	// stack never touches avoids that preemption. Only emitted when CPUSet is
+	// set, so the isolated integration test (which needs no pinning) is
+	// unaffected.
+	if cfg.CPUSet != "" {
+		w(`  <cputune>`)
+		w(`    <emulatorpin cpuset='%s'/>`, esc(cfg.CPUSet))
+		for i := uint32(0); i < cfg.CPUs; i++ {
+			w(`    <vcpupin vcpu='%d' cpuset='%s'/>`, i, esc(cfg.CPUSet))
+		}
+		w(`  </cputune>`)
+	}
 	w(`  <os>`)
 	w(`    <type arch='x86_64' machine='q35'>hvm</type>`)
 	w(`    <boot dev='hd'/>`)

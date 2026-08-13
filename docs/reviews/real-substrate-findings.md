@@ -30,49 +30,71 @@ the seams between the Go code and real libvirt/qemu/Linux. Finding them is
 the whole reason the plan insisted on a real-substrate tier rather than
 declaring victory on fakes.
 
-## End-to-end capstone: proven in two halves, plus a VirtualBox limitation
+## End-to-end capstone: what real KVM proves, and the VirtualBox wall
 
-The capstone goal was one unbroken script: `vmctl create` → a real guest
-boots → SSH into it → `vmctl delete`, all driven through the full control
-plane. Every link was demonstrated on real KVM:
+The capstone goal was one unbroken run: `vmctl create` → a real guest boots →
+SSH into it → `vmctl delete`, driven through the control plane. On real KVM,
+every link is proven:
 
-1. **The control plane converges a real domain to `RUNNING`.** Across every
-   capstone run, `vmctl create real-1` produced an operation that reached
-   `DONE` and a VM that reached `PHASE: RUNNING` on `node-a` — meaning the
-   control-plane, the durable work queue, the reconciler, the scheduler, the
-   agent, the **real** libvirt driver, the **real** qcow2 overlay, and a
-   **real** libvirt domain (defined + started) all executed in sequence.
-2. **The guest boots and gets a lease through that whole path.** Runs
-   produced a real Ubuntu guest, created by the control plane, that booted its
-   kernel and pulled a DHCP lease off our `vmc-mgmt` NAT network (e.g. the
-   `real-1` lease at `192.168.221.34`/`.54`, matched by cloud-init hostname).
-3. **The driver boots a guest all the way to SSH and tears it down.** The
-   focused integration test `TestITBootSSHTeardown` **passes in ~80 s**: real
-   domain up, DHCP lease, key-only SSH after cloud-init, clean teardown with
-   storage removed. This is the same driver the agent uses.
+1. **The control plane converges a real domain to `RUNNING`.** Every run,
+   `vmctl create real-1` produced an operation that reached `DONE` and a VM at
+   `PHASE: RUNNING` on `node-a` — the control-plane, the durable work queue,
+   the reconciler, the scheduler, the agent, the **real** libvirt driver, the
+   **real** qcow2 overlay, and a **real** libvirt domain (defined + started)
+   all executed in sequence. Reproducible, monolithic AND distributed.
+2. **The guest boots and DHCPs through that whole path.** Real Ubuntu guests,
+   created by the control plane, booted their kernel and pulled a lease off the
+   `vmc-mgmt` NAT network (e.g. `192.168.221.24`, matched by cloud-init
+   hostname).
+3. **The driver boots a guest all the way to SSH and tears it down.**
+   `TestITBootSSHTeardown` **passes in ~80–100 s**: real domain, DHCP, key-only
+   SSH after cloud-init, clean teardown. This is the *same driver* the agent
+   uses, and it passes repeatedly even late in the investigation — so the
+   substrate is healthy.
 
-What could **not** be captured in a single unbroken run is a VirtualBox
-limitation, not a control-plane one — and it took two distinct fixes to prove
-that. First, a demo bug (finding #7): the SSH step targeted a *stale* lease,
-so it was probing a dead address, not the running guest. With that corrected
-(match the newest `real-1` lease) the demo reaches the guest's true IP —
-`.34`/`.54` — but a direct probe then showed the real limitation: **the guest
-is unreachable there** (no ICMP, no `:22` for 300 s straight) even though it
-had DHCP'd. Under the capstone's *sustained* full-stack load, VirtualBox's
-(experimental) nested VT-x either **guru-meditates** (a host-level hypervisor
-fault — repeatedly, when a guest lingers into the fault window) or leaves the
-guest wedged after early boot — the very same `rcu_preempt`-stall pathology
-that, after ~5 faults, showed up on the *substrate VM's own* kernel boot. The
-isolated IT test survives precisely because it is light and short-lived
-(~80 s) on a fresh substrate. The demo now mitigates the lingering path (retry
-SSH, then destroy the guest on any exit), but the underlying nested hypervisor
-degrades under this load and no demo-side change can stabilize it.
+The one thing that does **not** complete in a single agent-driven run — the
+guest answering SSH — is a VirtualBox limitation, and pinning it down took a
+long chain of eliminations (each an entry above or below):
 
-The lesson is the honest one for the interview: **the system works against
-real KVM — proven by the domain reaching `RUNNING` through the full stack and
-by the driver booting a guest to SSH — and the remaining gap is that nesting
-KVM inside VirtualBox is not a stable substrate for a sustained guest boot.**
-Production KVM runs on bare metal for exactly this reason; the reliable live
-demo is the native Tier-0 stack (`make dev`, fake drivers, identical
-control-plane code paths), with the real-KVM tier standing as the
-hardware-level proof.
+- **It is not the demo.** A stale-lease bug (finding #7) had the SSH step
+  probing a dead address; fixed to match the newest `real-1` lease.
+- **It is not disk contention alone.** Embedded Postgres was moved to tmpfs
+  and the backing image pre-warmed into RAM — yet the guest still wedged. (A
+  deliberately brutal `dd oflag=direct` loop *did* guru-meditate the VM, so
+  nested VT-x *is* I/O-sensitive — but removing the DB's I/O was not enough.)
+- **It is not CPU or scheduling.** Bumping the substrate to 16 vCPUs did
+  nothing; pinning the guest's every QEMU thread to dedicated cores 8-15
+  (verified via `virsh emulatorpin`/`vcpupin` and `taskset` on all threads)
+  did nothing. Activity on cores 0-7 still wedges a guest isolated on 8-15 —
+  so the interference is *below* the CPU scheduler, at the VT-x emulation.
+- **It is not libvirt introspection.** The IT test passes even with a
+  `virsh dumpxml`/`domstate` loop hammering its guest every 0.3 s.
+- **It is not the DB/control-plane sharing the VM.** A **distributed**
+  deployment was built for exactly this test: control-plane + Postgres on the
+  Windows host, and *only* the agent + libvirt + guest in the nested VM,
+  reached over an SSH reverse tunnel. It works mechanically — the remote
+  control plane drove a real guest to `RUNNING` + DHCP, and even **survived a
+  hypervisor-host crash** — but the guest still wedged/guru'd.
+- **It is not the poll rate.** Slowing the agent's work-claim poll from 300 ms
+  to 3 s (matching the IT test's cadence) did not help either.
+
+What remains, by elimination, is the difference between the passing IT test and
+every failing run: a **long-running agent daemon co-located with a booting
+guest**. The IT test creates the guest with one synchronous `Ensure` and then
+only polls DHCP leases; the agent keeps a persistent gRPC connection and a
+reconcile loop alive *through* the guest's boot. On VirtualBox's experimental
+nested VT-x that steady-state presence is enough to wedge the L2 guest or trip
+a host guru meditation — the same fragility that a bare-metal or Hyper-V
+hypervisor simply does not have (running agents beside booting guests is
+ordinary production behaviour there).
+
+**The honest conclusion for the interview:** the system works on real KVM —
+the control plane converges a real domain to `RUNNING` (monolithic and
+distributed), the guest boots and DHCPs through it, and the driver boots a
+guest all the way to SSH. The single agent-driven boot-to-SSH is gated by
+nested VirtualBox, not by the code, and the fix is a real hypervisor
+(bare-metal KVM, or Hyper-V nested virt) — not a code change. The reliable
+live demos are: the native **Tier-0** stack (`make dev`, identical
+control-plane code paths, no hypervisor at all), the **IT test** (real
+boot-to-SSH), and the **distributed** control-plane convergence (a control
+plane on one host driving a real hypervisor on another).

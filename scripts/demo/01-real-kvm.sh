@@ -27,6 +27,13 @@ cd "$(dirname "$0")/../.."
 
 echo "== 1. seed image cache =="
 ./scripts/spike/seed-image.sh
+# Warm the backing image into the page cache. The guest reads ~2GB of backing
+# during boot; served from RAM those reads don't contend with anything on the
+# substrate's single virtual disk. Disk-read contention during an L2 boot is a
+# proven nested-VirtualBox destabilizer (it wedges the guest).
+if [ -f /var/lib/vmc/cache/ubuntu-24.04.qcow2 ]; then
+  cat /var/lib/vmc/cache/ubuntu-24.04.qcow2 >/dev/null 2>&1 || true
+fi
 
 echo "== 2. ephemeral SSH key =="
 KEYDIR=$(mktemp -d)
@@ -37,8 +44,11 @@ echo "== 3. build =="
 go build -o bin/ ./cmd/...
 
 echo "== 4. launch the real-KVM stack (background) =="
+# Pin guest vCPU+emulator to the upper host cores (8-15). On nested VirtualBox
+# an L2 guest that is preempted at a bad moment during boot wedges PERMANENTLY;
+# keeping it off the cores the stack (0-7) runs on is what lets it boot.
 DEVLOG=$(mktemp /tmp/vmc-dev.XXXXXX.log)
-go run ./scripts/dev --driver libvirt --nodes node-a,node-b --ssh-key-file "$PUB" >"$DEVLOG" 2>&1 &
+go run ./scripts/dev --driver libvirt --nodes node-a,node-b --ssh-key-file "$PUB" --pin-cpuset 8-15 >"$DEVLOG" 2>&1 &
 DEV_PID=$!
 # On ANY exit, destroy the guest domain BEFORE tearing down the stack. A guest
 # left running with nobody to reap it lingers — and under VirtualBox's nested

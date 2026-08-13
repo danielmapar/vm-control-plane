@@ -13,7 +13,7 @@ import (
 )
 
 type libvirtDriverOpts struct {
-	Socket, StorageRoot, MgmtNetwork, TenantBridge, SSHKeyFile string
+	Socket, StorageRoot, MgmtNetwork, TenantBridge, SSHKeyFile, CPUSet string
 }
 
 // newLibvirtDriver builds the real driver and ensures the management NAT
@@ -34,6 +34,7 @@ func newLibvirtDriver(ctx context.Context, o libvirtDriverOpts) (compute.Driver,
 		MgmtNetwork:      o.MgmtNetwork,
 		TenantBridge:     o.TenantBridge,
 		SSHAuthorizedKey: sshKey,
+		CPUSet:           o.CPUSet,
 		ResolveBacking:   cache.Resolve,
 	})
 	if err := d.EnsureMgmtNetwork(ctx); err != nil {

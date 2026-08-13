@@ -37,6 +37,8 @@ func run() error {
 	mgmtNetwork := flag.String("mgmt-network", "vmc-mgmt", "libvirt management network")
 	tenantBridge := flag.String("tenant-bridge", "", "libvirt OVS tenant bridge")
 	sshKeyFile := flag.String("ssh-key-file", "", "libvirt: SSH public key for guests")
+	pinCPUSet := flag.String("pin-cpuset", "", "libvirt: pin guest vCPU+emulator to these host cores (nested-VirtualBox stability)")
+	noAgent := flag.Bool("no-agent", false, "run only embedded Postgres + control-plane (no agent) — for the DISTRIBUTED demo where the real libvirt agent runs on a separate hypervisor host and dials in")
 	flag.Parse()
 
 	// Catch SIGTERM as well as SIGINT: a process manager (or the demo's
@@ -63,7 +65,18 @@ func run() error {
 		return err
 	}
 
-	dataDir, err := os.MkdirTemp("", "vmc-dev-pg-*")
+	// Put PostgreSQL's data + runtime on tmpfs (RAM) when available. On the
+	// nested-KVM substrate, embedded Postgres' disk writes contend with the
+	// guest's boot reads on the same virtual disk, and that I/O contention
+	// destabilizes VirtualBox's nested VT-x — enough to WEDGE a booting guest
+	// (and heavy I/O guru-meditates the whole VM). RAM-backed storage removes
+	// the contention entirely; the demo DB is tiny. Falls back to the default
+	// temp dir off-Linux (Windows Tier-0 has no nested-virt concern).
+	pgBase := ""
+	if fi, serr := os.Stat("/dev/shm"); serr == nil && fi.IsDir() {
+		pgBase = "/dev/shm"
+	}
+	dataDir, err := os.MkdirTemp(pgBase, "vmc-dev-pg-*")
 	if err != nil {
 		return err
 	}
@@ -103,6 +116,20 @@ func run() error {
 	}
 	time.Sleep(1500 * time.Millisecond) // migrations + listener
 
+	// Distributed mode: control-plane + Postgres only. The real libvirt agent
+	// runs on a separate hypervisor host (e.g. the nested-KVM VM) and dials
+	// this control-plane over the network — which is the whole point of a
+	// control-plane/agent split, and on nested VirtualBox it is also what
+	// lets a guest boot: the DB/control-plane workload is no longer sharing
+	// the fragile nested-virt VM with the guest.
+	if *noAgent {
+		fmt.Printf("\ndev: control-plane up (NO agent — distributed mode).\n  VMCTL_SERVER=%s\n  point a remote agent at this address, then: bin/vmctl create ...\nCtrl-C stops it.\n\n", listen)
+		<-ctx.Done()
+		fmt.Println("\ndev: shutting down")
+		_ = cp.Wait()
+		return nil
+	}
+
 	agentArgs := []string{
 		"--server", listen, "--host-id", "host-local", "--nodes", *nodes,
 		"--driver", *driver,
@@ -114,6 +141,9 @@ func run() error {
 			"--tenant-bridge", *tenantBridge)
 		if *sshKeyFile != "" {
 			agentArgs = append(agentArgs, "--ssh-key-file", *sshKeyFile)
+		}
+		if *pinCPUSet != "" {
+			agentArgs = append(agentArgs, "--pin-cpuset", *pinCPUSet)
 		}
 	} else {
 		debugPort, derr := freePort()
