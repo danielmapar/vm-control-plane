@@ -88,6 +88,24 @@ REAL-KVM GUEST REACHED: real-1 / 6.8.0-136-generic
 == demo complete ==
 ```
 
+The script is self-contained. It starts the stack, creates and boots the guest,
+SSHes in, then deletes the guest and shuts the stack back down. Nothing is left
+running, so there is no CLI waiting for you afterward.
+
+To drive real KVM yourself with `vmctl`, start the stack and leave it running,
+the way `make dev` does but with the libvirt driver. From `~/vm-control-plane` in
+the VM:
+
+```
+ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519      # once, if you have no key
+go run ./scripts/dev --driver libvirt --ssh-key-file ~/.ssh/id_ed25519.pub
+```
+
+It prints the `export VMCTL_SERVER=...` line, same as Tier 0. In a second
+`vagrant ssh` session, run that line and use the operations below. Guests you
+create get that public key, so you can `ssh ubuntu@<guest-ip>` into them; find
+the IP with `virsh -c qemu:///system net-dhcp-leases vmc-mgmt`.
+
 There is also a distributed variant, with the control plane and Postgres on the
 host and the agent in the VM over an SSH tunnel:
 [scripts/demo/02-distributed.ps1](scripts/demo/02-distributed.ps1).
@@ -132,6 +150,7 @@ go test ./internal/e2e/ -v
 
 ## Docs
 
+- Development process in detail, the 30 pull requests that built this in order: [docs/build-order.md](docs/build-order.md)
 - Design walkthrough, one request in 10 steps: [docs/design.md](docs/design.md)
 - Implementation plan (state model, PR-by-PR build order, testing): [docs/implementation-plan.md](docs/implementation-plan.md)
 - Decision records: [docs/adr/](docs/adr/)

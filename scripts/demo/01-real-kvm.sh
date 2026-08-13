@@ -44,11 +44,8 @@ echo "== 3. build =="
 go build -o bin/ ./cmd/...
 
 echo "== 4. launch the real-KVM stack (background) =="
-# Pin guest vCPU+emulator to the upper host cores (8-15). On nested VirtualBox
-# an L2 guest that is preempted at a bad moment during boot wedges PERMANENTLY;
-# keeping it off the cores the stack (0-7) runs on is what lets it boot.
 DEVLOG=$(mktemp /tmp/vmc-dev.XXXXXX.log)
-go run ./scripts/dev --driver libvirt --nodes node-a,node-b --ssh-key-file "$PUB" --pin-cpuset 8-15 >"$DEVLOG" 2>&1 &
+go run ./scripts/dev --driver libvirt --nodes node-a,node-b --ssh-key-file "$PUB" >"$DEVLOG" 2>&1 &
 DEV_PID=$!
 # On ANY exit, destroy the guest domain BEFORE tearing down the stack. A guest
 # left running with nobody to reap it lingers — and under VirtualBox's nested

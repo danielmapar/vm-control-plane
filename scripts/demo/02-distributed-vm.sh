@@ -39,7 +39,7 @@ echo "== 5. start ONLY the libvirt agent (dials the remote control-plane) =="
 AGENTLOG=$(mktemp /tmp/vmc-agent.XXXXXX.log)
 bin/hypervisor-agent --server "$SERVER" --host-id host-local --nodes node-a,node-b \
   --driver libvirt --storage-root /var/lib/vmc --mgmt-network vmc-mgmt \
-  --ssh-key-file "$PUB" --pin-cpuset 8-15 --poll-interval 3s >"$AGENTLOG" 2>&1 &
+  --ssh-key-file "$PUB" >"$AGENTLOG" 2>&1 &
 AGENT=$!
 trap 'virsh -c qemu:///system destroy real-1 >/dev/null 2>&1 || true; kill "$AGENT" 2>/dev/null || true' EXIT
 sleep 6
