@@ -42,19 +42,40 @@ export VMCTL_SERVER=127.0.0.1:<port>     # PowerShell: $env:VMCTL_SERVER='127.0.
 
 Now use the operations below (`bin/vmctl ...`).
 
-### 2. Real KVM, one command
+### 2. Real KVM (in a Linux VM)
 
-Inside the substrate VM, an Ubuntu VM under VirtualBox with nested KVM. Bring it
-up with `vagrant up` in [deploy/vagrant](deploy/vagrant), then run as the
-unprivileged service user:
+This runs the same control plane against real libvirt/KVM inside a Linux VM.
+
+On the host you need [VirtualBox](https://www.virtualbox.org/) and
+[Vagrant](https://www.vagrantup.com/). Hardware virtualization must be enabled in
+firmware, and on Windows, Hyper-V and WSL must be off, so VirtualBox can pass
+nested VT-x into the guest. That nesting is what gives the guest a working
+`/dev/kvm`.
+
+First, bring the VM up from the repo root. The first run downloads the box and
+provisions it, which takes a few minutes:
 
 ```
+cd deploy/vagrant
+vagrant up
+```
+
+`vagrant up` builds an Ubuntu 24.04 VM with nested KVM, installs QEMU, libvirt,
+Open vSwitch, and Go, adds the login user to the `kvm` and `libvirt` groups, and
+copies this repo to `~/vm-control-plane` inside the VM.
+
+Then SSH in and run the demo as the normal `vagrant` user. Do not use `sudo`: the
+embedded Postgres refuses to run as root, and KVM/libvirt access already comes
+from the group membership above.
+
+```
+vagrant ssh
 cd ~/vm-control-plane
 ./scripts/demo/01-real-kvm.sh
 ```
 
-It boots a real Ubuntu guest through the whole control plane, SSHes into it, and
-deletes it:
+The first run also downloads the Ubuntu cloud image once. After that it boots a
+real guest through the whole control plane, SSHes into it, and deletes it:
 
 ```
 == create a real VM ==       real-1  RUNNING  node-a
