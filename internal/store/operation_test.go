@@ -50,7 +50,7 @@ func claimCreate(ctx context.Context, s *store.Store, pool *pgxpool.Pool, key uu
 }
 
 func TestEnvelopeReplayReturnsOriginal(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 	key := uuid.New()
@@ -70,7 +70,7 @@ func TestEnvelopeReplayReturnsOriginal(t *testing.T) {
 }
 
 func TestEnvelopeMismatchRejected(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 	key := uuid.New()
@@ -87,7 +87,7 @@ func TestEnvelopeMismatchRejected(t *testing.T) {
 // TestEnvelopeConcurrentSameKey: N racers, one key — exactly one operation
 // exists afterward and every racer that succeeded saw that same operation.
 func TestEnvelopeConcurrentSameKey(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 	key := uuid.New()
@@ -136,7 +136,7 @@ func TestEnvelopeConcurrentSameKey(t *testing.T) {
 // TestEnvelopeWinnerRollback: an envelope whose transaction rolled back
 // leaves nothing behind — the next claimant becomes the owner.
 func TestEnvelopeWinnerRollback(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 	key := uuid.New()
@@ -160,7 +160,7 @@ func TestEnvelopeWinnerRollback(t *testing.T) {
 }
 
 func TestTerminalResultsImmutable(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 
@@ -188,10 +188,10 @@ func TestTerminalResultsImmutable(t *testing.T) {
 	}
 }
 
-// TestDeadlineExpiryTerminalizes: matrix row 20 — an operation with no
+// TestDeadlineExpiryTerminalizes — an operation with no
 // retry activity still terminates once its database-clock deadline passes.
 func TestDeadlineExpiryTerminalizes(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 
@@ -221,7 +221,7 @@ func TestDeadlineExpiryTerminalizes(t *testing.T) {
 
 // TestDeleteOperationOutlivesResource: operations are never FK-cascaded.
 func TestDeleteOperationOutlivesResource(t *testing.T) {
-	pool := pgtestNewDB(t)
+	pool := pgtest.NewDB(t)
 	s := store.New(pool)
 	ctx := context.Background()
 
@@ -248,6 +248,3 @@ func TestDeleteOperationOutlivesResource(t *testing.T) {
 		t.Fatalf("delete operation must outlive its resource: %v %+v", err, got)
 	}
 }
-
-// pgtestNewDB shares the package's single TestMain (vm_test.go).
-func pgtestNewDB(t *testing.T) *pgxpool.Pool { return pgtest.NewDB(t) }

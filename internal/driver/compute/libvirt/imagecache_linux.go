@@ -14,7 +14,7 @@ import (
 
 // FileImageCache resolves image names to pre-seeded backing files under
 // <root>/cache/<name>.qcow2. A missing image is an error — the driver never
-// downloads silently (plan D10: cache admission is pinned + verified,
+// downloads silently (cache admission is pinned + verified,
 // performed by the spike/demo, not the hot path).
 type FileImageCache struct {
 	Root string // storage root; images live under Root/cache

@@ -2,10 +2,10 @@
 
 // Package qcow2 runner: the Linux executor behind the portable core. It
 // turns the pure argv/layout/validation logic into real filesystem effects
-// with the durability ordering the plan requires (D10): create to a temp
+// with the durability ordering the plan requires: create to a temp
 // name, fdatasync the file, publish with no-replace semantics, then fsync
 // the containing directory — rename alone does not survive a host crash.
-// Teardown is symmetric: unlink, then fsync the directory, BEFORE any
+// Teardown is symmetric: unlink, then fsync the directory, before any
 // receipt is issued.
 package qcow2
 
@@ -114,9 +114,9 @@ func (r *Runner) WriteSeed(node, vmID string, epoch int64, iso []byte) (string, 
 }
 
 // TeardownEpoch removes the entire (node, vm, epoch) artifact directory,
-// then fsyncs its parent — durable teardown, BEFORE any receipt is issued
-// (plan D10). Idempotent. Refuses to touch anything outside the storage
-// root, re-verifying containment at the moment of deletion (D15).
+// then fsyncs its parent — durable teardown, before any receipt is issued.
+// Idempotent. Refuses to touch anything outside the storage
+// root, re-verifying containment at the moment of deletion.
 func (r *Runner) TeardownEpoch(node, vmID string, epoch int64) error {
 	id, err := parseVMID(vmID)
 	if err != nil {
@@ -198,7 +198,7 @@ func fsyncDir(path string) error {
 }
 
 // assertNoSymlink walks from root to target and fails if any component is a
-// symlink — the removal path must be exactly what its name says (D15).
+// symlink — the removal path must be exactly what its name says.
 func assertNoSymlink(root, target string) error {
 	rel, err := filepath.Rel(root, target)
 	if err != nil {
@@ -228,7 +228,7 @@ func run(ctx context.Context, args []string) error {
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	// Own process group so a killed parent takes the child with it (D5).
+	// Own process group so a killed parent takes the child with it.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))

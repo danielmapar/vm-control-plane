@@ -11,7 +11,7 @@ import (
 )
 
 // acquireHostLock takes an OS-held exclusive lock via flock on an open file
-// descriptor (batch-review finding [33]): the lock releases automatically
+// descriptor: the lock releases automatically
 // on process death — no PID-file races, no stale-lock stealing, no unlink
 // of another process's replacement. One daemon per host, guaranteed by the
 // kernel.

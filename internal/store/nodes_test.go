@@ -21,7 +21,7 @@ func twoNodes() []store.NodeQuota {
 }
 
 func TestRegisterHostAndNodes(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	sessions, err := s.RegisterHost(ctx, host("host-1"), twoNodes(), time.Minute)
@@ -44,7 +44,7 @@ func TestRegisterHostAndNodes(t *testing.T) {
 // TestQuotaSumValidation: logical nodes cannot oversubscribe their host
 // (v6 review finding — host-aggregate capacity).
 func TestQuotaSumValidation(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	over := []store.NodeQuota{
@@ -60,7 +60,7 @@ func TestQuotaSumValidation(t *testing.T) {
 // TestReRegistrationBumpsGeneration: a daemon restart mints new sessions
 // with a HIGHER generation — the fence that orders reports across restarts.
 func TestReRegistrationBumpsGeneration(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	first, err := s.RegisterHost(ctx, host("host-1"), twoNodes(), time.Minute)
@@ -79,10 +79,10 @@ func TestReRegistrationBumpsGeneration(t *testing.T) {
 	}
 }
 
-// TestCrossHostRebindRejected: matrix row 10 — a node identity cannot move
+// TestCrossHostRebindRejected — a node identity cannot move
 // to another host while its registration exists.
 func TestCrossHostRebindRejected(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	if _, err := s.RegisterHost(ctx, host("host-1"), twoNodes(), time.Minute); err != nil {
@@ -99,7 +99,7 @@ func TestCrossHostRebindRejected(t *testing.T) {
 // TestStaleSessionHeartbeatRejected: the superseded daemon's heartbeat
 // fails — its signal to halt substrate actions (§6.3).
 func TestStaleSessionHeartbeatRejected(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	old, err := s.RegisterHost(ctx, host("host-1"), twoNodes(), time.Minute)
@@ -118,7 +118,7 @@ func TestStaleSessionHeartbeatRejected(t *testing.T) {
 
 // TestLeaseExpiryRemovesFromReady: NotReady is lease expiry, nothing else.
 func TestLeaseExpiryRemovesFromReady(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	sess, err := s.RegisterHost(ctx, host("host-1"), twoNodes(), 100*time.Millisecond)

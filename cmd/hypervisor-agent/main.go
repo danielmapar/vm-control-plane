@@ -1,5 +1,5 @@
-// Command hypervisor-agent runs ONE process per physical host, advertising
-// one or more logical scheduling nodes (ADR-0004). Tier 0 uses the fake
+// Command hypervisor-agent runs one process per physical host, advertising
+// one or more logical scheduling nodes. Tier 0 uses the fake
 // compute driver; real drivers are Linux-only and selected explicitly.
 package main
 

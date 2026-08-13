@@ -174,7 +174,7 @@ func TestLoopUnschedulableCondition(t *testing.T) {
 
 // TestLoopDeletionFinalizes: tombstone → (simulated) teardown receipt →
 // finalization removes the row and completes the DELETE operation, which
-// remains queryable (matrix rows 15–16 foundation).
+// remains queryable.
 func TestLoopDeletionFinalizes(t *testing.T) {
 	s, sess := fixture(t)
 	ctx := context.Background()
@@ -236,7 +236,7 @@ func TestLoopDeletionFinalizes(t *testing.T) {
 }
 
 // TestLoopSupersedesOlderOperations: a newer revision realized first moves
-// older open operations to SUPERSEDED — op wait never hangs (D3).
+// older open operations to SUPERSEDED — op wait never hangs.
 func TestLoopSupersedesOlderOperations(t *testing.T) {
 	s, sess := fixture(t)
 	ctx := context.Background()

@@ -11,7 +11,7 @@ import (
 
 // serveDebug exposes the fake-tier debug surface: POST /drift?vm=NAME stops
 // the named VM's domain out of band (the virsh-destroy analog for demos and
-// tests). Loopback only — a non-loopback bind is refused outright (D15).
+// tests). Loopback only — a non-loopback bind is refused outright.
 func (d *Daemon) serveDebug(ctx context.Context) error {
 	if d.cfg.DebugAddr == "" {
 		return nil

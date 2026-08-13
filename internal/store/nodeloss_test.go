@@ -10,12 +10,12 @@ import (
 	"github.com/sigtunnel/vm-control-plane/internal/store"
 )
 
-// TestNodeLossPolicy: matrix rows 8–9 in one scenario. Two VMs on a node
+// TestNodeLossPolicy in one scenario. Two VMs on a node
 // whose lease expires: the never-granted one is unassigned back to Pending
 // with capacity released; the granted one parks UNKNOWN and is never
 // rescheduled.
 func TestNodeLossPolicy(t *testing.T) {
-	s := store.New(pgtestNewDB(t))
+	s := newStore(t)
 	ctx := context.Background()
 
 	sessions, err := s.RegisterHost(ctx, host("h1"),

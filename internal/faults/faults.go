@@ -1,5 +1,5 @@
-// Package faults is the failure-injection registry (plan §10). Every crash
-// boundary in the §7 failure matrix is a named failpoint declared in the
+// Package faults is the failure-injection registry. Every crash
+// boundary in the failure matrix is a named failpoint declared in the
 // Catalog; tests (and the chaos scripts) arm them via the environment:
 //
 //	VMC_FAILPOINTS="controller.after-assign=crash;agent.report=error:boom;x=hang:2s;y=pause"
@@ -10,7 +10,7 @@
 //	             subprocess harness restarts and asserts convergence after.
 //	error[:msg]  return an injected error, exercising the retry path.
 //	hang[:dur]   block for dur (default 30s) or until the context ends —
-//	             the hung-driver-call case (matrix row 20/22).
+//	             the hung-driver-call case.
 //	pause        park until the test calls Release(id) — the in-process
 //	             harness's deterministic barrier.
 //
@@ -38,7 +38,7 @@ type Point struct {
 }
 
 // Catalog is the complete failpoint inventory. IDs are hierarchical:
-// component.boundary. New failpoints land WITH the PR that introduces
+// component.boundary. New failpoints land with the PR that introduces
 // their boundary, never retroactively.
 var Catalog = map[string]Point{
 	"api.after-envelope": {
@@ -82,7 +82,7 @@ func init() {
 
 // Load (re)arms failpoints from a spec string. Returns an error for any
 // invalid specification — an unknown ID, an unknown action, or a malformed
-// duration (batch-review finding [43]): a typo'd failpoint that silently
+// duration: a typo'd failpoint that silently
 // does nothing is worse than a hard failure.
 func Load(spec string) error {
 	mu.Lock()
@@ -138,7 +138,7 @@ func Load(spec string) error {
 }
 
 // Manifest renders the Catalog as the docs table body — the source of the
-// generated docs/failpoints.md, so the two cannot drift (finding [42]).
+// generated docs/failpoints.md, so the two cannot drift.
 func Manifest() string {
 	ids := make([]string, 0, len(Catalog))
 	for id := range Catalog {

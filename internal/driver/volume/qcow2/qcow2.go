@@ -1,22 +1,22 @@
-// Package qcow2 is the real volume driver's PORTABLE core: command
+// Package qcow2 is the real volume driver's portable core: command
 // construction, path layout, ownership containment, and publication
 // ordering are pure logic — golden-tested on every platform — while the
 // actual qemu-img execution and fsync-durability live behind a small
 // Runner interface whose production implementation is Linux-only.
 //
-// The sharp edges this package encodes (plan D10, all review-sourced):
+// The sharp edges this package encodes (all review-sourced):
 //
-//   - `qemu-img create -b` WITHOUT `-F` fails on modern qemu-img, and
-//     WITHOUT an explicit size silently inherits the backing image's —
+//   - `qemu-img create -b` without `-F` fails on modern qemu-img, and
+//     without an explicit size silently inherits the backing image's —
 //     the requested 10GiB would be ignored;
 //   - creation goes to a temp name in the destination directory and is
-//     published with no-replace semantics, then the DIRECTORY is fsynced
+//     published with no-replace semantics, then the directory is fsynced
 //     (rename alone is not host-crash durable);
 //   - artifact paths are epoch-qualified
 //     (<root>/<node>/<vm>/<epoch>/root.qcow2) and every destructive path
 //     re-verifies containment under the canonical storage root, rejecting
 //     symlinks — an old epoch's late teardown cannot touch a new epoch's
-//     files, and nothing outside the root is ever unlinked (D15);
+//     files, and nothing outside the root is ever unlinked;
 //   - a pre-existing file is accepted only after `qemu-img info` validates
 //     format, virtual size, and backing path — existence is not evidence.
 package qcow2
@@ -66,7 +66,7 @@ func parseVMID(vmID string) (uuid.UUID, error) {
 func TempFor(final string) string { return final + ".tmp-unpublished" }
 
 // Contains reports whether path is inside the canonical root — the guard
-// every unlink and every teardown MUST pass (D15). Purely lexical here;
+// every unlink and every teardown must pass. Purely lexical here;
 // the Linux runner additionally rejects symlinked components at open time
 // (O_NOFOLLOW).
 func (l Layout) Contains(path string) bool {
@@ -106,12 +106,12 @@ func CreateBlankArgs(tempPath string, sizeBytes uint64) ([]string, error) {
 }
 
 // InfoArgs builds the validated-ensure probe: format, virtual size, and
-// backing chain are checked against expectations before ANY pre-existing
-// file is accepted (existence is not evidence — matrix row 11).
+// backing chain are checked against expectations before any pre-existing
+// file is accepted (existence is not evidence).
 //
-// -U (force-share) is REQUIRED here: on idempotent replay the overlay may be
+// -U (force-share) is required here: on idempotent replay the overlay may be
 // held by a running QEMU, and a plain `qemu-img info` would fail to get the
-// lock (the QEMU image-locking case, plan D10). -U is safe because info is
+// lock (the QEMU image-locking case). -U is safe because info is
 // read-only — it is only unsafe for mutations, which this never performs.
 func InfoArgs(path string) []string {
 	return []string{"qemu-img", "info", "-U", "--output=json", "--backing-chain", path}
@@ -138,7 +138,7 @@ func Validate(got Info, wantBacking string, wantSize uint64) error {
 	return nil
 }
 
-// CachePath is the content-addressed backing-image location: the digest IS
+// CachePath is the content-addressed backing-image location: the digest is
 // the filename, so a verified download can be published with no-replace
 // semantics and shared by every overlay that references it.
 func (l Layout) CachePath(sha256Hex string) (string, error) {

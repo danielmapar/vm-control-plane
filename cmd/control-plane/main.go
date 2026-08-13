@@ -1,5 +1,5 @@
 // Command control-plane hosts the gRPC API, the reconciler, and the
-// scheduler behind role flags (ADR-0001). The API and reconciler share only
+// scheduler behind role flags. The API and reconciler share only
 // the store — they never call each other.
 package main
 

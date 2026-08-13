@@ -15,7 +15,7 @@ import (
 
 // mgmtNetworkXML is our management NAT network: guest-to-guest isolated via
 // per-port isolation on the domain side; dnsmasq provides DHCP + host
-// reachability for SSH (plan D9). Deterministic UUID so it is idempotently
+// reachability for SSH. Deterministic UUID so it is idempotently
 // identifiable across restarts.
 func mgmtNetworkXML(name string) string {
 	netUUID := uuid.NewSHA1(uuid.NameSpaceDNS, []byte("vmc-mgmt-network:"+name))
@@ -42,7 +42,7 @@ func bridgeName(net string) string {
 }
 
 // EnsureMgmtNetwork defines and starts the management NAT network if absent.
-// Idempotent. Note: golibvirt.IsNotFound matches DOMAIN-not-found only, so a
+// Idempotent. Note: golibvirt.IsNotFound matches domain-not-found only, so a
 // network lookup that fails is treated as "define it" — and a define that
 // loses a define-race is recovered by re-lookup. The supervisor already
 // distinguishes transport failures (which it poisons on) from server errors

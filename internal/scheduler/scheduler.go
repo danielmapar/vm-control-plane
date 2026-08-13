@@ -1,4 +1,4 @@
-// Package scheduler is the pure filter/score stage (plan D6). It proposes
+// Package scheduler is the pure filter/score stage. It proposes
 // candidates; the store's PlaceVM makes the decision real by rechecking
 // every hard predicate atomically inside the claim-guarded transaction —
 // this package can therefore be simple, and wrong-by-staleness safely.
@@ -31,7 +31,7 @@ func FromSpec(spec *vmcv1.VmSpec) Request {
 
 // Candidates filters Ready nodes (capacity headroom, label constraints)
 // and orders them by least-allocated spread. The returned order is a
-// PROPOSAL: PlaceVM's conditional reservation is the authority, and a
+// proposal: PlaceVM's conditional reservation is the authority, and a
 // zero-row result there simply advances to the next candidate.
 func Candidates(nodes []*store.Node, req Request) []*store.Node {
 	var fit []*store.Node

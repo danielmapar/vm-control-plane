@@ -1,9 +1,9 @@
-// Package clock is the injectable time source (plan §10 determinism
-// tools). Production code takes a Clock; tests steer lease and backoff
+// Package clock is the injectable time source (determinism tools).
+// Production code takes a Clock; tests steer lease and backoff
 // races instead of sleeping for them.
 //
 // Database-clock decisions (lease validity at commit, operation deadlines)
-// deliberately do NOT use this clock — they use clock_timestamp() inside
+// deliberately do not use this clock — they use clock_timestamp() inside
 // SQL so a skewed process cannot extend its own lease. This package covers
 // process-local scheduling: tickers, backoff waits, poll intervals.
 package clock
