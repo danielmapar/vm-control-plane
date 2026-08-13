@@ -42,9 +42,9 @@ it, for example:
 export VMCTL_SERVER=127.0.0.1:43243     # PowerShell: $env:VMCTL_SERVER='127.0.0.1:43243'
 ```
 
-Open a second terminal in the repo, copy that line from the output and run it,
-then use the operations below (`bin/vmctl ...`). Ctrl-C in the first terminal
-stops everything.
+Open a second terminal in the repo, copy that line from the output and run it.
+The available commands are in the [Operations](#operations) section below. Ctrl-C
+in the first terminal stops everything.
 
 ### 2. Real KVM (in a Linux VM)
 
