@@ -13,7 +13,7 @@ hypervisor-layer gotcha — and one was predicted verbatim by the plan.
 | 4 | Idempotent-replay `Ensure` failed on `no-replace publish: file exists` (seed.iso) | `WriteSeed` always tried to publish; on redelivery the deterministic seed already existed and the (correct) no-replace publish refused to clobber | Make `WriteSeed` idempotent: an existing content-deterministic seed is the correct one — return it |
 | 5 | Guest booted to a login prompt but ignored the NoCloud seed (hostname stayed `ubuntu`, no DHCP lease) | The Ubuntu **minimal** cloud image does not reliably consume a NoCloud cdrom seed (confirmed by reproducing with the canonical `cloud-localds` tool, which also failed) | Use the standard `noble-server-cloudimg-amd64.img` — full cloud-init with NoCloud — as the demo target and the seed-image default |
 | 6 | Full-stack capstone: the agent's `EnsureMgmtNetwork` failed with `Network is already in use by interface vmcbr-…` and the operation hung `PENDING` forever | The libvirt **integration test** brings up its own `vmc-mgmt-it` network but never tore it down; left active it holds `192.168.221.0/24` — the *same* subnet the demo's `vmc-mgmt` uses — so libvirt refuses to start `vmc-mgmt`. A crashed agent then took embedded Postgres down with it, so the control-plane spun on `connection refused` and nothing advanced the op | The IT harness now tears its network down in `t.Cleanup` (LIFO, after domain teardown); the demo starts from a clean network slate |
-| 7 | Full-stack capstone: the guest booted and got its lease (`guest IP: 192.168.221.26` — through the whole control plane), but SSH failed on `connect … port 22: connection refused` and the demo aborted | A DHCP lease only means the guest *kernel* is up; `sshd` and the injected key land later in cloud-init. The demo did a **single** SSH attempt and gave up — where the integration test's `waitSSH` retries for two minutes | Demo retries SSH until cloud-init finishes (matching `waitSSH`), and destroys the guest on exit so a failed run can't leave it lingering |
+| 7 | Full-stack capstone: SSH always failed even though the guest reached `RUNNING` and a lease existed. The demo reported the *same* `guest IP: 192.168.221.26` on every run | The demo picked the lease with `net-dhcp-leases \| head -1` — the **first (oldest)** lease. Each `vmctl create` mints a new VM UUID → new deterministic MAC → new lease, so `.26` was a **stale lease from a long-gone guest**; the demo was SSHing a dead address while the real guest sat at a different IP (the integration test's `MgmtIP` matches the guest's *specific* MAC, which is why it never hit this) | Demo now selects the newest lease whose hostname is `real-1`; also retries SSH like `waitSSH` and destroys the guest on any exit so a failed run can't leave it lingering |
 
 ## Why this matters for the interview
 
@@ -42,26 +42,31 @@ plane. Every link was demonstrated on real KVM:
    control-plane, the durable work queue, the reconciler, the scheduler, the
    agent, the **real** libvirt driver, the **real** qcow2 overlay, and a
    **real** libvirt domain (defined + started) all executed in sequence.
-2. **The guest boots and gets a lease through that whole path.** One run
-   reached `guest IP: 192.168.221.26` — a real Ubuntu guest, created by the
-   control plane, booted its kernel and pulled a DHCP lease off our
-   `vmc-mgmt` NAT network.
+2. **The guest boots and gets a lease through that whole path.** Runs
+   produced a real Ubuntu guest, created by the control plane, that booted its
+   kernel and pulled a DHCP lease off our `vmc-mgmt` NAT network (e.g. the
+   `real-1` lease at `192.168.221.34`/`.54`, matched by cloud-init hostname).
 3. **The driver boots a guest all the way to SSH and tears it down.** The
    focused integration test `TestITBootSSHTeardown` **passes in ~80 s**: real
    domain up, DHCP lease, key-only SSH after cloud-init, clean teardown with
    storage removed. This is the same driver the agent uses.
 
 What could **not** be captured in a single unbroken run is a VirtualBox
-limitation, not a control-plane one. Under the capstone's *sustained*
-full-stack load, VirtualBox's (experimental) nested VT-x repeatedly hit a
-**guru meditation** — a host-level hypervisor fault — while the guest was
-running. The mechanism is visible in the traces: a guest left running long
-enough (e.g. when a failed SSH step orphaned it) lingered into a nested-virt
-fault window and took the outer VM down; the isolated IT test survives
-precisely because it boots, SSHes, and reaps the guest in ~80 s. The demo now
-mitigates this (retry SSH, then destroy the guest promptly on any exit), but
-repeated faults eventually left the substrate VM's own kernel throwing
-`rcu_preempt` stalls on boot — the nested hypervisor degraded underneath it.
+limitation, not a control-plane one — and it took two distinct fixes to prove
+that. First, a demo bug (finding #7): the SSH step targeted a *stale* lease,
+so it was probing a dead address, not the running guest. With that corrected
+(match the newest `real-1` lease) the demo reaches the guest's true IP —
+`.34`/`.54` — but a direct probe then showed the real limitation: **the guest
+is unreachable there** (no ICMP, no `:22` for 300 s straight) even though it
+had DHCP'd. Under the capstone's *sustained* full-stack load, VirtualBox's
+(experimental) nested VT-x either **guru-meditates** (a host-level hypervisor
+fault — repeatedly, when a guest lingers into the fault window) or leaves the
+guest wedged after early boot — the very same `rcu_preempt`-stall pathology
+that, after ~5 faults, showed up on the *substrate VM's own* kernel boot. The
+isolated IT test survives precisely because it is light and short-lived
+(~80 s) on a fresh substrate. The demo now mitigates the lingering path (retry
+SSH, then destroy the guest on any exit), but the underlying nested hypervisor
+degrades under this load and no demo-side change can stabilize it.
 
 The lesson is the honest one for the interview: **the system works against
 real KVM — proven by the domain reaching `RUNNING` through the full stack and

@@ -65,9 +65,16 @@ bin/vmctl op wait "$OP" --timeout 4m
 bin/vmctl list vms
 
 echo "== 6. wait for the mgmt IP =="
+# Match THIS guest's lease by its cloud-init hostname (real-1) and take the
+# newest expiry — dnsmasq keeps stale leases from prior runs, so a naive
+# "first lease" grabs a dead address whose guest is long gone (which is
+# exactly what made earlier runs "never answer SSH"). Fields:
+#   $1 date  $2 time  $3 mac  $4 proto  $5 ip/cidr  $6 hostname
 IP=""
 for i in $(seq 1 40); do
-  IP=$(timeout 10 virsh -c qemu:///system net-dhcp-leases vmc-mgmt 2>/dev/null | awk '/ipv4/{print $5}' | cut -d/ -f1 | head -1 || true)
+  IP=$(timeout 10 virsh -c qemu:///system net-dhcp-leases vmc-mgmt 2>/dev/null \
+        | awk '$6=="real-1"{print $1"T"$2, $5}' | sort -r | head -1 \
+        | awk '{print $2}' | cut -d/ -f1 || true)
   [ -n "$IP" ] && break
   sleep 3
 done
