@@ -51,15 +51,6 @@ func (l Layout) SeedISO(node string, vmID uuid.UUID, epoch int64) string {
 	return l.VolumeDir(node, vmID, epoch) + "/seed.iso"
 }
 
-// parseVMID parses a VM UUID string (shared by the Linux runner).
-func parseVMID(vmID string) (uuid.UUID, error) {
-	id, err := uuid.Parse(vmID)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("qcow2: bad vm id %q: %w", vmID, err)
-	}
-	return id, nil
-}
-
 // TempFor returns the unpublished temp name for a final path. Only the
 // final name counts as existing; anything with this suffix is scavenger
 // garbage after a crash.

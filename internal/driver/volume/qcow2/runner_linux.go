@@ -20,6 +20,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/google/uuid"
 )
 
 // Runner executes qcow2 operations under a canonical storage root.
@@ -29,6 +31,15 @@ type Runner struct {
 
 // NewRunner returns a runner rooted at root (e.g. /var/lib/vmc).
 func NewRunner(root string) *Runner { return &Runner{Layout: Layout{Root: root}} }
+
+// parseVMID parses a VM UUID string.
+func parseVMID(vmID string) (uuid.UUID, error) {
+	id, err := uuid.Parse(vmID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("qcow2: bad vm id %q: %w", vmID, err)
+	}
+	return id, nil
+}
 
 // EnsureOverlay converges the root overlay for (node, vm, epoch): if a valid
 // file already exists (format/size/backing validated) it is a no-op; a
