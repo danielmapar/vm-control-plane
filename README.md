@@ -1,70 +1,118 @@
 # vm-control-plane
 
-A small, production-shaped VM control plane in Go: gRPC API → PostgreSQL desired
-state → reconciler → scheduler → hypervisor agent → libvirt/KVM, with Open
-vSwitch networking and qcow2 storage. It follows the common shape of
-libvirt-based compute platforms (the OpenStack Nova / KubeVirt lineage): a
-state-owning control plane, a per-host agent wrapping the hypervisor, and
-level-triggered reconciliation between them.
+A small, production-shaped VM control plane in Go. It has the same shape as
+real libvirt-based compute platforms (the OpenStack Nova / KubeVirt lineage): a
+state-owning **control plane** (gRPC API + PostgreSQL desired state +
+reconciler + scheduler), a per-host **agent** that wraps the hypervisor
+(libvirt/KVM, Open vSwitch, qcow2), and level-triggered reconciliation between
+them. You drive it with one small CLI, `vmctl`.
+
+## What the demo covers
+
+- **Full VM lifecycle** over an async, operation-based API: create → boot →
+  stop / start → delete. Every mutation returns an operation you can wait on.
+- **Desired-state reconciliation** — you declare what you want and the control
+  plane converges to it and repairs drift. `list vms` shows an
+  `applied/desired` revision you can watch catch up.
+- **Real KVM** — the same commands boot a real Ubuntu guest under KVM, reach it
+  over SSH, and tear it down. Or run against fake drivers on any OS, with no
+  hypervisor at all.
+- **Correctness under failure** — durable work claims, execution grants and
+  placement fencing, crash-safe deletes, operations that always terminate —
+  exercised by a black-box test suite that uses real `kill -9`.
+
+## Quick start
+
+Two ways to run it, simplest first.
+
+### 1. No hypervisor, any OS (fake drivers)
+
+Needs only Go 1.26+. The first run downloads a pinned embedded PostgreSQL, so
+run it from a normal (non-admin) shell.
 
 ```
-vmctl create vm web-1 --image ubuntu-24.04 --cpu 2 --memory 2GiB \
-      --network production-a --volume workspace:10GiB
+make dev
 ```
 
-The point of the project is the part most demos skip: the failure
-interleavings. Duplicate work claims, agents acting before their
-acknowledgments commit, stale agent processes, deletes racing slow provisions,
-old placements deleting new placements' disks — each is a named protocol with a
-named failure-injection test. Start with
-[docs/design.md](docs/design.md) (a 10-step walkthrough of one request),
-then [docs/implementation-plan.md](docs/implementation-plan.md) for the state
-model, PR-by-PR build order, and testing strategy. Decision records live in
-[docs/adr/](docs/adr/).
-
-## Status
-
-Tier 0 (fake drivers) is COMPLETE and runs on Windows/macOS/Linux: full
-lifecycle, scheduling across logical nodes, execution grants and fencing,
-drift detection with one-path repair, node-loss policy, durable claims,
-semantic idempotency, and operations that always terminate — black-box
-tested with real processes and real kill -9. The real-substrate drivers
-(libvirt/OVS/qcow2 executors) land against the verified Linux substrate (an Ubuntu VM under VirtualBox with nested VT-x) per
-the plan's harness-before-feature gate (§9); their portable cores
-(domain XML, seed ISO, qcow2 command logic) are already merged and tested.
-The PR history is meant to be read as a course — see the plan's §9.
-
-## Quickstart (Tier 0 — fake drivers, no hypervisor required)
-
-> Requires only Go 1.26+ ("no preinstalled services": the first run
-> downloads a pinned embedded PostgreSQL once; run from a non-elevated
-> shell).
+This starts embedded Postgres + the control-plane + a host agent (two logical
+nodes) and prints the address to point the CLI at:
 
 ```
-make dev     # embedded Postgres + control-plane + host agent (2 logical nodes)
-bin/vmctl create vm demo-1 --cpu 1 --memory 512MiB
-bin/vmctl op wait <operation-id>
-bin/vmctl list vms          # REVISION column: applied/desired — watch it converge
-bin/vmctl stop vm demo-1    # the only mutable spec field (v0.1)
-bin/vmctl delete vm demo-1  # tombstone → reconciled teardown → finalize
+export VMCTL_SERVER=127.0.0.1:<port>     # PowerShell: $env:VMCTL_SERVER='127.0.0.1:<port>'
 ```
 
-Crash-safety is demoable, not aspirational: run the black-box suite —
+Now use the operations below (`bin/vmctl ...`).
+
+### 2. Real KVM, one command
+
+Inside the substrate VM — an Ubuntu VM under VirtualBox with nested KVM; bring
+it up with `vagrant up` in [deploy/vagrant](deploy/vagrant) — as the
+unprivileged service user:
 
 ```
-go test ./internal/e2e/ -v    # incl. controller kill -9 mid-transition and
-                              # crash-mid-delete, recovered by restart alone
+cd ~/vm-control-plane
+./scripts/demo/01-real-kvm.sh
 ```
 
-Real-KVM tiers (an Ubuntu VM under VirtualBox / CI) are described in the plan, §8.
+It boots a real Ubuntu guest through the whole control plane, SSHes into it,
+and deletes it:
 
-## AI collaboration
+```
+== create a real VM ==       real-1  RUNNING  node-a
+guest IP: 192.168.221.74
+REAL-KVM GUEST REACHED: real-1 / 6.8.0-136-generic
+== demo complete ==
+```
 
-This project was built as a documented AI-pair-programming exercise. The
-implementation plan and ADRs record every design decision and its rationale;
-an AI reviewer examines every PR, and each PR description records which of its
-findings were accepted, which were rejected, and why. The triage record — not
-any review score — is the evidence of engineering judgment.
+A distributed variant — control plane + Postgres on the host, agent in the VM
+over an SSH tunnel — is [scripts/demo/02-distributed.ps1](scripts/demo/02-distributed.ps1).
+
+## Operations
+
+`bin/vmctl` talks to the control plane at `$VMCTL_SERVER` (default
+`127.0.0.1:7070`; override per command with `--server host:port`). Creates,
+power changes, and deletes are **asynchronous** — they return an operation id
+you can wait on.
+
+```
+# create a VM (async; prints an operation id)
+bin/vmctl create vm web-1 --cpu 2 --memory 2GiB --image ubuntu-24.04 --disk 10GiB
+#   also: --network <tenant-net>   --idempotency-key <uuid> (replay a prior attempt)
+
+# wait for / inspect an operation
+bin/vmctl op wait <operation-id> --timeout 4m
+bin/vmctl op get  <operation-id>
+
+# see state — REVISION is applied/desired; watch it converge
+bin/vmctl list vms
+bin/vmctl get  vm web-1
+
+# power (stop/start is the mutable part of the spec in v0.1)
+bin/vmctl stop  vm web-1
+bin/vmctl start vm web-1
+
+# delete (tombstone → reconciled teardown → finalize)
+bin/vmctl delete vm web-1
+```
+
+Sizes accept `MiB` / `GiB` (e.g. `2GiB`) or raw bytes.
+
+## Crash safety
+
+Recovery is demoable, not aspirational — the black-box suite kills the
+controller mid-transition and mid-delete and recovers by restart alone:
+
+```
+go test ./internal/e2e/ -v
+```
+
+## Docs
+
+- **Manual (Google Doc):** https://docs.google.com/document/d/1NpBb0K4TJ9w_39VXpmlwwpBxBypILRHIcVq4iQ5F_xc/edit
+- **Design walkthrough** — one request in 10 steps: [docs/design.md](docs/design.md)
+- **Implementation plan** — state model, PR-by-PR build order, testing: [docs/implementation-plan.md](docs/implementation-plan.md)
+- **Decision records:** [docs/adr/](docs/adr/)
+- **Real-hardware findings:** [docs/reviews/real-substrate-findings.md](docs/reviews/real-substrate-findings.md)
 
 ## License
 
