@@ -107,9 +107,9 @@ func parseFlags() options {
 		tenantBridge = flag.String("tenant-bridge", "", "libvirt: OVS integration bridge (empty = mgmt-only)")
 		sshKeyFile   = flag.String("ssh-key-file", "", "libvirt: SSH public key injected into guests")
 		libvirtSock  = flag.String("libvirt-socket", "", "libvirt: unix socket (default system socket)")
-		pinCPUSet    = flag.String("pin-cpuset", "", "libvirt: pin guest vCPU+emulator to these host cores (e.g. 8-15); needed on nested VirtualBox")
-		pollInterval = flag.Duration("poll-interval", 0, "work-claim poll interval (0 = default 300ms); raise it (e.g. 3s) on nested VirtualBox so the daemon's steady-state churn does not disturb a booting guest")
-		emulated     = flag.Bool("emulated", false, "libvirt: run guests under QEMU TCG (software) instead of hardware KVM — no /dev/kvm or nested VT-x needed; slower but stable where nested virtualization is not")
+		pinCPUSet    = flag.String("pin-cpuset", "", "libvirt: pin guest vCPU+emulator threads to these host cores (e.g. 8-15)")
+		pollInterval = flag.Duration("poll-interval", 0, "work-claim poll interval (0 = default 300ms)")
+		emulated     = flag.Bool("emulated", false, "libvirt: run guests under QEMU TCG software emulation instead of hardware KVM (slower; needs no /dev/kvm)")
 	)
 	flag.Parse()
 

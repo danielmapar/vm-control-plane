@@ -1,24 +1,13 @@
 // Package qcow2 is the real volume driver's portable core: command
-// construction, path layout, ownership containment, and publication
-// ordering are pure logic — golden-tested on every platform — while the
-// actual qemu-img execution and fsync-durability live in the Runner, whose
-// implementation is Linux-only (runner_linux.go).
+// construction, path layout, ownership containment, and publish/teardown
+// ordering are pure logic, golden-tested on every platform. Only qemu-img
+// execution and fsync durability live in the Runner, which is Linux-only
+// (runner_linux.go).
 //
-// The sharp edges this package encodes:
-//
-//   - `qemu-img create -b` without `-F` fails on modern qemu-img, and
-//     without an explicit size silently inherits the backing image's —
-//     the requested 10GiB would be ignored;
-//   - creation goes to a temp name in the destination directory and is
-//     published with no-replace semantics, then the directory is fsynced
-//     (rename alone is not host-crash durable);
-//   - artifact paths are epoch-qualified
-//     (<root>/<node>/<vm>/<epoch>/root.qcow2) and every destructive path
-//     re-verifies containment under the canonical storage root, rejecting
-//     symlinks — an old epoch's late teardown cannot touch a new epoch's
-//     files, and nothing outside the root is ever unlinked;
-//   - a pre-existing file is accepted only after `qemu-img info` validates
-//     format, virtual size, and backing path — existence is not evidence.
+// qemu-img's sharp edges (the mandatory -F and explicit size, the no-replace
+// publish with a directory fsync, epoch-qualified paths, the containment
+// re-check, and validate-before-accept) are documented at the function that
+// encodes each.
 package qcow2
 
 import (

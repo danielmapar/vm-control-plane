@@ -52,7 +52,7 @@ func parseFlags() options {
 	flag.StringVar(&o.tenantBridge, "tenant-bridge", "", "libvirt OVS tenant bridge")
 	flag.StringVar(&o.sshKeyFile, "ssh-key-file", "", "libvirt: SSH public key for guests")
 	flag.StringVar(&o.pinCPUSet, "pin-cpuset", "", "libvirt: pin guest vCPU+emulator to these host cores (nested-VirtualBox stability)")
-	flag.BoolVar(&o.noAgent, "no-agent", false, "run only embedded Postgres + control-plane (no agent) — for the distributed demo where the real libvirt agent runs on a separate hypervisor host and dials in")
+	flag.BoolVar(&o.noAgent, "no-agent", false, "run only embedded Postgres + control-plane (no agent), for the distributed demo where a remote agent dials in")
 	flag.BoolVar(&o.emulated, "emulated", false, "libvirt: run guests under QEMU TCG (software) instead of hardware KVM — stable where nested virtualization is not")
 	flag.Parse()
 	return o
