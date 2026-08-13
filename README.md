@@ -78,33 +78,25 @@ cd ~/vm-control-plane
 ./scripts/demo/01-real-kvm.sh
 ```
 
-The first run also downloads the Ubuntu cloud image once. After that it boots a
-real guest through the whole control plane, SSHes into it, and deletes it:
+The first run also downloads the Ubuntu cloud image once. After that the script
+runs the operations for you: create the VM, wait for it, SSH into the booted
+guest, then delete it. You will see something like:
 
 ```
-== create a real VM ==       real-1  RUNNING  node-a
+== create a real VM ==
+OPERATION                             VERB    RESOURCE   STATE
+daa8e0b9-761b-4284-a72f-b2154efa5ad9  CREATE  vm/real-1  DONE
+NAME    PHASE    NODE    EPOCH  CPU  MEMORY  IMAGE         REVISION
+real-1  RUNNING  node-a  1      1    1GiB    ubuntu-24.04  1/1
+
 guest IP: 192.168.221.74
 REAL-KVM GUEST REACHED: real-1 / 6.8.0-136-generic
+
+== delete ==
+OPERATION                             VERB    RESOURCE   STATE
+0d9c8f71-e157-41ac-96a3-6931a0c29119  DELETE  vm/real-1  DONE
 == demo complete ==
 ```
-
-The script is self-contained. It starts the stack, creates and boots the guest,
-SSHes in, then deletes the guest and shuts the stack back down. Nothing is left
-running, so there is no CLI waiting for you afterward.
-
-To drive real KVM yourself with `vmctl`, start the stack and leave it running,
-the way `make dev` does but with the libvirt driver. From `~/vm-control-plane` in
-the VM:
-
-```
-ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519      # once, if you have no key
-go run ./scripts/dev --driver libvirt --ssh-key-file ~/.ssh/id_ed25519.pub
-```
-
-It prints the `export VMCTL_SERVER=...` line, same as Tier 0. In a second
-`vagrant ssh` session, run that line and use the operations below. Guests you
-create get that public key, so you can `ssh ubuntu@<guest-ip>` into them; find
-the IP with `virsh -c qemu:///system net-dhcp-leases vmc-mgmt`.
 
 There is also a distributed variant, with the control plane and Postgres on the
 host and the agent in the VM over an SSH tunnel:
