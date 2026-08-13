@@ -57,7 +57,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		}
 		var applied bool
 		if err := tx.QueryRow(ctx,
-			`SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename=$1)`, name,
+			`SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE filename = $1)`, name,
 		).Scan(&applied); err != nil {
 			_ = tx.Rollback(ctx)
 			return err

@@ -176,9 +176,9 @@ func (s *Store) UpdateVMStatus(ctx context.Context, q querier, id uuid.UUID, exp
 		return nil, fmt.Errorf("marshal status: %w", err)
 	}
 	row := q.QueryRow(ctx, `
-		UPDATE vms SET status=$3, phase=$4,
+		UPDATE vms SET status = $3, phase = $4,
 			resource_version = resource_version + 1, updated_at = now()
-		WHERE id=$1 AND resource_version=$2
+		WHERE id = $1 AND resource_version = $2
 		RETURNING `+vmColumns,
 		id, expectVersion, statusJSON, phase)
 	vm, err := scanVM(row)
@@ -204,7 +204,7 @@ func (s *Store) TombstoneVM(ctx context.Context, q querier, id uuid.UUID, expect
 			resource_version = resource_version + 1,
 			next_attempt_at = clock_timestamp(),
 			updated_at = now()
-		WHERE id=$1 AND resource_version=$2 AND deleted_at IS NULL
+		WHERE id = $1 AND resource_version = $2 AND deleted_at IS NULL
 		RETURNING `+vmColumns,
 		id, expectVersion)
 	vm, err := scanVM(row)
@@ -238,13 +238,13 @@ func (s *Store) UpdateVMPower(ctx context.Context, q querier, id uuid.UUID, expe
 		return nil, fmt.Errorf("marshal spec: %w", err)
 	}
 	row := q.QueryRow(ctx, `
-		UPDATE vms SET spec=$3,
+		UPDATE vms SET spec = $3,
 			spec_generation = spec_generation + 1,
 			desired_revision = desired_revision + 1,
 			next_attempt_at = clock_timestamp(),
 			resource_version = resource_version + 1,
 			updated_at = now()
-		WHERE id=$1 AND resource_version=$2 AND deleted_at IS NULL
+		WHERE id = $1 AND resource_version = $2 AND deleted_at IS NULL
 		RETURNING `+vmColumns,
 		id, expectVersion, specJSON)
 	vm, err := scanVM(row)
@@ -257,7 +257,7 @@ func (s *Store) UpdateVMPower(ctx context.Context, q querier, id uuid.UUID, expe
 // DeleteVMRow removes a VM row inside the caller's transaction. It is the final
 // step of finalization, once teardown is proven.
 func (s *Store) DeleteVMRow(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
-	_, err := tx.Exec(ctx, `DELETE FROM vms WHERE id=$1`, id)
+	_, err := tx.Exec(ctx, `DELETE FROM vms WHERE id = $1`, id)
 	return err
 }
 
@@ -265,7 +265,7 @@ func (s *Store) DeleteVMRow(ctx context.Context, tx pgx.Tx, id uuid.UUID) error 
 // genuinely absent row.
 func staleOrMissing(ctx context.Context, q querier, id uuid.UUID) error {
 	var exists bool
-	if err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM vms WHERE id=$1)`, id).Scan(&exists); err != nil {
+	if err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM vms WHERE id = $1)`, id).Scan(&exists); err != nil {
 		return err
 	}
 	if exists {

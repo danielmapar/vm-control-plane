@@ -266,10 +266,10 @@ func (d *Driver) Teardown(ctx context.Context, vmID string, epoch int64) error {
 	if err != nil {
 		return err
 	}
-	// Storage teardown is durable and happens after the domain is gone.
-	// We tear down by the node we own; the executor supplies node via a
-	// separate call path — here we can only clean by (vm, epoch) under the
-	// storage root prefix, which TeardownEpoch does per node internally.
+	// Storage teardown is durable and runs after the domain is gone. The
+	// compute.Driver.Teardown signature carries no node, so teardownStorage
+	// scans the storage root and removes this (vm, epoch)'s artifacts under
+	// whichever node directory holds them.
 	return d.teardownStorage(vmID, epoch)
 }
 

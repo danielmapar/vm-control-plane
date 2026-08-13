@@ -37,30 +37,35 @@ func (s *Server) CreateVm(ctx context.Context, req *vmcv1.CreateVmRequest) (*vmc
 
 	return s.runIdempotent(false, func() (*vmcv1.Operation, error) {
 		return s.withEnvelope(ctx, key, "CreateVm", name, hash, func(tx pgx.Tx) (*store.Operation, error) {
-			// Validate inside the winning transaction; replays never reach here.
-			if err := validateName(name); err != nil {
-				return nil, status.Error(codes.InvalidArgument, err.Error())
-			}
-			if err := validateSpec(spec); err != nil {
-				return nil, status.Error(codes.InvalidArgument, err.Error())
-			}
-			vm, err := s.st.CreateVM(ctx, tx, uuid.New(), name, spec)
-			if err != nil {
-				return nil, err
-			}
-			op, err := s.st.CreateOperation(ctx, tx, &store.Operation{
-				ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID,
-				ResourceName: vm.Name, Verb: store.VerbCreate,
-				TargetRevision: vm.DesiredRevision, DeadlineBudget: createDeadline,
-			})
-			if err != nil {
-				return nil, err
-			}
-			s.log.InfoContext(ctx, "vm create accepted",
-				"vm", vm.Name, "operation", op.ID, "target_revision", op.TargetRevision)
-			return op, nil
+			return s.createVMInTx(ctx, tx, name, spec)
 		})
 	})
+}
+
+// createVMInTx validates, inserts the VM, and records the CREATE operation.
+// Replays never reach it (withEnvelope returns the original operation first).
+func (s *Server) createVMInTx(ctx context.Context, tx pgx.Tx, name string, spec *vmcv1.VmSpec) (*store.Operation, error) {
+	if err := validateName(name); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := validateSpec(spec); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	vm, err := s.st.CreateVM(ctx, tx, uuid.New(), name, spec)
+	if err != nil {
+		return nil, err
+	}
+	op, err := s.st.CreateOperation(ctx, tx, &store.Operation{
+		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID,
+		ResourceName: vm.Name, Verb: store.VerbCreate,
+		TargetRevision: vm.DesiredRevision, DeadlineBudget: createDeadline,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.log.InfoContext(ctx, "vm create accepted",
+		"vm", vm.Name, "operation", op.ID, "target_revision", op.TargetRevision)
+	return op, nil
 }
 
 // UpdateVmPower flips power, the only mutable spec field in v0.1. Envelope
@@ -89,36 +94,42 @@ func (s *Server) UpdateVmPower(ctx context.Context, req *vmcv1.UpdateVmPowerRequ
 
 	return s.runIdempotent(retryStale, func() (*vmcv1.Operation, error) {
 		return s.withEnvelope(ctx, key, "UpdateVmPower", req.GetName(), hash, func(tx pgx.Tx) (*store.Operation, error) {
-			vm, err := s.st.GetVM(ctx, tx, req.GetName())
-			if err != nil {
-				return nil, err
-			}
-			if vm.DeletedAt != nil {
-				return nil, status.Error(codes.FailedPrecondition, "vm is being deleted")
-			}
-			expect := vm.ResourceVersion
-			if v := req.GetExpectedResourceVersion(); v != 0 {
-				expect = v
-			}
-			spec := proto.Clone(vm.Spec).(*vmcv1.VmSpec)
-			spec.Power = req.GetPower()
-			updated, err := s.st.UpdateVMPower(ctx, tx, vm.ID, expect, spec)
-			if err != nil {
-				return nil, err
-			}
-			op, err := s.st.CreateOperation(ctx, tx, &store.Operation{
-				ID: uuid.New(), ResourceType: "vm", ResourceID: updated.ID,
-				ResourceName: updated.Name, Verb: store.VerbUpdatePower,
-				TargetRevision: updated.DesiredRevision, DeadlineBudget: createDeadline,
-			})
-			if err != nil {
-				return nil, err
-			}
-			s.log.InfoContext(ctx, "vm power update accepted",
-				"vm", updated.Name, "power", req.GetPower().String(), "operation", op.ID, "target_revision", op.TargetRevision)
-			return op, nil
+			return s.updatePowerInTx(ctx, tx, req)
 		})
 	})
+}
+
+// updatePowerInTx re-reads the VM, rewrites its power under the CAS, and records
+// the UPDATE_POWER operation.
+func (s *Server) updatePowerInTx(ctx context.Context, tx pgx.Tx, req *vmcv1.UpdateVmPowerRequest) (*store.Operation, error) {
+	vm, err := s.st.GetVM(ctx, tx, req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	if vm.DeletedAt != nil {
+		return nil, status.Error(codes.FailedPrecondition, "vm is being deleted")
+	}
+	expect := vm.ResourceVersion
+	if v := req.GetExpectedResourceVersion(); v != 0 {
+		expect = v
+	}
+	spec := proto.Clone(vm.Spec).(*vmcv1.VmSpec)
+	spec.Power = req.GetPower()
+	updated, err := s.st.UpdateVMPower(ctx, tx, vm.ID, expect, spec)
+	if err != nil {
+		return nil, err
+	}
+	op, err := s.st.CreateOperation(ctx, tx, &store.Operation{
+		ID: uuid.New(), ResourceType: "vm", ResourceID: updated.ID,
+		ResourceName: updated.Name, Verb: store.VerbUpdatePower,
+		TargetRevision: updated.DesiredRevision, DeadlineBudget: mutateDeadline,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.log.InfoContext(ctx, "vm power update accepted",
+		"vm", updated.Name, "power", req.GetPower().String(), "operation", op.ID, "target_revision", op.TargetRevision)
+	return op, nil
 }
 
 // DeleteVm claims the envelope, then tombstones the VM (set-once) and records a
@@ -138,27 +149,32 @@ func (s *Server) DeleteVm(ctx context.Context, req *vmcv1.DeleteVmRequest) (*vmc
 
 	return s.runIdempotent(true, func() (*vmcv1.Operation, error) {
 		return s.withEnvelope(ctx, key, "DeleteVm", req.GetName(), hash, func(tx pgx.Tx) (*store.Operation, error) {
-			vm, err := s.st.GetVM(ctx, tx, req.GetName())
-			if err != nil {
-				return nil, err
-			}
-			dead, err := s.st.TombstoneVM(ctx, tx, vm.ID, vm.ResourceVersion)
-			if err != nil {
-				return nil, err
-			}
-			op, err := s.st.CreateOperation(ctx, tx, &store.Operation{
-				ID: uuid.New(), ResourceType: "vm", ResourceID: dead.ID,
-				ResourceName: dead.Name, Verb: store.VerbDelete,
-				TargetRevision: dead.DesiredRevision, DeadlineBudget: deleteDeadline,
-			})
-			if err != nil {
-				return nil, err
-			}
-			s.log.InfoContext(ctx, "vm delete accepted",
-				"vm", dead.Name, "operation", op.ID, "target_revision", op.TargetRevision)
-			return op, nil
+			return s.deleteVMInTx(ctx, tx, req.GetName())
 		})
 	})
+}
+
+// deleteVMInTx tombstones the VM and records the DELETE operation.
+func (s *Server) deleteVMInTx(ctx context.Context, tx pgx.Tx, name string) (*store.Operation, error) {
+	vm, err := s.st.GetVM(ctx, tx, name)
+	if err != nil {
+		return nil, err
+	}
+	dead, err := s.st.TombstoneVM(ctx, tx, vm.ID, vm.ResourceVersion)
+	if err != nil {
+		return nil, err
+	}
+	op, err := s.st.CreateOperation(ctx, tx, &store.Operation{
+		ID: uuid.New(), ResourceType: "vm", ResourceID: dead.ID,
+		ResourceName: dead.Name, Verb: store.VerbDelete,
+		TargetRevision: dead.DesiredRevision, DeadlineBudget: deleteDeadline,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.log.InfoContext(ctx, "vm delete accepted",
+		"vm", dead.Name, "operation", op.ID, "target_revision", op.TargetRevision)
+	return op, nil
 }
 
 // GetVm returns one VM by name.

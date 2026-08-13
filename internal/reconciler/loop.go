@@ -179,20 +179,8 @@ func (l *Loop) reconcilePending(ctx context.Context, claim *store.Claim) error {
 	}
 
 	for _, candidate := range candidates {
-		tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token)
+		placed, err := l.tryPlace(ctx, claim, candidate)
 		if err != nil {
-			return err
-		}
-		if err := faults.Hit(ctx, "controller.before-complete"); err != nil {
-			_ = tx.Rollback(ctx)
-			return err
-		}
-		_, err = l.st.PlaceVM(ctx, tx, vm.ID, candidate, scheduler.FromSpec(vm.Spec).Resources)
-		if err != nil {
-			_ = tx.Rollback(ctx)
-			if errors.Is(err, store.ErrNoCapacity) {
-				continue // next candidate; our claim is still live
-			}
 			if errors.Is(err, store.ErrPlacementPreconditions) {
 				// Tombstone or phase moved after the claim: requeue and let the
 				// rescan recompute from fresh state.
@@ -200,17 +188,42 @@ func (l *Loop) reconcilePending(ctx context.Context, claim *store.Claim) error {
 			}
 			return err
 		}
-		if err := l.st.FinishClaim(ctx, tx, vm.ID, claim.Token, 0); err != nil {
-			_ = tx.Rollback(ctx)
-			return err
+		if placed {
+			return nil
 		}
-		if err := tx.Commit(ctx); err != nil {
-			return err
-		}
-		l.cfg.Log.Info("vm placed", "vm", vm.Name, "node", candidate.Name)
-		return nil
+		// No capacity on this candidate; the claim is still live, try the next.
 	}
 	return l.markUnschedulable(ctx, claim)
+}
+
+// tryPlace attempts to place the claimed VM on one candidate node inside the
+// claim-guarded transaction. It returns (true, nil) when a placement committed,
+// (false, nil) when the node had no capacity (try the next candidate), and a
+// non-nil error otherwise (ErrPlacementPreconditions means requeue).
+func (l *Loop) tryPlace(ctx context.Context, claim *store.Claim, candidate *store.Node) (bool, error) {
+	vm := claim.VM
+	tx, err := l.st.CompleteClaimTx(ctx, vm.ID, claim.Token)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	if err := faults.Hit(ctx, "controller.before-complete"); err != nil {
+		return false, err
+	}
+	if _, err := l.st.PlaceVM(ctx, tx, vm.ID, candidate, scheduler.FromSpec(vm.Spec).Resources); err != nil {
+		if errors.Is(err, store.ErrNoCapacity) {
+			return false, nil
+		}
+		return false, err
+	}
+	if err := l.st.FinishClaim(ctx, tx, vm.ID, claim.Token, 0); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	l.cfg.Log.Info("vm placed", "vm", vm.Name, "node", candidate.Name)
+	return true, nil
 }
 
 // markUnschedulable records a condition rather than looping on an error:
@@ -221,24 +234,22 @@ func (l *Loop) markUnschedulable(ctx context.Context, claim *store.Claim) error 
 	if err != nil {
 		return err
 	}
-	status := vm.Status
-	if status == nil {
-		status = &vmcv1.VmStatus{}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	st := vm.Status
+	if st == nil {
+		st = &vmcv1.VmStatus{}
 	}
-	setCondition(status, "Unschedulable", true, "NoCandidateNodes",
+	setCondition(st, "Unschedulable", true, "NoCandidateNodes",
 		"no ready node satisfies constraints and capacity")
 	// Re-read the version inside the tx for a clean CAS.
 	fresh, err := l.st.GetVMByID(ctx, tx, vm.ID)
 	if err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
-	if _, err := l.st.UpdateVMStatus(ctx, tx, vm.ID, fresh.ResourceVersion, store.PhasePending, status); err != nil {
-		_ = tx.Rollback(ctx)
+	if _, err := l.st.UpdateVMStatus(ctx, tx, vm.ID, fresh.ResourceVersion, store.PhasePending, st); err != nil {
 		return err
 	}
 	if err := l.st.FinishClaim(ctx, tx, vm.ID, claim.Token, l.cfg.PendingWait); err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
 	return tx.Commit(ctx)
@@ -261,12 +272,12 @@ func (l *Loop) reconcileConvergence(ctx context.Context, claim *store.Claim) err
 	if err != nil {
 		return err
 	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
 	// Recompute convergence from the fresh row under the lock: evidence, power,
 	// or a tombstone may have moved since the claim snapshot, and writing DONE
 	// from a stale snapshot would overwrite it.
 	fresh, err := l.st.GetVMByID(ctx, tx, vm.ID)
 	if err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
 	freshWantState, targetPhase := desiredStates(fresh.Spec)
@@ -274,25 +285,23 @@ func (l *Loop) reconcileConvergence(ctx context.Context, claim *store.Claim) err
 		fresh.DesiredRevision != vm.DesiredRevision ||
 		fresh.AppliedRevision != fresh.DesiredRevision ||
 		fresh.ObservedState != freshWantState {
+		// Release the lock before completeNoop re-claims the row.
 		_ = tx.Rollback(ctx)
 		return l.completeNoop(ctx, claim, l.cfg.ResyncWait)
 	}
-	status := fresh.Status
-	if status == nil {
-		status = &vmcv1.VmStatus{}
+	st := fresh.Status
+	if st == nil {
+		st = &vmcv1.VmStatus{}
 	}
-	status.AppliedRevision = fresh.AppliedRevision
-	setCondition(status, "Unschedulable", false, "", "")
-	if _, err := l.st.UpdateVMStatus(ctx, tx, vm.ID, fresh.ResourceVersion, targetPhase, status); err != nil {
-		_ = tx.Rollback(ctx)
+	st.AppliedRevision = fresh.AppliedRevision
+	setCondition(st, "Unschedulable", false, "", "")
+	if _, err := l.st.UpdateVMStatus(ctx, tx, vm.ID, fresh.ResourceVersion, targetPhase, st); err != nil {
 		return err
 	}
 	if err := l.st.TerminalizeRealizedOps(ctx, tx, vm.ID, fresh.DesiredRevision); err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
 	if err := l.st.FinishClaim(ctx, tx, vm.ID, claim.Token, l.cfg.PendingWait*6); err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -331,23 +340,20 @@ func (l *Loop) reconcileDeleting(ctx context.Context, claim *store.Claim) error 
 	if err != nil {
 		return err
 	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
 	if err := faults.Hit(ctx, "controller.before-finalize"); err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
 	// Belt and braces: release is idempotent even after a receipt did it.
 	if vm.PlacementEpoch > 0 {
 		if err := l.st.ReleasePlacement(ctx, tx, vm.ID, vm.PlacementEpoch); err != nil {
-			_ = tx.Rollback(ctx)
 			return err
 		}
 	}
 	if err := l.st.DeleteVMRow(ctx, tx, vm.ID); err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
 	if err := l.st.TerminalizeRealizedOps(ctx, tx, vm.ID, vm.DesiredRevision); err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
 	// The row is gone; FinishClaim's guard would find nothing — the DELETE
@@ -365,8 +371,8 @@ func (l *Loop) completeNoop(ctx context.Context, claim *store.Claim, backoff tim
 	if err != nil {
 		return err
 	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
 	if err := l.st.FinishClaim(ctx, tx, claim.VM.ID, claim.Token, backoff); err != nil {
-		_ = tx.Rollback(ctx)
 		return err
 	}
 	return tx.Commit(ctx)

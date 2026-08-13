@@ -26,7 +26,7 @@ import (
 
 func main() {
 	var (
-		listen = flag.String("listen", "127.0.0.1:7070", "gRPC listen address (loopback by default — D15)")
+		listen = flag.String("listen", "127.0.0.1:7070", "gRPC listen address (loopback by default)")
 		dbURL  = flag.String("db-url", os.Getenv("VMC_DB_URL"), "PostgreSQL URL (or VMC_DB_URL)")
 		role   = flag.String("role", "api,controller", "comma-separated roles to run")
 	)

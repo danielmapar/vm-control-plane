@@ -25,24 +25,17 @@ type AgentServer struct {
 // NewAgentServer returns an AgentServer backed by the given store.
 func NewAgentServer(st *store.Store) *AgentServer { return &AgentServer{st: st} }
 
+// RegisterHost registers the physical host and its logical nodes, returning one
+// session per node. Node quotas must be in range and their sum must fit the
+// host's capacity.
 func (a *AgentServer) RegisterHost(ctx context.Context, req *vmcv1.RegisterHostRequest) (*vmcv1.RegisterHostResponse, error) {
-	const maxBytes = int64(1) << 50 // 1 PiB — practical ceiling, guards uint64→int64 wrap
-	toInt64 := func(v uint64) (int64, bool) { return int64(v), v <= uint64(maxBytes) }
-	quotas := make([]store.NodeQuota, 0, len(req.GetNodes()))
-	for _, n := range req.GetNodes() {
-		mem, okM := toInt64(n.GetMemoryBytes())
-		disk, okD := toInt64(n.GetDiskBytes())
-		if n.GetCpus() < 1 || n.GetCpus() > 4096 || !okM || !okD || mem < 1 || disk < 1 {
-			return nil, status.Error(codes.InvalidArgument, "node quota out of range")
-		}
-		quotas = append(quotas, store.NodeQuota{
-			Name: n.GetName(), CPUs: n.GetCpus(),
-			MemoryBytes: mem, DiskBytes: disk, Labels: n.GetLabels(),
-		})
+	quotas, err := nodeQuotas(req.GetNodes())
+	if err != nil {
+		return nil, err
 	}
-	hMem, okHM := toInt64(req.GetMemoryBytes())
-	hDisk, okHD := toInt64(req.GetDiskBytes())
-	if req.GetCpus() < 1 || !okHM || !okHD {
+	hMem, hMemOK := checkedBytes(req.GetMemoryBytes())
+	hDisk, hDiskOK := checkedBytes(req.GetDiskBytes())
+	if req.GetCpus() < 1 || !hMemOK || !hDiskOK {
 		return nil, status.Error(codes.InvalidArgument, "host capacity out of range")
 	}
 	lease := 15 * time.Second
@@ -76,6 +69,8 @@ func (a *AgentServer) RegisterHost(ctx context.Context, req *vmcv1.RegisterHostR
 	return resp, nil
 }
 
+// Heartbeat renews a node's lease. A superseded session is rejected, which is
+// the daemon's signal to halt substrate actions.
 func (a *AgentServer) Heartbeat(ctx context.Context, req *vmcv1.HeartbeatRequest) (*vmcv1.HeartbeatResponse, error) {
 	sess, err := sessionFromProto(req.GetSession())
 	if err != nil {
@@ -95,6 +90,9 @@ func (a *AgentServer) Heartbeat(ctx context.Context, req *vmcv1.HeartbeatRequest
 	return &vmcv1.HeartbeatResponse{}, nil
 }
 
+// PollIntents returns the authoritative desired-state snapshot for the caller's
+// nodes, including tombstones (which drive teardown), each stamped with its
+// current attempt pacing.
 func (a *AgentServer) PollIntents(ctx context.Context, req *vmcv1.PollIntentsRequest) (*vmcv1.PollIntentsResponse, error) {
 	names := make([]string, 0, len(req.GetSessions()))
 	for _, s := range req.GetSessions() {
@@ -123,6 +121,8 @@ func (a *AgentServer) PollIntents(ctx context.Context, req *vmcv1.PollIntentsReq
 	return resp, nil
 }
 
+// RequestGrant admits (or denies) execution for a placement. A denial carries
+// the reason and means the daemon must not touch the substrate for it.
 func (a *AgentServer) RequestGrant(ctx context.Context, req *vmcv1.RequestGrantRequest) (*vmcv1.RequestGrantResponse, error) {
 	sess, err := sessionFromProto(req.GetSession())
 	if err != nil {
@@ -146,6 +146,8 @@ func (a *AgentServer) RequestGrant(ctx context.Context, req *vmcv1.RequestGrantR
 	}
 }
 
+// Report records one piece of ordered observed-state evidence. A stale report
+// (superseded session or epoch) is fenced with FailedPrecondition.
 func (a *AgentServer) Report(ctx context.Context, req *vmcv1.ReportRequest) (*vmcv1.ReportResponse, error) {
 	sess, err := sessionFromProto(req.GetSession())
 	if err != nil {
@@ -174,6 +176,8 @@ func (a *AgentServer) Report(ctx context.Context, req *vmcv1.ReportRequest) (*vm
 	return &vmcv1.ReportResponse{}, nil
 }
 
+// TeardownReceipt records that a placement's substrate was torn down, releasing
+// its reserved capacity. It is the one message a stale session may still deliver.
 func (a *AgentServer) TeardownReceipt(ctx context.Context, req *vmcv1.TeardownReceiptRequest) (*vmcv1.TeardownReceiptResponse, error) {
 	sess, err := sessionFromProto(req.GetSession())
 	if err != nil {
@@ -201,6 +205,8 @@ func (a *AgentServer) TeardownReceipt(ctx context.Context, req *vmcv1.TeardownRe
 	return &vmcv1.TeardownReceiptResponse{}, nil
 }
 
+// ActionFailed records a failed substrate action so the server can pace the
+// next attempt; the daemon never decides its own backoff.
 func (a *AgentServer) ActionFailed(ctx context.Context, req *vmcv1.ActionFailedRequest) (*vmcv1.ActionFailedResponse, error) {
 	vmID, err := uuid.Parse(req.GetVmId())
 	if err != nil {
@@ -215,6 +221,31 @@ func (a *AgentServer) ActionFailed(ctx context.Context, req *vmcv1.ActionFailedR
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &vmcv1.ActionFailedResponse{}, nil
+}
+
+// checkedBytes converts a byte count to int64, accepting only values in
+// [1, 1 PiB]. The ceiling is far above any real capacity and guards the
+// uint64->int64 conversion against wrapping to a negative value.
+func checkedBytes(v uint64) (int64, bool) {
+	const maxBytes = uint64(1) << 50 // 1 PiB
+	return int64(v), v >= 1 && v <= maxBytes
+}
+
+// nodeQuotas converts and range-checks the advertised logical-node quotas.
+func nodeQuotas(nodes []*vmcv1.NodeQuota) ([]store.NodeQuota, error) {
+	quotas := make([]store.NodeQuota, 0, len(nodes))
+	for _, n := range nodes {
+		mem, memOK := checkedBytes(n.GetMemoryBytes())
+		disk, diskOK := checkedBytes(n.GetDiskBytes())
+		if n.GetCpus() < 1 || n.GetCpus() > 4096 || !memOK || !diskOK {
+			return nil, status.Error(codes.InvalidArgument, "node quota out of range")
+		}
+		quotas = append(quotas, store.NodeQuota{
+			Name: n.GetName(), CPUs: n.GetCpus(),
+			MemoryBytes: mem, DiskBytes: disk, Labels: n.GetLabels(),
+		})
+	}
+	return quotas, nil
 }
 
 func sessionFromProto(p *vmcv1.NodeSession) (store.Session, error) {

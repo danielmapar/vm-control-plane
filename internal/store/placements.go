@@ -63,7 +63,7 @@ func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *No
 	)
 	if err := tx.QueryRow(ctx,
 		`SELECT placement_epoch, deleted_at IS NOT NULL, phase
-		 FROM vms WHERE id=$1 FOR UPDATE`, vmID,
+		 FROM vms WHERE id = $1 FOR UPDATE`, vmID,
 	).Scan(&currentEpoch, &deleted, &phase); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, ErrNotFound
@@ -99,14 +99,14 @@ func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *No
 
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO reservations (vm_id, epoch, node_name, cpus, memory_bytes, disk_bytes)
-		VALUES ($1,$2,$3,$4,$5,$6)`,
+		VALUES ($1, $2, $3, $4, $5, $6)`,
 		vmID, epoch, node.Name, res.CPUs, res.MemoryBytes, res.DiskBytes); err != nil {
 		return 0, err
 	}
 
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO placements (vm_id, epoch, node_name, host_id, state)
-		VALUES ($1,$2,$3,$4,'assigned')`,
+		VALUES ($1, $2, $3, $4,'assigned')`,
 		vmID, epoch, node.Name, node.HostID); err != nil {
 		if isUniqueViolation(err) {
 			return 0, fmt.Errorf("%w (vm %s)", ErrActivePlacementExists, vmID)
@@ -115,9 +115,9 @@ func (s *Store) PlaceVM(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, node *No
 	}
 
 	if _, err := tx.Exec(ctx, `
-		UPDATE vms SET node_name=$2, placement_epoch=$3, phase='PROVISIONING',
+		UPDATE vms SET node_name = $2, placement_epoch = $3, phase = 'PROVISIONING',
 			resource_version = resource_version + 1, updated_at = now()
-		WHERE id=$1`,
+		WHERE id = $1`,
 		vmID, node.Name, epoch); err != nil {
 		return 0, err
 	}
@@ -135,7 +135,7 @@ func (s *Store) ReleasePlacement(ctx context.Context, tx pgx.Tx, vmID uuid.UUID,
 		reservationFound = true
 	)
 	err := tx.QueryRow(ctx, `
-		DELETE FROM reservations WHERE vm_id=$1 AND epoch=$2
+		DELETE FROM reservations WHERE vm_id = $1 AND epoch = $2
 		RETURNING node_name, cpus, memory_bytes, disk_bytes`,
 		vmID, epoch).Scan(&node, &cpus, &mem, &disk)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -158,7 +158,7 @@ func (s *Store) ReleasePlacement(ctx context.Context, tx pgx.Tx, vmID uuid.UUID,
 	}
 
 	if _, err := tx.Exec(ctx, `
-		UPDATE placements SET state='torn_down' WHERE vm_id=$1 AND epoch=$2`,
+		UPDATE placements SET state = 'torn_down' WHERE vm_id = $1 AND epoch = $2`,
 		vmID, epoch); err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (s *Store) GetPlacement(ctx context.Context, q querier, vmID uuid.UUID, epo
 	var p Placement
 	err := q.QueryRow(ctx, `
 		SELECT vm_id, epoch, node_name, host_id, state
-		FROM placements WHERE vm_id=$1 AND epoch=$2`, vmID, epoch).
+		FROM placements WHERE vm_id = $1 AND epoch = $2`, vmID, epoch).
 		Scan(&p.VMID, &p.Epoch, &p.NodeName, &p.HostID, &p.State)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound

@@ -22,6 +22,7 @@ import (
 // terminalizes as DEADLINE_EXCEEDED even if nothing is retrying.
 const (
 	createDeadline = 15 * time.Minute
+	mutateDeadline = 15 * time.Minute
 	deleteDeadline = 30 * time.Minute
 )
 

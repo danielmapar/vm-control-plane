@@ -51,7 +51,7 @@ func TestGrantHappyPathAndReplay(t *testing.T) {
 		t.Fatalf("grant: %v", err)
 	}
 	p, err := s.GetPlacement(ctx, nil, vm.ID, epoch)
-	if err != nil || p.State != "granted" {
+	if err != nil || p.State != store.PlacementGranted {
 		t.Fatalf("placement: %v %+v", err, p)
 	}
 	// Matrix row 6: the grant response was lost; replay is idempotent.
@@ -175,7 +175,7 @@ func TestUnassignReturnsVMToPending(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := s.GetVM(ctx, nil, vm.Name)
-	if err != nil || got.Phase != "PENDING" || got.NodeName != nil {
+	if err != nil || got.Phase != store.PhasePending || got.NodeName != nil {
 		t.Fatalf("vm after unassign: %v %+v", err, got)
 	}
 	n, err := s.GetNode(ctx, "node-a")

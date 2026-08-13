@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -22,7 +23,70 @@ import (
 	vmcv1 "github.com/sigtunnel/vm-control-plane/proto/vmc/v1"
 )
 
+// options holds the parsed command-line flags.
+type options struct {
+	server       string
+	hostID       string
+	stateDir     string
+	nodes        string
+	nodeCPUs     int64
+	nodeMem      uint64
+	nodeDisk     uint64
+	driver       string
+	debug        string
+	storageRoot  string
+	mgmtNetwork  string
+	tenantBridge string
+	sshKeyFile   string
+	libvirtSock  string
+	pinCPUSet    string
+	pollInterval time.Duration
+	emulated     bool
+}
+
 func main() {
+	opts := parseFlags()
+
+	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	log.Info("hypervisor-agent starting", "version", version.String(), "host", opts.hostID, "driver", opts.driver)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	drv := buildDriver(ctx, opts, log)
+
+	specs := nodeSpecs(opts)
+
+	conn, err := grpc.NewClient(opts.server, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Error("dial control plane", "err", err)
+		os.Exit(1)
+	}
+	defer conn.Close() //nolint:errcheck // process exit follows
+
+	d := agent.New(agent.Config{
+		HostID:   opts.hostID,
+		StateDir: opts.stateDir,
+		Nodes:    specs,
+		// Host allocatable: the quota sum exactly (no overcommit in v0.1).
+		HostCPUs:     opts.nodeCPUs * int64(len(specs)),
+		HostMemory:   opts.nodeMem << 30 * uint64(len(specs)),
+		HostDisk:     opts.nodeDisk << 30 * uint64(len(specs)),
+		Compute:      drv,
+		Log:          log,
+		DebugAddr:    opts.debug,
+		PollInterval: opts.pollInterval,
+	}, vmcv1.NewAgentServiceClient(conn))
+
+	if err := d.Run(ctx); err != nil && ctx.Err() == nil {
+		log.Error("agent exiting", "err", err)
+		os.Exit(1)
+	}
+	fmt.Println("agent stopped")
+}
+
+// parseFlags declares, parses, and snapshots the command-line flags.
+func parseFlags() options {
 	var (
 		server   = flag.String("server", "127.0.0.1:7070", "control-plane gRPC address")
 		hostID   = flag.String("host-id", "host-local", "persistent physical-host identity")
@@ -45,37 +109,60 @@ func main() {
 	)
 	flag.Parse()
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	log.Info("hypervisor-agent starting", "version", version.String(), "host", *hostID, "driver", *driver)
+	return options{
+		server:       *server,
+		hostID:       *hostID,
+		stateDir:     *stateDir,
+		nodes:        *nodes,
+		nodeCPUs:     *nodeCPUs,
+		nodeMem:      *nodeMem,
+		nodeDisk:     *nodeDisk,
+		driver:       *driver,
+		debug:        *debug,
+		storageRoot:  *storageRoot,
+		mgmtNetwork:  *mgmtNetwork,
+		tenantBridge: *tenantBridge,
+		sshKeyFile:   *sshKeyFile,
+		libvirtSock:  *libvirtSock,
+		pinCPUSet:    *pinCPUSet,
+		pollInterval: *pollInterval,
+		emulated:     *emulated,
+	}
+}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
-	var drv compute.Driver
-	switch *driver {
+// buildDriver constructs the compute driver named by the flags. It exits the
+// process on an unknown driver or a libvirt initialization failure, matching
+// the original inline behavior.
+func buildDriver(ctx context.Context, opts options, log *slog.Logger) compute.Driver {
+	switch opts.driver {
 	case "fake":
-		drv = computefake.New()
+		return computefake.New()
 	case "libvirt":
-		var err error
-		drv, err = newLibvirtDriver(ctx, libvirtDriverOpts{
-			Socket:       *libvirtSock,
-			StorageRoot:  *storageRoot,
-			MgmtNetwork:  *mgmtNetwork,
-			TenantBridge: *tenantBridge,
-			SSHKeyFile:   *sshKeyFile,
-			CPUSet:       *pinCPUSet,
-			Emulated:     *emulated,
+		drv, err := newLibvirtDriver(ctx, libvirtDriverOpts{
+			Socket:       opts.libvirtSock,
+			StorageRoot:  opts.storageRoot,
+			MgmtNetwork:  opts.mgmtNetwork,
+			TenantBridge: opts.tenantBridge,
+			SSHKeyFile:   opts.sshKeyFile,
+			CPUSet:       opts.pinCPUSet,
+			Emulated:     opts.emulated,
 		})
 		if err != nil {
 			log.Error("libvirt driver", "err", err)
 			os.Exit(2)
 		}
+		return drv
 	default:
-		log.Error("unknown driver", "driver", *driver)
+		log.Error("unknown driver", "driver", opts.driver)
 		os.Exit(2)
+		return nil
 	}
+}
 
-	names := strings.Split(*nodes, ",")
+// nodeSpecs parses the comma-separated node names into logical node specs,
+// each carrying the per-node quota from the flags.
+func nodeSpecs(opts options) []agent.NodeSpec {
+	names := strings.Split(opts.nodes, ",")
 	specs := make([]agent.NodeSpec, 0, len(names))
 	for _, n := range names {
 		n = strings.TrimSpace(n)
@@ -83,35 +170,9 @@ func main() {
 			continue
 		}
 		specs = append(specs, agent.NodeSpec{
-			Name: n, CPUs: *nodeCPUs,
-			MemoryBytes: *nodeMem << 30, DiskBytes: *nodeDisk << 30,
+			Name: n, CPUs: opts.nodeCPUs,
+			MemoryBytes: opts.nodeMem << 30, DiskBytes: opts.nodeDisk << 30,
 		})
 	}
-
-	conn, err := grpc.NewClient(*server, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Error("dial control plane", "err", err)
-		os.Exit(1)
-	}
-	defer conn.Close() //nolint:errcheck // process exit follows
-
-	d := agent.New(agent.Config{
-		HostID:   *hostID,
-		StateDir: *stateDir,
-		Nodes:    specs,
-		// Host allocatable: the quota sum exactly (no overcommit in v0.1).
-		HostCPUs:     *nodeCPUs * int64(len(specs)),
-		HostMemory:   *nodeMem << 30 * uint64(len(specs)),
-		HostDisk:     *nodeDisk << 30 * uint64(len(specs)),
-		Compute:      drv,
-		Log:          log,
-		DebugAddr:    *debug,
-		PollInterval: *pollInterval,
-	}, vmcv1.NewAgentServiceClient(conn))
-
-	if err := d.Run(ctx); err != nil && ctx.Err() == nil {
-		log.Error("agent exiting", "err", err)
-		os.Exit(1)
-	}
-	fmt.Println("agent stopped")
+	return specs
 }

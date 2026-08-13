@@ -1,10 +1,10 @@
 // Package qcow2 is the real volume driver's portable core: command
 // construction, path layout, ownership containment, and publication
 // ordering are pure logic — golden-tested on every platform — while the
-// actual qemu-img execution and fsync-durability live behind a small
-// Runner interface whose production implementation is Linux-only.
+// actual qemu-img execution and fsync-durability live in the Runner, whose
+// implementation is Linux-only (runner_linux.go).
 //
-// The sharp edges this package encodes (all review-sourced):
+// The sharp edges this package encodes:
 //
 //   - `qemu-img create -b` without `-F` fails on modern qemu-img, and
 //     without an explicit size silently inherits the backing image's —
@@ -64,6 +64,13 @@ func (l Layout) Contains(path string) bool {
 	root := filepath.ToSlash(filepath.Clean(l.Root))
 	p := filepath.ToSlash(filepath.Clean(path))
 	return p != root && strings.HasPrefix(p, root+"/") && !strings.Contains(p, "/../")
+}
+
+// StrictlyInside reports whether dir is a proper subdirectory of the canonical
+// root — never the root itself and never escaping it. Teardown checks it before
+// removing a directory tree.
+func (l Layout) StrictlyInside(dir string) bool {
+	return l.Contains(dir)
 }
 
 // CreateOverlayArgs builds the qemu-img argv for a copy-on-write overlay.

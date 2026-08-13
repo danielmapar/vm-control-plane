@@ -88,9 +88,9 @@ func (s *Store) RegisterHost(ctx context.Context, hc HostCapacity, quotas []Node
 
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO hosts (host_id, cpus, memory_bytes, disk_bytes)
-		VALUES ($1,$2,$3,$4)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (host_id) DO UPDATE
-		SET cpus=$2, memory_bytes=$3, disk_bytes=$4, updated_at=now()`,
+		SET cpus = $2, memory_bytes = $3, disk_bytes = $4, updated_at = now()`,
 		hc.HostID, hc.CPUs, hc.MemoryBytes, hc.DiskBytes); err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (s *Store) RegisterHost(ctx context.Context, hc HostCapacity, quotas []Node
 				session_id = gen_random_uuid(),
 				session_generation = nodes.session_generation + 1,
 				lease_expires_at = clock_timestamp() + $3,
-				cpus=$4, memory_bytes=$5, disk_bytes=$6, labels=$7,
+				cpus = $4, memory_bytes = $5, disk_bytes = $6, labels = $7,
 				updated_at = now()
 			WHERE nodes.host_id = $2
 			RETURNING session_id, session_generation`,
@@ -140,7 +140,7 @@ func (s *Store) RegisterHost(ctx context.Context, hc HostCapacity, quotas []Node
 func (s *Store) Heartbeat(ctx context.Context, sess Session, lease time.Duration) error {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE nodes SET lease_expires_at = clock_timestamp() + $4, updated_at = now()
-		WHERE name=$1 AND session_id=$2 AND session_generation=$3`,
+		WHERE name = $1 AND session_id = $2 AND session_generation = $3`,
 		sess.NodeName, sess.SessionID, sess.Generation, lease)
 	if err != nil {
 		return err

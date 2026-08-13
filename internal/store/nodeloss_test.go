@@ -56,20 +56,20 @@ func TestNodeLossPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	outcomes := map[string]string{}
+	outcomes := map[string]store.NodeLossOutcome{}
 	for _, a := range actions {
 		outcomes[a.VMName] = a.Outcome
 	}
-	if outcomes["nl-pending"] != "rescheduled" || outcomes["nl-granted"] != "unknown" {
+	if outcomes["nl-pending"] != store.OutcomeRescheduled || outcomes["nl-granted"] != store.OutcomeUnknown {
 		t.Fatalf("outcomes: %+v", outcomes)
 	}
 
 	p, err := s.GetVM(ctx, nil, "nl-pending")
-	if err != nil || p.Phase != "PENDING" || p.NodeName != nil {
+	if err != nil || p.Phase != store.PhasePending || p.NodeName != nil {
 		t.Fatalf("ungranted vm must return to Pending: %+v", p)
 	}
 	g, err := s.GetVM(ctx, nil, "nl-granted")
-	if err != nil || g.Phase != "UNKNOWN" || g.NodeName == nil {
+	if err != nil || g.Phase != store.PhaseUnknown || g.NodeName == nil {
 		t.Fatalf("granted vm must park UNKNOWN, keeping its node: %+v", g)
 	}
 	// Capacity: only the granted VM's reservation remains.

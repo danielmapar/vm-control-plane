@@ -82,7 +82,7 @@ func (s *Store) RecordActionFailure(ctx context.Context, vmID uuid.UUID, epoch, 
 			attempts = attempts + 1,
 			not_before = clock_timestamp() + ($5 * interval '1 millisecond'),
 			attempt_token = gen_random_uuid()
-		WHERE vm_id=$1 AND epoch=$2 AND revision=$3 AND attempt_token=$4`,
+		WHERE vm_id = $1 AND epoch = $2 AND revision = $3 AND attempt_token = $4`,
 		vmID, epoch, revision, token, backoffMS)
 	return err
 }
@@ -111,7 +111,7 @@ func (s *Store) MarkTeardownComplete(ctx context.Context, vmID uuid.UUID, epoch 
 	)
 	err = tx.QueryRow(ctx, `
 		SELECT deleted_at IS NOT NULL, placement_epoch
-		FROM vms WHERE id=$1 FOR UPDATE`, vmID).Scan(&deleted, &currentEpoch)
+		FROM vms WHERE id = $1 FOR UPDATE`, vmID).Scan(&deleted, &currentEpoch)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil // VM already finalized: idempotent
 	}

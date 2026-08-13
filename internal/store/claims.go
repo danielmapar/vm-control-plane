@@ -174,8 +174,8 @@ func (s *Store) RecordFailure(ctx context.Context, vmID uuid.UUID, token uuid.UU
 		}
 		if opID != nil {
 			if _, err := tx.Exec(ctx, `
-				UPDATE operations SET state='FAILED', error=$2, finished_at=now()
-				WHERE id=$1 AND state IN ('PENDING','RUNNING')`,
+				UPDATE operations SET state = 'FAILED', error = $2, finished_at = now()
+				WHERE id = $1 AND state IN ('PENDING','RUNNING')`,
 				*opID, "retry budget exhausted: "+errMsg); err != nil {
 				return false, err
 			}

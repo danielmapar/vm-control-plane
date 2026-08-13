@@ -148,8 +148,8 @@ func TestExpiryWithoutTakeover(t *testing.T) {
 	}
 }
 
-// TestRenewExtendsLease: renewal under the token keeps the claim alive;
-// renewal after expiry fails.
+// TestRenewSemantics: renewal under the token keeps the claim alive; renewal
+// after expiry fails.
 func TestRenewSemantics(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
@@ -174,7 +174,7 @@ func TestRenewSemantics(t *testing.T) {
 }
 
 // TestFailureBudgetParksFailedAndTerminalizes: durable retry state and the
-// D3 guarantee that op wait cannot hang on a Failed resource.
+// guarantee that op wait cannot hang on a Failed resource.
 func TestFailureBudgetParksFailedAndTerminalizes(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
@@ -184,7 +184,7 @@ func TestFailureBudgetParksFailedAndTerminalizes(t *testing.T) {
 	}
 	op, err := s.CreateOperation(ctx, nil, &store.Operation{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID, ResourceName: vm.Name,
-		Verb: "CREATE", TargetRevision: 1, Deadline: time.Now().Add(time.Hour),
+		Verb: store.VerbCreate, TargetRevision: 1, Deadline: time.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -213,7 +213,7 @@ func TestFailureBudgetParksFailedAndTerminalizes(t *testing.T) {
 	}
 	// …and the operation is terminal (op wait cannot hang).
 	final, err := s.GetOperation(ctx, nil, op.ID)
-	if err != nil || final.State != "FAILED" || !final.Terminal() {
+	if err != nil || final.State != store.OpFailed || !final.Terminal() {
 		t.Fatalf("operation not terminalized with the phase write: %v %+v", err, final)
 	}
 }

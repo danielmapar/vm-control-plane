@@ -134,7 +134,7 @@ func (r *Runner) TeardownEpoch(node, vmID string, epoch int64) error {
 		return err
 	}
 	dir := r.Layout.VolumeDir(node, id, epoch)
-	if !r.Layout.Contains(dir + "/x") { // dir itself must be strictly inside
+	if !r.Layout.StrictlyInside(dir) {
 		return fmt.Errorf("qcow2: refusing to remove outside the storage root: %s", dir)
 	}
 	// Reject symlinked components: a swapped symlink must not redirect the

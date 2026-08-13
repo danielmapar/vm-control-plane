@@ -57,7 +57,7 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 	)
 	err = tx.QueryRow(ctx, `
 		SELECT deleted_at IS NOT NULL, placement_epoch
-		FROM vms WHERE id=$1 FOR UPDATE`, vmID).Scan(&deleted, &currentEpoch)
+		FROM vms WHERE id = $1 FOR UPDATE`, vmID).Scan(&deleted, &currentEpoch)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -78,7 +78,7 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 	)
 	err = tx.QueryRow(ctx, `
 		SELECT state, node_name FROM placements
-		WHERE vm_id=$1 AND epoch=$2 FOR UPDATE`, vmID, epoch).Scan(&state, &nodeName)
+		WHERE vm_id = $1 AND epoch = $2 FOR UPDATE`, vmID, epoch).Scan(&state, &nodeName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return &ErrGrantDenied{DenyNotAssigned}
 	}
@@ -123,8 +123,8 @@ func (s *Store) GrantExecution(ctx context.Context, sess Session, vmID uuid.UUID
 		return tx.Commit(ctx)
 	}
 	if _, err := tx.Exec(ctx, `
-		UPDATE placements SET state='granted', granted_at=clock_timestamp()
-		WHERE vm_id=$1 AND epoch=$2`, vmID, epoch); err != nil {
+		UPDATE placements SET state = 'granted', granted_at=clock_timestamp()
+		WHERE vm_id = $1 AND epoch = $2`, vmID, epoch); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -147,12 +147,12 @@ func (s *Store) UnassignIfUngranted(ctx context.Context, vmID uuid.UUID, epoch i
 
 	// Lock order: VM row, then placement row (same as grants — no deadlock,
 	// and exactly one of a concurrent grant/unassign pair wins).
-	if _, err := tx.Exec(ctx, `SELECT 1 FROM vms WHERE id=$1 FOR UPDATE`, vmID); err != nil {
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM vms WHERE id = $1 FOR UPDATE`, vmID); err != nil {
 		return false, err
 	}
 	var state PlacementState
 	err = tx.QueryRow(ctx, `
-		SELECT state FROM placements WHERE vm_id=$1 AND epoch=$2 FOR UPDATE`,
+		SELECT state FROM placements WHERE vm_id = $1 AND epoch = $2 FOR UPDATE`,
 		vmID, epoch).Scan(&state)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, fmt.Errorf("%w: placement (%s, %d)", ErrNotFound, vmID, epoch)
@@ -168,10 +168,10 @@ func (s *Store) UnassignIfUngranted(ctx context.Context, vmID uuid.UUID, epoch i
 		return false, err
 	}
 	if _, err := tx.Exec(ctx, `
-		UPDATE vms SET node_name=NULL, phase='PENDING',
+		UPDATE vms SET node_name = NULL, phase = 'PENDING',
 			next_attempt_at = clock_timestamp(),
 			resource_version = resource_version + 1, updated_at = now()
-		WHERE id=$1`, vmID); err != nil {
+		WHERE id = $1`, vmID); err != nil {
 		return false, err
 	}
 	return true, tx.Commit(ctx)

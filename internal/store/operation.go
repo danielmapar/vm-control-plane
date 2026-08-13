@@ -160,8 +160,8 @@ func (s *Store) TerminalizeOperation(ctx context.Context, q querier, id uuid.UUI
 		return nil, fmt.Errorf("terminalize: %q is not a terminal state", state)
 	}
 	row := q.QueryRow(ctx, `
-		UPDATE operations SET state=$2, error=$3, finished_at=clock_timestamp()
-		WHERE id=$1 AND state IN ('PENDING','RUNNING')
+		UPDATE operations SET state = $2, error = $3, finished_at=clock_timestamp()
+		WHERE id = $1 AND state IN ('PENDING','RUNNING')
 		RETURNING `+opColumns,
 		id, state, errMsg)
 	op, err := scanOperation(row)
@@ -182,15 +182,15 @@ func (s *Store) TerminalizeOperation(ctx context.Context, q querier, id uuid.UUI
 // transaction.
 func (s *Store) TerminalizeRealizedOps(ctx context.Context, tx pgx.Tx, vmID uuid.UUID, realizedRevision int64) error {
 	if _, err := tx.Exec(ctx, `
-		UPDATE operations SET state='DONE', finished_at=clock_timestamp()
-		WHERE resource_type='vm' AND resource_id=$1 AND target_revision=$2 AND state IN ('PENDING','RUNNING')`,
+		UPDATE operations SET state = 'DONE', finished_at=clock_timestamp()
+		WHERE resource_type = 'vm' AND resource_id = $1 AND target_revision = $2 AND state IN ('PENDING','RUNNING')`,
 		vmID, realizedRevision); err != nil {
 		return err
 	}
 	_, err := tx.Exec(ctx, `
-		UPDATE operations SET state='SUPERSEDED',
-			error='a newer desired revision was realized first', finished_at=clock_timestamp()
-		WHERE resource_type='vm' AND resource_id=$1 AND target_revision<$2 AND state IN ('PENDING','RUNNING')`,
+		UPDATE operations SET state = 'SUPERSEDED',
+			error = 'a newer desired revision was realized first', finished_at=clock_timestamp()
+		WHERE resource_type = 'vm' AND resource_id = $1 AND target_revision<$2 AND state IN ('PENDING','RUNNING')`,
 		vmID, realizedRevision)
 	return err
 }
@@ -205,7 +205,7 @@ func (s *Store) FindOpenOperationID(ctx context.Context, q querier, vmID uuid.UU
 	var id uuid.UUID
 	err := q.QueryRow(ctx, `
 		SELECT id FROM operations
-		WHERE resource_id=$1 AND target_revision=$2 AND state IN ('PENDING','RUNNING')
+		WHERE resource_id = $1 AND target_revision = $2 AND state IN ('PENDING','RUNNING')
 		ORDER BY created_at DESC LIMIT 1`, vmID, revision).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -225,8 +225,8 @@ func (s *Store) ExpireOperations(ctx context.Context, q querier) ([]*Operation, 
 		q = s.pool
 	}
 	rows, err := q.Query(ctx, `
-		UPDATE operations SET state='DEADLINE_EXCEEDED',
-			error='operation deadline exceeded; resource state unchanged (no unsafe cleanup)',
+		UPDATE operations SET state = 'DEADLINE_EXCEEDED',
+			error = 'operation deadline exceeded; resource state unchanged (no unsafe cleanup)',
 			finished_at=clock_timestamp()
 		WHERE state IN ('PENDING','RUNNING') AND deadline <= clock_timestamp()
 		RETURNING `+opColumns)

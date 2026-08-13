@@ -36,7 +36,7 @@ func claimCreate(ctx context.Context, s *store.Store, pool *pgxpool.Pool, key uu
 
 	op := &store.Operation{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: uuid.New(),
-		ResourceName: "web-1", Verb: "CREATE", TargetRevision: 1,
+		ResourceName: "web-1", Verb: store.VerbCreate, TargetRevision: 1,
 		Deadline: time.Now().Add(time.Hour),
 	}
 	created, err := s.CreateOperation(ctx, tx, op)
@@ -166,24 +166,24 @@ func TestTerminalResultsImmutable(t *testing.T) {
 
 	op, err := s.CreateOperation(ctx, nil, &store.Operation{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: uuid.New(),
-		ResourceName: "x", Verb: "CREATE", TargetRevision: 1,
+		ResourceName: "x", Verb: store.VerbCreate, TargetRevision: 1,
 		Deadline: time.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	done, err := s.TerminalizeOperation(ctx, nil, op.ID, "DONE", "")
-	if err != nil || done.State != "DONE" {
+	done, err := s.TerminalizeOperation(ctx, nil, op.ID, store.OpDone, "")
+	if err != nil || done.State != store.OpDone {
 		t.Fatalf("terminalize: %v %+v", err, done)
 	}
 
 	// A later, conflicting terminalization must NOT rewrite the result.
-	again, err := s.TerminalizeOperation(ctx, nil, op.ID, "FAILED", "late loser")
+	again, err := s.TerminalizeOperation(ctx, nil, op.ID, store.OpFailed, "late loser")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if again.State != "DONE" || again.Error != "" {
+	if again.State != store.OpDone || again.Error != "" {
 		t.Fatalf("terminal result was rewritten: %+v", again)
 	}
 }
@@ -197,7 +197,7 @@ func TestDeadlineExpiryTerminalizes(t *testing.T) {
 
 	op, err := s.CreateOperation(ctx, nil, &store.Operation{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: uuid.New(),
-		ResourceName: "stall", Verb: "CREATE", TargetRevision: 1,
+		ResourceName: "stall", Verb: store.VerbCreate, TargetRevision: 1,
 		DeadlineBudget: -time.Second, // database-clock deadline already past
 	})
 	if err != nil {
@@ -208,7 +208,7 @@ func TestDeadlineExpiryTerminalizes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(expired) != 1 || expired[0].ID != op.ID || expired[0].State != "DEADLINE_EXCEEDED" {
+	if len(expired) != 1 || expired[0].ID != op.ID || expired[0].State != store.OpDeadlineExceeded {
 		t.Fatalf("expiry: %+v", expired)
 	}
 
@@ -231,7 +231,7 @@ func TestDeleteOperationOutlivesResource(t *testing.T) {
 	}
 	op, err := s.CreateOperation(ctx, nil, &store.Operation{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID,
-		ResourceName: vm.Name, Verb: "DELETE", TargetRevision: 2,
+		ResourceName: vm.Name, Verb: store.VerbDelete, TargetRevision: 2,
 		Deadline: time.Now().Add(time.Hour),
 	})
 	if err != nil {

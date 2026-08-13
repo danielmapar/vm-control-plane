@@ -105,7 +105,7 @@ func TestPlaceReservesAndBumpsEpoch(t *testing.T) {
 	}
 
 	placed, err := s.GetVM(ctx, nil, "pl-1")
-	if err != nil || placed.Phase != "PROVISIONING" || *placed.NodeName != "node-a" || placed.PlacementEpoch != 1 {
+	if err != nil || placed.Phase != store.PhaseProvisioning || *placed.NodeName != "node-a" || placed.PlacementEpoch != 1 {
 		t.Fatalf("vm after place: %v %+v", err, placed)
 	}
 	n, err := s.GetNode(ctx, "node-a")
@@ -244,7 +244,7 @@ func TestReleaseIdempotent(t *testing.T) {
 		t.Fatalf("double release must adjust exactly once: %+v", n)
 	}
 	p, err := s.GetPlacement(ctx, nil, vm.ID, epoch)
-	if err != nil || p.State != "torn_down" {
+	if err != nil || p.State != store.PlacementTornDown {
 		t.Fatalf("placement state: %v %+v", err, p)
 	}
 }

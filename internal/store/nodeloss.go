@@ -7,15 +7,25 @@ import (
 	"github.com/google/uuid"
 )
 
+// NodeLossOutcome is what the sweep did to a VM whose node's lease expired.
+type NodeLossOutcome string
+
+const (
+	// OutcomeRescheduled: the placement was never granted, so it was provably
+	// unexposed and was unassigned back to Pending for rescheduling.
+	OutcomeRescheduled NodeLossOutcome = "rescheduled"
+	// OutcomeUnknown: the placement was granted, so the VM is parked in UNKNOWN
+	// and never rescheduled automatically.
+	OutcomeUnknown NodeLossOutcome = "unknown"
+)
+
 // NodeLossAction records what the node-loss sweep did to one VM.
 type NodeLossAction struct {
-	VMID   uuid.UUID
-	VMName string
-	Node   string
-	Epoch  int64
-	// "rescheduled" (never granted — unassigned back to Pending) or
-	// "unknown" (granted — parked, never rescheduled).
-	Outcome string
+	VMID    uuid.UUID
+	VMName  string
+	Node    string
+	Epoch   int64
+	Outcome NodeLossOutcome
 }
 
 // ExpireNodeVMs applies the node-loss policy: for every VM whose current
@@ -73,7 +83,7 @@ func (s *Store) ExpireNodeVMs(ctx context.Context) ([]NodeLossAction, error) {
 			}
 			if unassigned {
 				actions = append(actions, NodeLossAction{
-					VMID: c.id, VMName: c.name, Node: c.node, Epoch: c.epoch, Outcome: "rescheduled",
+					VMID: c.id, VMName: c.name, Node: c.node, Epoch: c.epoch, Outcome: OutcomeRescheduled,
 				})
 			}
 			continue
@@ -84,15 +94,15 @@ func (s *Store) ExpireNodeVMs(ctx context.Context) ([]NodeLossAction, error) {
 		// pre-loss evidence cannot immediately re-converge when the node
 		// returns: a fresh report from a live session is required.
 		tag, err := s.pool.Exec(ctx, `
-			UPDATE vms SET phase='UNKNOWN', applied_revision=0, observed_state='',
+			UPDATE vms SET phase = 'UNKNOWN', applied_revision = 0, observed_state = '',
 				resource_version = resource_version + 1, updated_at = now()
-			WHERE id=$1 AND phase IN ('PROVISIONING','RUNNING','STOPPED')`, c.id)
+			WHERE id = $1 AND phase IN ('PROVISIONING','RUNNING','STOPPED')`, c.id)
 		if err != nil {
 			return actions, err
 		}
 		if tag.RowsAffected() == 1 {
 			actions = append(actions, NodeLossAction{
-				VMID: c.id, VMName: c.name, Node: c.node, Epoch: c.epoch, Outcome: "unknown",
+				VMID: c.id, VMName: c.name, Node: c.node, Epoch: c.epoch, Outcome: OutcomeUnknown,
 			})
 		}
 	}
