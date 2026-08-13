@@ -83,22 +83,25 @@ cd ~/vm-control-plane
 ```
 
 The first run also downloads the Ubuntu cloud image once. After that the script
-runs the operations for you: create the VM, wait for it, SSH into the booted
-guest, then delete it. You will see something like:
+runs the same operations as Tier 0, now against real KVM: create the VM, wait
+for it, SSH into the booted guest, stop it, then delete it. You will see
+something like:
 
 ```
 == create a real VM ==
 OPERATION                             VERB    RESOURCE   STATE
-daa8e0b9-761b-4284-a72f-b2154efa5ad9  CREATE  vm/real-1  DONE
+d8593327-7655-4f5e-ba2f-c29392622546  CREATE  vm/real-1  DONE
 NAME    PHASE    NODE    EPOCH  CPU  MEMORY  IMAGE         REVISION
 real-1  RUNNING  node-a  1      1    1GiB    ubuntu-24.04  1/1
 
-guest IP: 192.168.221.74
+guest IP: 192.168.221.128
 REAL-KVM GUEST REACHED: real-1 / 6.8.0-136-generic
 
+== stop the VM (ACPI shutdown), then list ==
+real-1  STOPPED  node-a  1      1    1GiB    ubuntu-24.04  2/2
+
 == delete ==
-OPERATION                             VERB    RESOURCE   STATE
-0d9c8f71-e157-41ac-96a3-6931a0c29119  DELETE  vm/real-1  DONE
+7a93c382-15c4-4e58-9dc5-491ffc1a8556  DELETE  vm/real-1  DONE
 == demo complete ==
 ```
 

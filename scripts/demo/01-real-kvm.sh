@@ -104,7 +104,13 @@ for i in $(seq 1 36); do
 done
 [ -n "$SSH_OK" ] || { echo "guest never answered SSH within timeout"; exit 1; }
 
-echo "== 7. delete =="
+echo "== 7. stop the VM (ACPI shutdown), then list =="
+SOP=$(bin/vmctl stop vm real-1 | grep -oiE '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' | tail -1)
+bin/vmctl op wait "$SOP" --timeout 2m
+bin/vmctl list vms
+
+echo "== 8. delete =="
 DOP=$(bin/vmctl delete vm real-1 | grep -oiE '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' | tail -1)
 bin/vmctl op wait "$DOP" --timeout 2m
-echo "== demo complete: a real KVM guest was booted, reached over SSH, and deleted through the control plane =="
+bin/vmctl list vms
+echo "== demo complete: a real KVM guest was booted, reached over SSH, stopped, and deleted through the control plane =="
