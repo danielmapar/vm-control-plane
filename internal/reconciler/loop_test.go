@@ -52,10 +52,9 @@ func createVM(t *testing.T, s *store.Store, name string) (*store.VM, *store.Oper
 	if err != nil {
 		t.Fatal(err)
 	}
-	op, err := s.CreateOperation(ctx, nil, &store.Operation{
+	op, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID, ResourceName: name,
 		Verb: store.VerbCreate, TargetRevision: vm.DesiredRevision,
-		Deadline: time.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -200,10 +199,9 @@ func TestLoopDeletionFinalizes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delOp, err := s.CreateOperation(ctx, nil, &store.Operation{
+	delOp, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID, ResourceName: "del-loop",
 		Verb: store.VerbDelete, TargetRevision: dead.DesiredRevision,
-		Deadline: time.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatal(err)

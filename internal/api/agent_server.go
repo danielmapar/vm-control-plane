@@ -205,6 +205,10 @@ func (a *AgentServer) TeardownReceipt(ctx context.Context, req *vmcv1.TeardownRe
 	return &vmcv1.TeardownReceiptResponse{}, nil
 }
 
+// actionRetryBackoffMS is the server-controlled backoff between substrate
+// action attempts.
+const actionRetryBackoffMS = 2000
+
 // ActionFailed records a failed substrate action so the server can pace the
 // next attempt; the daemon never decides its own backoff.
 func (a *AgentServer) ActionFailed(ctx context.Context, req *vmcv1.ActionFailedRequest) (*vmcv1.ActionFailedResponse, error) {
@@ -216,8 +220,7 @@ func (a *AgentServer) ActionFailed(ctx context.Context, req *vmcv1.ActionFailedR
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "attempt_token must be a UUID")
 	}
-	// Exponential-ish pacing server-side; the daemon never decides backoff.
-	if err := a.st.RecordActionFailure(ctx, vmID, req.GetPlacementEpoch(), req.GetDesiredRevision(), token, 2000); err != nil {
+	if err := a.st.RecordActionFailure(ctx, vmID, req.GetPlacementEpoch(), req.GetDesiredRevision(), token, actionRetryBackoffMS); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &vmcv1.ActionFailedResponse{}, nil

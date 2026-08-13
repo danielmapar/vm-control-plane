@@ -34,10 +34,9 @@ func claimCreate(ctx context.Context, s *store.Store, pool *pgxpool.Pool, key uu
 		return existing, tx.Commit(ctx)
 	}
 
-	op := &store.Operation{
+	op := store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: uuid.New(),
 		ResourceName: "web-1", Verb: store.VerbCreate, TargetRevision: 1,
-		Deadline: time.Now().Add(time.Hour),
 	}
 	created, err := s.CreateOperation(ctx, tx, op)
 	if err != nil {
@@ -164,10 +163,9 @@ func TestTerminalResultsImmutable(t *testing.T) {
 	s := store.New(pool)
 	ctx := context.Background()
 
-	op, err := s.CreateOperation(ctx, nil, &store.Operation{
+	op, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: uuid.New(),
 		ResourceName: "x", Verb: store.VerbCreate, TargetRevision: 1,
-		Deadline: time.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -195,7 +193,7 @@ func TestDeadlineExpiryTerminalizes(t *testing.T) {
 	s := store.New(pool)
 	ctx := context.Background()
 
-	op, err := s.CreateOperation(ctx, nil, &store.Operation{
+	op, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: uuid.New(),
 		ResourceName: "stall", Verb: store.VerbCreate, TargetRevision: 1,
 		DeadlineBudget: -time.Second, // database-clock deadline already past
@@ -229,10 +227,9 @@ func TestDeleteOperationOutlivesResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	op, err := s.CreateOperation(ctx, nil, &store.Operation{
+	op, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID,
 		ResourceName: vm.Name, Verb: store.VerbDelete, TargetRevision: 2,
-		Deadline: time.Now().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatal(err)

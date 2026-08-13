@@ -222,8 +222,8 @@ func TestEnsureFailureReportsActionFailed(t *testing.T) {
 	}
 }
 
-// TestHostLockExclusive: one daemon per host; stale locks from dead pids
-// are stolen, live ones are not.
+// TestHostLockExclusive: a held host lock blocks a second acquirer, and once
+// released the lock can be acquired again.
 func TestHostLockExclusive(t *testing.T) {
 	dir := t.TempDir()
 	unlock, err := acquireHostLock(dir)

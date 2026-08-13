@@ -274,10 +274,9 @@ func (d *Driver) Teardown(ctx context.Context, vmID string, epoch int64) error {
 }
 
 func (d *Driver) gracefulStop(ctx context.Context, l *golibvirt.Libvirt, dom golibvirt.Domain) error {
-	if err := l.DomainShutdown(dom); err != nil && !golibvirt.IsNotFound(err) {
-		// Fall through to forced destroy.
-		_ = err
-	}
+	// Best-effort ACPI shutdown; on any error we fall through to the poll loop
+	// and, past the deadline, a forced destroy.
+	_ = l.DomainShutdown(dom)
 	deadline := time.Now().Add(d.cfg.StopDeadline)
 	for time.Now().Before(deadline) {
 		select {

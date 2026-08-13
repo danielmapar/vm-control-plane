@@ -55,7 +55,7 @@ func (s *Server) createVMInTx(ctx context.Context, tx pgx.Tx, name string, spec 
 	if err != nil {
 		return nil, err
 	}
-	op, err := s.st.CreateOperation(ctx, tx, &store.Operation{
+	op, err := s.st.CreateOperation(ctx, tx, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID,
 		ResourceName: vm.Name, Verb: store.VerbCreate,
 		TargetRevision: vm.DesiredRevision, DeadlineBudget: createDeadline,
@@ -119,7 +119,7 @@ func (s *Server) updatePowerInTx(ctx context.Context, tx pgx.Tx, req *vmcv1.Upda
 	if err != nil {
 		return nil, err
 	}
-	op, err := s.st.CreateOperation(ctx, tx, &store.Operation{
+	op, err := s.st.CreateOperation(ctx, tx, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: updated.ID,
 		ResourceName: updated.Name, Verb: store.VerbUpdatePower,
 		TargetRevision: updated.DesiredRevision, DeadlineBudget: mutateDeadline,
@@ -164,7 +164,7 @@ func (s *Server) deleteVMInTx(ctx context.Context, tx pgx.Tx, name string) (*sto
 	if err != nil {
 		return nil, err
 	}
-	op, err := s.st.CreateOperation(ctx, tx, &store.Operation{
+	op, err := s.st.CreateOperation(ctx, tx, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: dead.ID,
 		ResourceName: dead.Name, Verb: store.VerbDelete,
 		TargetRevision: dead.DesiredRevision, DeadlineBudget: deleteDeadline,

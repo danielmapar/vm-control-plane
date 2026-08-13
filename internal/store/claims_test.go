@@ -182,9 +182,9 @@ func TestFailureBudgetParksFailedAndTerminalizes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	op, err := s.CreateOperation(ctx, nil, &store.Operation{
+	op, err := s.CreateOperation(ctx, nil, store.CreateOperationParams{
 		ID: uuid.New(), ResourceType: "vm", ResourceID: vm.ID, ResourceName: vm.Name,
-		Verb: store.VerbCreate, TargetRevision: 1, Deadline: time.Now().Add(time.Hour),
+		Verb: store.VerbCreate, TargetRevision: 1,
 	})
 	if err != nil {
 		t.Fatal(err)

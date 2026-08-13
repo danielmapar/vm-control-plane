@@ -25,23 +25,23 @@ import (
 
 // options holds the parsed command-line flags.
 type options struct {
-	server       string
-	hostID       string
-	stateDir     string
-	nodes        string
-	nodeCPUs     int64
-	nodeMem      uint64
-	nodeDisk     uint64
-	driver       string
-	debug        string
-	storageRoot  string
-	mgmtNetwork  string
-	tenantBridge string
-	sshKeyFile   string
-	libvirtSock  string
-	pinCPUSet    string
-	pollInterval time.Duration
-	emulated     bool
+	server        string
+	hostID        string
+	stateDir      string
+	nodes         string
+	nodeCPUs      int64
+	nodeMemoryGiB uint64
+	nodeDiskGiB   uint64
+	driver        string
+	debug         string
+	storageRoot   string
+	mgmtNetwork   string
+	tenantBridge  string
+	sshKeyFile    string
+	libvirtSock   string
+	pinCPUSet     string
+	pollInterval  time.Duration
+	emulated      bool
 }
 
 func main() {
@@ -74,8 +74,8 @@ func main() {
 		Nodes:    specs,
 		// Host allocatable: the quota sum exactly (no overcommit in v0.1).
 		HostCPUs:     opts.nodeCPUs * int64(len(specs)),
-		HostMemory:   opts.nodeMem << 30 * uint64(len(specs)),
-		HostDisk:     opts.nodeDisk << 30 * uint64(len(specs)),
+		HostMemory:   opts.nodeMemoryGiB << 30 * uint64(len(specs)),
+		HostDisk:     opts.nodeDiskGiB << 30 * uint64(len(specs)),
 		Compute:      drv,
 		Log:          log,
 		DebugAddr:    opts.debug,
@@ -92,15 +92,15 @@ func main() {
 // parseFlags declares, parses, and snapshots the command-line flags.
 func parseFlags() options {
 	var (
-		server   = flag.String("server", "127.0.0.1:7070", "control-plane gRPC address")
-		hostID   = flag.String("host-id", "host-local", "persistent physical-host identity")
-		stateDir = flag.String("state-dir", "", "host lock directory (default: OS temp)")
-		nodes    = flag.String("nodes", "node-a,node-b", "comma-separated logical node names")
-		nodeCPUs = flag.Int64("node-cpus", 4, "cpu quota per logical node")
-		nodeMem  = flag.Uint64("node-memory-gib", 8, "memory quota per logical node (GiB)")
-		nodeDisk = flag.Uint64("node-disk-gib", 100, "disk quota per logical node (GiB)")
-		driver   = flag.String("driver", "fake", "compute driver: fake | libvirt (libvirt is Linux-only)")
-		debug    = flag.String("debug-addr", "", "loopback-only debug surface (drift injection; fake tier)")
+		server        = flag.String("server", "127.0.0.1:7070", "control-plane gRPC address")
+		hostID        = flag.String("host-id", "host-local", "persistent physical-host identity")
+		stateDir      = flag.String("state-dir", "", "host lock directory (default: OS temp)")
+		nodes         = flag.String("nodes", "node-a,node-b", "comma-separated logical node names")
+		nodeCPUs      = flag.Int64("node-cpus", 4, "cpu quota per logical node")
+		nodeMemoryGiB = flag.Uint64("node-memory-gib", 8, "memory quota per logical node (GiB)")
+		nodeDiskGiB   = flag.Uint64("node-disk-gib", 100, "disk quota per logical node (GiB)")
+		driver        = flag.String("driver", "fake", "compute driver: fake | libvirt (libvirt is Linux-only)")
+		debug         = flag.String("debug-addr", "", "loopback-only debug surface (drift injection; fake tier)")
 		// Real-driver (libvirt) options — ignored by the fake driver.
 		storageRoot  = flag.String("storage-root", "/var/lib/vmc", "libvirt: qcow2/seed storage root")
 		mgmtNetwork  = flag.String("mgmt-network", "vmc-mgmt", "libvirt: management NAT network name")
@@ -114,23 +114,23 @@ func parseFlags() options {
 	flag.Parse()
 
 	return options{
-		server:       *server,
-		hostID:       *hostID,
-		stateDir:     *stateDir,
-		nodes:        *nodes,
-		nodeCPUs:     *nodeCPUs,
-		nodeMem:      *nodeMem,
-		nodeDisk:     *nodeDisk,
-		driver:       *driver,
-		debug:        *debug,
-		storageRoot:  *storageRoot,
-		mgmtNetwork:  *mgmtNetwork,
-		tenantBridge: *tenantBridge,
-		sshKeyFile:   *sshKeyFile,
-		libvirtSock:  *libvirtSock,
-		pinCPUSet:    *pinCPUSet,
-		pollInterval: *pollInterval,
-		emulated:     *emulated,
+		server:        *server,
+		hostID:        *hostID,
+		stateDir:      *stateDir,
+		nodes:         *nodes,
+		nodeCPUs:      *nodeCPUs,
+		nodeMemoryGiB: *nodeMemoryGiB,
+		nodeDiskGiB:   *nodeDiskGiB,
+		driver:        *driver,
+		debug:         *debug,
+		storageRoot:   *storageRoot,
+		mgmtNetwork:   *mgmtNetwork,
+		tenantBridge:  *tenantBridge,
+		sshKeyFile:    *sshKeyFile,
+		libvirtSock:   *libvirtSock,
+		pinCPUSet:     *pinCPUSet,
+		pollInterval:  *pollInterval,
+		emulated:      *emulated,
 	}
 }
 
@@ -167,7 +167,7 @@ func nodeSpecs(opts options) []agent.NodeSpec {
 		}
 		specs = append(specs, agent.NodeSpec{
 			Name: n, CPUs: opts.nodeCPUs,
-			MemoryBytes: opts.nodeMem << 30, DiskBytes: opts.nodeDisk << 30,
+			MemoryBytes: opts.nodeMemoryGiB << 30, DiskBytes: opts.nodeDiskGiB << 30,
 		})
 	}
 	return specs

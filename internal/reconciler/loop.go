@@ -65,6 +65,9 @@ func New(st *store.Store, cfg Config) *Loop {
 	return &Loop{st: st, cfg: cfg}
 }
 
+// claimBatchSize is how many dirty rows one scan claims per tick.
+const claimBatchSize = 10
+
 // Run scans until ctx ends.
 func (l *Loop) Run(ctx context.Context) {
 	for {
@@ -74,7 +77,7 @@ func (l *Loop) Run(ctx context.Context) {
 		case <-l.cfg.Clock.After(l.cfg.Tick):
 		}
 		l.sweep(ctx)
-		claims, err := l.st.ClaimDirtyVMs(ctx, l.cfg.Owner, l.cfg.Lease, 10)
+		claims, err := l.st.ClaimDirtyVMs(ctx, l.cfg.Owner, l.cfg.Lease, claimBatchSize)
 		if err != nil {
 			if ctx.Err() == nil {
 				l.cfg.Log.Warn("claim scan failed", "err", err)
@@ -125,22 +128,24 @@ func (l *Loop) reconcile(ctx context.Context, claim *store.Claim) {
 	}
 
 	switch {
-	case err == nil:
+	case err == nil, ctx.Err() != nil:
+		return
 	case errors.Is(err, store.ErrClaimLost):
 		// Always safe: the rescan (or the new claim holder) redoes the work.
 		log.Info("claim lost mid-transition (safe: transition rolled back)")
-	case ctx.Err() != nil:
-	default:
-		log.Warn("transition failed; recording durable retry", "err", err)
-		opID, _ := l.st.FindOpenOperationID(ctx, nil, vm.ID, vm.DesiredRevision)
-		failedNow, recErr := l.st.RecordFailure(ctx, vm.ID, claim.Token, "transient", err.Error(),
-			l.cfg.ResyncWait, l.cfg.RetryBudget, opID)
-		if recErr != nil && !errors.Is(recErr, store.ErrClaimLost) {
-			log.Error("failure recording failed", "err", recErr)
-		}
-		if failedNow {
-			log.Error("retry budget exhausted; vm parked FAILED with terminal operation")
-		}
+		return
+	}
+
+	// A genuine failure: record a durable retry.
+	log.Warn("transition failed; recording durable retry", "err", err)
+	opID, _ := l.st.FindOpenOperationID(ctx, nil, vm.ID, vm.DesiredRevision)
+	failedNow, recErr := l.st.RecordFailure(ctx, vm.ID, claim.Token, "transient", err.Error(),
+		l.cfg.ResyncWait, l.cfg.RetryBudget, opID)
+	if recErr != nil && !errors.Is(recErr, store.ErrClaimLost) {
+		log.Error("failure recording failed", "err", recErr)
+	}
+	if failedNow {
+		log.Error("retry budget exhausted; vm parked FAILED with terminal operation")
 	}
 }
 

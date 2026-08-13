@@ -1,6 +1,5 @@
-// Package domainxml hand-builds libvirt domain XML, deliberately, because
-// writing the XML is the hypervisor-layer lesson this project exists for, and
-// because every identity decision the fencing protocols need lives here:
+// Package domainxml builds the libvirt domain XML by hand, because every
+// identity decision the fencing protocols depend on is one line of that XML:
 //
 //   - ownership metadata (node, VM UUID, placement epoch) in a custom
 //     namespace, which owner-scoped resync and epoch-surgical teardown filter

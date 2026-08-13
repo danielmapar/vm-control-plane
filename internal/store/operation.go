@@ -21,9 +21,6 @@ type Operation struct {
 	State          OperationState
 	Error          string
 	Deadline       time.Time
-	// DeadlineBudget is the per-verb duration used at INSERT; the stored
-	// Deadline is computed from the database clock, never the API host's.
-	DeadlineBudget time.Duration
 	CreatedAt      time.Time
 	FinishedAt     *time.Time
 }
@@ -56,6 +53,10 @@ var ErrEnvelopeIncomplete = errors.New("store: envelope exists without a committ
 
 const opColumns = `id, resource_type, resource_id, resource_name, verb,
 	target_revision, state, error, deadline, created_at, finished_at`
+
+// defaultOperationDeadline bounds an operation when the caller gives no per-verb
+// budget.
+const defaultOperationDeadline = 15 * time.Minute
 
 // ClaimEnvelope is the serialization point for a mutating verb: it inserts the
 // envelope row, or (on conflict) compares the canonical request hash and
@@ -120,23 +121,38 @@ func (s *Store) CompleteEnvelope(ctx context.Context, tx pgx.Tx, key, operationI
 	return nil
 }
 
+// CreateOperationParams is the input to CreateOperation. Operation is the
+// stored result; keeping them separate means a caller never populates
+// result-only fields (State, Deadline) that creation would ignore.
+type CreateOperationParams struct {
+	ID             uuid.UUID
+	ResourceType   string
+	ResourceID     uuid.UUID
+	ResourceName   string
+	Verb           Verb
+	TargetRevision int64
+	// DeadlineBudget is the per-verb duration; the stored deadline is computed
+	// from it against the database clock. Zero means defaultOperationDeadline;
+	// a negative value is legal so tests can mint already-expired operations.
+	DeadlineBudget time.Duration
+}
+
 // CreateOperation inserts a PENDING operation. The deadline is computed from
 // the database clock plus the per-verb budget, so an API host with a skewed
 // clock cannot lengthen or shorten operation lifetimes.
-func (s *Store) CreateOperation(ctx context.Context, q querier, op *Operation) (*Operation, error) {
+func (s *Store) CreateOperation(ctx context.Context, q querier, p CreateOperationParams) (*Operation, error) {
 	if q == nil {
 		q = s.pool
 	}
-	budget := op.DeadlineBudget
+	budget := p.DeadlineBudget
 	if budget == 0 {
-		budget = 15 * time.Minute
+		budget = defaultOperationDeadline
 	}
-	// Negative budgets are legal so tests can mint already-expired operations.
 	row := q.QueryRow(ctx, `
 		INSERT INTO operations (id, resource_type, resource_id, resource_name, verb, target_revision, state, deadline)
 		VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', clock_timestamp() + $7)
 		RETURNING `+opColumns,
-		op.ID, op.ResourceType, op.ResourceID, op.ResourceName, op.Verb, op.TargetRevision, budget)
+		p.ID, p.ResourceType, p.ResourceID, p.ResourceName, p.Verb, p.TargetRevision, budget)
 	return scanOperation(row)
 }
 
