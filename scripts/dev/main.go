@@ -11,6 +11,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -133,12 +134,9 @@ func buildBinaries(ctx context.Context) error {
 }
 
 // startPostgres launches embedded PostgreSQL and returns its URL and a stop
-// function. Its data and runtime live on tmpfs (/dev/shm) when available: on
-// the nested-KVM substrate, Postgres disk writes contend with the guest's boot
-// reads on the same virtual disk, and that I/O contention destabilizes nested
-// VT-x enough to wedge a booting guest. RAM-backed storage removes the
-// contention; the demo DB is tiny. Off Linux it falls back to the temp dir
-// (Windows Tier-0 has no nested-virt concern).
+// function. Its data and runtime live on tmpfs (/dev/shm) when available, which
+// keeps Postgres I/O off a shared disk and out of contention with anything else
+// on it; it falls back to the temp dir off Linux. The demo database is tiny.
 func startPostgres() (dbURL string, stop func(), err error) {
 	pgPort, err := freePort()
 	if err != nil {
@@ -231,7 +229,7 @@ func command(ctx context.Context, prefix, path string, args ...string) *exec.Cmd
 	return cmd
 }
 
-func prefixCopy(prefix string, r interface{ Read([]byte) (int, error) }) {
+func prefixCopy(prefix string, r io.Reader) {
 	if r == nil {
 		return
 	}

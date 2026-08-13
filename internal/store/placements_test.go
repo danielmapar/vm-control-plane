@@ -240,7 +240,7 @@ func TestReleaseIdempotent(t *testing.T) {
 		}
 	}
 	n, err := s.GetNode(ctx, "node-a")
-	if err != nil || n.ReservedCPUs != 0 || n.ReservedMemory != 0 {
+	if err != nil || n.ReservedCPUs != 0 || n.ReservedMemoryBytes != 0 {
 		t.Fatalf("double release must adjust exactly once: %+v", n)
 	}
 	p, err := s.GetPlacement(ctx, nil, vm.ID, epoch)

@@ -56,21 +56,15 @@ func (l Layout) SeedISO(node string, vmID uuid.UUID, epoch int64) string {
 // garbage after a crash.
 func TempFor(final string) string { return final + ".tmp-unpublished" }
 
-// Contains reports whether path is inside the canonical root — the guard
-// every unlink and every teardown must pass. Purely lexical here;
-// the Linux runner additionally rejects symlinked components at open time
-// (O_NOFOLLOW).
+// Contains reports whether path is strictly inside the canonical root: a proper
+// descendant, never the root itself and never escaping it via "..". It is the
+// guard every unlink and every teardown directory must pass. The check is
+// purely lexical; the Linux runner additionally rejects symlinked components at
+// open time (O_NOFOLLOW).
 func (l Layout) Contains(path string) bool {
 	root := filepath.ToSlash(filepath.Clean(l.Root))
 	p := filepath.ToSlash(filepath.Clean(path))
 	return p != root && strings.HasPrefix(p, root+"/") && !strings.Contains(p, "/../")
-}
-
-// StrictlyInside reports whether dir is a proper subdirectory of the canonical
-// root — never the root itself and never escaping it. Teardown checks it before
-// removing a directory tree.
-func (l Layout) StrictlyInside(dir string) bool {
-	return l.Contains(dir)
 }
 
 // CreateOverlayArgs builds the qemu-img argv for a copy-on-write overlay.

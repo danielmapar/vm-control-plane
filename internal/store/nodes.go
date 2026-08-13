@@ -13,18 +13,18 @@ import (
 
 // Node is a logical scheduling partition served by a host daemon.
 type Node struct {
-	Name              string
-	HostID            string
-	SessionID         *uuid.UUID
-	SessionGeneration int64
-	LeaseExpiresAt    *time.Time
-	CPUs              int64
-	MemoryBytes       int64
-	DiskBytes         int64
-	ReservedCPUs      int64
-	ReservedMemory    int64
-	ReservedDisk      int64
-	Labels            map[string]string
+	Name                string
+	HostID              string
+	SessionID           *uuid.UUID
+	SessionGeneration   int64
+	LeaseExpiresAt      *time.Time
+	CPUs                int64
+	MemoryBytes         int64
+	DiskBytes           int64
+	ReservedCPUs        int64
+	ReservedMemoryBytes int64
+	ReservedDiskBytes   int64
+	Labels              map[string]string
 }
 
 // HostCapacity is what the daemon holding the host lock reports.
@@ -192,7 +192,7 @@ func scanNode(row pgx.Row) (*Node, error) {
 	)
 	if err := row.Scan(&n.Name, &n.HostID, &n.SessionID, &n.SessionGeneration,
 		&n.LeaseExpiresAt, &n.CPUs, &n.MemoryBytes, &n.DiskBytes,
-		&n.ReservedCPUs, &n.ReservedMemory, &n.ReservedDisk, &labels); err != nil {
+		&n.ReservedCPUs, &n.ReservedMemoryBytes, &n.ReservedDiskBytes, &labels); err != nil {
 		return nil, err
 	}
 	if err := json.Unmarshal(labels, &n.Labels); err != nil {

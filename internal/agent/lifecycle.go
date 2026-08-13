@@ -65,9 +65,10 @@ type Daemon struct {
 	// the resync loop's working set for drift detection. A tombstone removes
 	// the entry so resync can never redispatch a deleted VM.
 	lastApplied map[string]*vmcv1.Intent
-	// watermark is the highest (tombstone, epoch, revision) seen per VM. The
-	// executor acts only on a strict advance; last-arrival-wins would let a
-	// stale resync redispatch replace a newer power intent.
+	// watermark is the highest (tombstone, epoch, revision) seen per VM. A
+	// strictly older key is dropped; an equal key still runs (drift repair of
+	// the current revision). Last-arrival-wins would instead let a stale resync
+	// redispatch replace a newer power intent.
 	watermark map[string]intentKey
 
 	halted atomic.Bool // stale session detected: take no new substrate actions

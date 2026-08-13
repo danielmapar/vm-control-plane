@@ -128,9 +128,9 @@ func (a *AgentServer) RequestGrant(ctx context.Context, req *vmcv1.RequestGrantR
 	if err != nil {
 		return nil, err
 	}
-	vmID, err := uuid.Parse(req.GetVmId())
+	vmID, err := vmIDArg(req.GetVmId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
+		return nil, err
 	}
 	err = a.st.GrantExecution(ctx, sess, vmID, req.GetPlacementEpoch())
 	var denied *store.ErrGrantDenied
@@ -153,9 +153,9 @@ func (a *AgentServer) Report(ctx context.Context, req *vmcv1.ReportRequest) (*vm
 	if err != nil {
 		return nil, err
 	}
-	vmID, err := uuid.Parse(req.GetVmId())
+	vmID, err := vmIDArg(req.GetVmId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
+		return nil, err
 	}
 	state, ok := observedFromProto[req.GetState()]
 	if !ok {
@@ -183,9 +183,9 @@ func (a *AgentServer) TeardownReceipt(ctx context.Context, req *vmcv1.TeardownRe
 	if err != nil {
 		return nil, err
 	}
-	vmID, err := uuid.Parse(req.GetVmId())
+	vmID, err := vmIDArg(req.GetVmId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
+		return nil, err
 	}
 	// Receipts are the one message a stale session may deliver, but only for a
 	// placement its node actually owned.
@@ -208,9 +208,9 @@ func (a *AgentServer) TeardownReceipt(ctx context.Context, req *vmcv1.TeardownRe
 // ActionFailed records a failed substrate action so the server can pace the
 // next attempt; the daemon never decides its own backoff.
 func (a *AgentServer) ActionFailed(ctx context.Context, req *vmcv1.ActionFailedRequest) (*vmcv1.ActionFailedResponse, error) {
-	vmID, err := uuid.Parse(req.GetVmId())
+	vmID, err := vmIDArg(req.GetVmId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
+		return nil, err
 	}
 	token, err := uuid.Parse(req.GetAttemptToken())
 	if err != nil {
@@ -229,6 +229,15 @@ func (a *AgentServer) ActionFailed(ctx context.Context, req *vmcv1.ActionFailedR
 func checkedBytes(v uint64) (int64, bool) {
 	const maxBytes = uint64(1) << 50 // 1 PiB
 	return int64(v), v >= 1 && v <= maxBytes
+}
+
+// vmIDArg parses the vm_id field shared by the agent RPCs.
+func vmIDArg(raw string) (uuid.UUID, error) {
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, status.Error(codes.InvalidArgument, "vm_id must be a UUID")
+	}
+	return id, nil
 }
 
 // nodeQuotas converts and range-checks the advertised logical-node quotas.

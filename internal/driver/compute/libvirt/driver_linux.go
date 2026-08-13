@@ -25,14 +25,14 @@ type Config struct {
 	MgmtNetwork      string // libvirt NAT network for the management NIC
 	TenantBridge     string // OVS integration bridge (empty = mgmt-only)
 	SSHAuthorizedKey string // injected into every guest via cloud-init
-	// CPUSet pins every guest's vCPU+emulator threads to these host cores
-	// (libvirt cpuset, e.g. "8-15"). Empty = no pinning. On nested VirtualBox
-	// this keeps L2 guests off the cores the control-plane stack runs on,
-	// preventing the boot-time preemption that permanently wedges them.
+	// CPUSet pins every guest's vCPU and emulator threads to these host cores
+	// (libvirt cpuset, e.g. "8-15"); empty means no pinning. Pinning keeps a
+	// guest off the cores the control-plane stack runs on, which avoids
+	// boot-time preemption on unstable nested virtualization.
 	CPUSet string
-	// Emulated runs guests under QEMU TCG (software) instead of hardware KVM —
-	// no /dev/kvm, no nested VT-x, so it is stable on a substrate whose nested
-	// virtualization is not (the VirtualBox case). Slower to boot.
+	// Emulated runs guests under QEMU TCG (software) instead of hardware KVM, so
+	// it needs no /dev/kvm and is stable where nested virtualization is not.
+	// Slower to boot.
 	Emulated bool
 	// ResolveBacking maps an image name (e.g. "ubuntu-24.04") to a cached,
 	// verified backing qcow2 path. The image cache is pre-seeded by the

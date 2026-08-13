@@ -11,8 +11,8 @@ import (
 )
 
 // intentKey orders intents for one VM: a tombstone dominates everything;
-// otherwise (epoch, revision) lexicographically. Only a strict advance is
-// acted upon.
+// otherwise (epoch, revision) lexicographically. A newer or equal key is acted
+// upon; a strictly older key is dropped.
 type intentKey struct {
 	deleted bool
 	epoch   int64
@@ -23,10 +23,10 @@ func keyOf(in *vmcv1.Intent) intentKey {
 	return intentKey{deleted: in.GetDeleted(), epoch: in.GetPlacementEpoch(), rev: in.GetDesiredRevision()}
 }
 
-// staleAgainst reports whether b is strictly older than a (and so must be
-// dropped). An equal key is not stale: drift repair legitimately re-dispatches
-// the current revision.
-func (a intentKey) staleAgainst(b intentKey) bool {
+// supersedes reports whether a is strictly newer than b, so an incoming intent
+// keyed b must be dropped. Equal keys do not supersede: drift repair
+// legitimately re-dispatches the current revision.
+func (a intentKey) supersedes(b intentKey) bool {
 	if a == b {
 		return false
 	}
@@ -70,7 +70,7 @@ func (d *Daemon) dispatch(ctx context.Context, intent *vmcv1.Intent) {
 	// Drop only strictly older work — a stale resync or reordered poll cannot
 	// replace newer work — while an equal key (drift repair of the current
 	// revision) passes.
-	if cur, seen := d.watermark[intent.GetVmId()]; seen && cur.staleAgainst(k) {
+	if cur, seen := d.watermark[intent.GetVmId()]; seen && cur.supersedes(k) {
 		d.mu.Unlock()
 		return
 	}

@@ -40,8 +40,8 @@ func Candidates(nodes []*store.Node, req Request) []*store.Node {
 			continue
 		}
 		if n.ReservedCPUs+req.Resources.CPUs > n.CPUs ||
-			n.ReservedMemory+req.Resources.MemoryBytes > n.MemoryBytes ||
-			n.ReservedDisk+req.Resources.DiskBytes > n.DiskBytes {
+			n.ReservedMemoryBytes+req.Resources.MemoryBytes > n.MemoryBytes ||
+			n.ReservedDiskBytes+req.Resources.DiskBytes > n.DiskBytes {
 			continue
 		}
 		fit = append(fit, n)
@@ -56,10 +56,10 @@ func Candidates(nodes []*store.Node, req Request) []*store.Node {
 // utilizations, so one saturated dimension cannot hide behind two idle ones.
 func allocRatio(n *store.Node) float64 {
 	r := ratio(n.ReservedCPUs, n.CPUs)
-	if m := ratio(n.ReservedMemory, n.MemoryBytes); m > r {
+	if m := ratio(n.ReservedMemoryBytes, n.MemoryBytes); m > r {
 		r = m
 	}
-	if d := ratio(n.ReservedDisk, n.DiskBytes); d > r {
+	if d := ratio(n.ReservedDiskBytes, n.DiskBytes); d > r {
 		r = d
 	}
 	return r

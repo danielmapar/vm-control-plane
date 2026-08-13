@@ -136,14 +136,21 @@ func (s *Store) GetVMByID(ctx context.Context, q querier, id uuid.UUID) (*VM, er
 	return scanVM(row)
 }
 
+// Page limits shared by the store and the API layer, so the clamp is
+// single-sourced rather than duplicated per package.
+const (
+	DefaultPageLimit = 100
+	MaxPageLimit     = 500
+)
+
 // ListVMs returns rows ordered by name after the given name (keyset
 // pagination; empty after = first page).
 func (s *Store) ListVMs(ctx context.Context, q querier, after string, limit int) ([]*VM, error) {
 	if q == nil {
 		q = s.pool
 	}
-	if limit <= 0 || limit > 500 {
-		limit = 100
+	if limit <= 0 || limit > MaxPageLimit {
+		limit = DefaultPageLimit
 	}
 	rows, err := q.Query(ctx, `
 		SELECT `+vmColumns+` FROM vms

@@ -53,7 +53,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	drv := buildDriver(ctx, opts, log)
+	drv, err := buildDriver(ctx, opts)
+	if err != nil {
+		log.Error("compute driver", "err", err)
+		os.Exit(2)
+	}
 
 	specs := nodeSpecs(opts)
 
@@ -130,15 +134,14 @@ func parseFlags() options {
 	}
 }
 
-// buildDriver constructs the compute driver named by the flags. It exits the
-// process on an unknown driver or a libvirt initialization failure, matching
-// the original inline behavior.
-func buildDriver(ctx context.Context, opts options, log *slog.Logger) compute.Driver {
+// buildDriver constructs the compute driver named by the flags. The caller
+// decides how to react to an error.
+func buildDriver(ctx context.Context, opts options) (compute.Driver, error) {
 	switch opts.driver {
 	case "fake":
-		return computefake.New()
+		return computefake.New(), nil
 	case "libvirt":
-		drv, err := newLibvirtDriver(ctx, libvirtDriverOpts{
+		return newLibvirtDriver(ctx, libvirtDriverOpts{
 			Socket:       opts.libvirtSock,
 			StorageRoot:  opts.storageRoot,
 			MgmtNetwork:  opts.mgmtNetwork,
@@ -147,15 +150,8 @@ func buildDriver(ctx context.Context, opts options, log *slog.Logger) compute.Dr
 			CPUSet:       opts.pinCPUSet,
 			Emulated:     opts.emulated,
 		})
-		if err != nil {
-			log.Error("libvirt driver", "err", err)
-			os.Exit(2)
-		}
-		return drv
 	default:
-		log.Error("unknown driver", "driver", opts.driver)
-		os.Exit(2)
-		return nil
+		return nil, fmt.Errorf("unknown driver %q", opts.driver)
 	}
 }
 

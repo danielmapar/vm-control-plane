@@ -191,8 +191,8 @@ func (s *Server) GetVm(ctx context.Context, req *vmcv1.GetVmRequest) (*vmcv1.Vir
 // spurious nor missing.
 func (s *Server) ListVms(ctx context.Context, req *vmcv1.ListVmsRequest) (*vmcv1.ListVmsResponse, error) {
 	limit := int(req.GetPageSize())
-	if limit <= 0 || limit > 500 {
-		limit = 100
+	if limit <= 0 || limit > store.MaxPageLimit {
+		limit = store.DefaultPageLimit
 	}
 	vms, err := s.st.ListVMs(ctx, nil, req.GetPageToken(), limit+1)
 	if err != nil {

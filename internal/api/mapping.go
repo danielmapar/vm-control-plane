@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/sigtunnel/vm-control-plane/internal/store"
@@ -59,9 +60,10 @@ func vmToProto(vm *store.VM) *vmcv1.VirtualMachine {
 	if vm.DeletedAt != nil {
 		meta.DeleteTime = timestamppb.New(*vm.DeletedAt)
 	}
-	st := vm.Status
-	if st == nil {
-		st = &vmcv1.VmStatus{}
+	// Build a fresh status so mapping never mutates the store's VM.
+	st := &vmcv1.VmStatus{}
+	if vm.Status != nil {
+		st = proto.Clone(vm.Status).(*vmcv1.VmStatus)
 	}
 	st.Phase = phaseToProto[vm.Phase]
 	// Presentation only: a tombstoned row reads as DELETING regardless of the

@@ -52,11 +52,11 @@ func TestLeastAllocatedSpread(t *testing.T) {
 func TestSaturatedDimensionDominates(t *testing.T) {
 	memHog := &store.Node{
 		Name: "memhog", CPUs: 8, MemoryBytes: 8 << 30, DiskBytes: 500 << 30,
-		ReservedMemory: 7 << 30, // 87% memory
+		ReservedMemoryBytes: 7 << 30, // 87% memory
 	}
 	balanced := &store.Node{
 		Name: "balanced", CPUs: 8, MemoryBytes: 8 << 30, DiskBytes: 500 << 30,
-		ReservedCPUs: 4, ReservedMemory: 4 << 30, // 50%
+		ReservedCPUs: 4, ReservedMemoryBytes: 4 << 30, // 50%
 	}
 	got := Candidates([]*store.Node{memHog, balanced}, req(nil))
 	if got[0].Name != "balanced" {
