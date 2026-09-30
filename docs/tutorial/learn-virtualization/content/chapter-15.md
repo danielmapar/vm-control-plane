@@ -6,7 +6,7 @@
 
 *Refresher — three address spaces:* a guest application uses guest virtual addresses; guest page tables map them to guest physical addresses. Hardware-assisted second-level translation maps guest physical to host physical memory under KVM’s control. Device DMA needs its own protection through an IOMMU; CPU memory translation alone does not isolate a passed-through device.
 
-![CPU addresses move from guest virtual through guest physical to host physical; assigned-device DMA follows a separate IOMMU translation path.](assets/image11.png)
+![CPU addresses move from guest virtual through guest physical to host physical; assigned-device DMA follows a separate IOMMU translation path.](../assets/image11.png)
 
 *Figure 8. Keep the CPU translation path separate from the DMA path. This diagram assumes hardware-assisted second-level translation; the chapter also compares shadow paging.*
 

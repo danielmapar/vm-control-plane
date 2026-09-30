@@ -6,7 +6,7 @@
 
 **Quick model.** Cold move, live migration and restart after host failure are different operations. None alone proves disk ownership, client reachability or recoverability.
 
-![Migration transfers running state between compatible hosts while disk ownership, storage and connectivity are checked separately.](assets/image12.png)
+![Migration transfers running state between compatible hosts while disk ownership, storage and connectivity are checked separately.](../assets/image12.png)
 
 *Figure 5. The drawing shows the shared-file, pre-copy teaching path. Ownership and guest connectivity are separate checks.*
 

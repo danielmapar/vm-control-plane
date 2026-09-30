@@ -72,6 +72,8 @@ def check(directory):
     for page in json.loads((ROOT / 'course.json').read_text()):
         slug = page['slug']
         source = (ROOT / 'content' / f'{slug}.md').read_text()
+        for image in re.findall(r'!\[[^\]]*\]\(([^)]+)\)', source):
+            assert (ROOT / 'content' / image).is_file(), f'{slug}: broken Markdown image {image}'
         expected = re.findall(r'^```[\w-]*\n(.*?)\n```$', source, flags=re.M | re.S)
         assert expected == pages[f'{slug}.html'].code, f'{slug}: code changed during rendering'
         blocks += len(expected)

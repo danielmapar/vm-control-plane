@@ -6,7 +6,7 @@
 
 *Refresher — VirtIO:* the guest driver and device backend exchange requests through queues in shared guest memory. Descriptors identify buffers; notifications tell the other side to look for work. The transport exposes setup and notification registers. Start with the default QEMU userspace device path before comparing vhost offload.
 
-![A guest block request passes through shared virtqueue descriptors to a validated backend, then completes through the used ring and an interrupt.](assets/image15.png)
+![A guest block request passes through shared virtqueue descriptors to a validated backend, then completes through the used ring and an interrupt.](../assets/image15.png)
 
 *Figure 7. Trace one request first. The diagram omits optional batching and notification suppression; the specification defines their rules.*
 

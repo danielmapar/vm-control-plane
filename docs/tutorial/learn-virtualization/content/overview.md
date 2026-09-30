@@ -19,7 +19,7 @@ You will progress from a first VM to operating and recovering Linux and Windows 
 
 A **domain** is libvirt’s name for a VM; **host** is the machine running it; **guest** is the operating system inside it. A **VMM** is a virtual machine monitor, such as QEMU or the small one you will write later. The main path in this guide uses KVM acceleration; TCG software emulation is a later comparison.
 
-![Stack diagram: virsh and applications call libvirt, which manages QEMU; QEMU uses KVM for guest execution and device backends for I/O.](assets/image4.png)
+![Stack diagram: virsh and applications call libvirt, which manages QEMU; QEMU uses KVM for guest execution and device backends for I/O.](../assets/image4.png)
 
 *Figure 1. Follow a management request downward, then distinguish the CPU path from the I/O path. Revisit this diagram whenever a failure appears to belong to “the hypervisor.”*
 

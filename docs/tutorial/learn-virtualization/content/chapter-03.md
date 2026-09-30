@@ -6,7 +6,7 @@
 
 **Quick model.** NAT, isolation and an external bridge differ in who supplies addressing, forwarding and access control. Keep default NAT as the control while changing one hop.
 
-![Guest traffic crosses its tap, the host bridge and host NAT. dnsmasq supplies DHCP and DNS; a second host has a separate default network.](assets/image6.png)
+![Guest traffic crosses its tap, the host bridge and host NAT. dnsmasq supplies DHCP and DNS; a second host has a separate default network.](../assets/image6.png)
 
 *Figure 2. Trace the packet before changing a bridge or firewall rule. The first lab deliberately uses host-local NAT.*
 

@@ -26,7 +26,7 @@ The device is a conventional PCI function at `1234:11e9`, revision 1. BAR0 is 4 
 
 `DMA_RESULT=0` does **not** mean that memory was unchanged. A multi-region `pci_dma_write()` can modify a valid prefix before a later address-space transaction fails. The qtest deliberately crosses from RAM into an unassigned range and permits that prefix to change.
 
-![MMIO, DMA, and interrupt paths](assets/image10.png)
+![MMIO, DMA, and interrupt paths](../assets/image10.png)
 
 *Figure 13. The driver starts a command through MMIO; the device uses its PCI DMA address space for bytes and its masked INTx level for completion. The guest driver in chapter 23 tests this complete path.*
 
@@ -230,7 +230,7 @@ timeout 30s ./tests/qtest/kvm-course-pci-test \
 
 ## 21.6 Lab Q5 — migrate device state and interrupt behavior
 
-![Device state and migration reconstruction](assets/image7.png)
+![Device state and migration reconstruction](../assets/image7.png)
 
 *Figure 14. Save logical and PCI state, reconstruct outputs, and test a non-default pending completion at the destination.*
 

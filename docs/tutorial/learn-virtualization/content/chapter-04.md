@@ -6,7 +6,7 @@
 
 **Quick model.** A qcow2 overlay stores changed blocks and reads unchanged blocks from its base. A flattened image must boot with that base unavailable.
 
-![A writable overlay reads unchanged blocks from an immutable base; an offline flattened backup has no backing-file dependency.](assets/image13.png)
+![A writable overlay reads unchanged blocks from an immutable base; an offline flattened backup has no backing-file dependency.](../assets/image13.png)
 
 *Figure 3. Separate the active disk chain from an independent backup you can restore.*
 

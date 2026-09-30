@@ -4,7 +4,7 @@ The kernel project answers a concrete question: **after userspace collects a pag
 
 The lab's kernel is an ordinary file passed to QEMU with `-kernel`. Its root filesystem is a small initramfs held in RAM. It is never installed in the workstation's bootloader. The changes are private teaching changes; the intentional bug is not an upstream Linux defect.
 
-![The kernel test appliance and its nested selftest guest](assets/image1.png)
+![The kernel test appliance and its nested selftest guest](../assets/image1.png)
 
 *Figure 15. The physical host is L0, the custom kernel is L1, and the selftest guest is L2. A separate build VM is a compiler environment, not another layer in this runtime path.*
 
@@ -530,7 +530,7 @@ The upstream dirty-log control uses `-i 4`: v6.12 requires **more than two itera
 
 ## 22.4 Read the trace as a source-level explanation
 
-![Dirty logging and MMU rearming](assets/image9.png)
+![Dirty logging and MMU rearming](../assets/image9.png)
 
 *Figure 16. Clearing the userspace-facing dirty bitmap is only half the job. The kernel must also prepare the MMU to notice the next write. Intel PML and write protection implement that preparation differently.*
 

@@ -20,7 +20,7 @@
 
 - **Timing:** inventory every 60 seconds initially; events trigger earlier reconciliation. These are adjustable lab defaults, not latency guarantees.
 
-![Persist intent, observe both hosts, require known ownership and capacity, take one safe action, then observe again. Unknown ownership blocks mutation.](assets/image14.png)
+![Persist intent, observe both hosts, require known ownership and capacity, take one safe action, then observe again. Unknown ownership blocks mutation.](../assets/image14.png)
 
 *Figure 9. Reconciliation resolves uncertain outcomes by observing state. A timeout does not authorize a second owner.*
 

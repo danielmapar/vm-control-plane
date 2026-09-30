@@ -80,6 +80,8 @@ def render_content(source):
         html = html.replace(f'<div data-code-block="{i}"></div>', block)
     html = html.replace('<table>', '<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>').replace('</table>', '</table></div>')
     html = re.sub(r'<p>(<img [^>]+>)</p>', r'<figure class="diagram">\1</figure>', html)
+    # Markdown lives in content/ on GitHub; generated pages live at the site root.
+    html = html.replace('src="../assets/', 'src="assets/')
     html = html.replace('<img ', '<img loading="lazy" decoding="async" ')
     html = re.sub(r'<p>(<strong>(?:Check:|Pass and cleanup\.|Chapter pass:|Pass:).*?)</p>', r'<div class="checkpoint">\1</div>', html, flags=re.S)
     return html, md.toc

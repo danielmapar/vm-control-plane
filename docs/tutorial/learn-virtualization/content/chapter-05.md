@@ -6,7 +6,7 @@
 
 **Quick model.** A disk clone carries cached cloud-init state, machine ID and SSH host keys unless generalized. A new seed alone does not prove a new identity.
 
-![An overlay needs its base; a flattened clone is independent but keeps its captured identity; a generalized template prepares distinct new guest identities.](assets/image2.png)
+![An overlay needs its base; a flattened clone is independent but keeps its captured identity; a generalized template prepares distinct new guest identities.](../assets/image2.png)
 
 *Figure 4. Check storage independence and guest identity separately. A generalized template can itself be the base for new writable overlays.*
 

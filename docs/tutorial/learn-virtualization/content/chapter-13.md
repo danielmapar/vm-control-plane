@@ -16,7 +16,7 @@ Use this quick check to decide whether you need a C refresher. Existing code you
 
 *Refresher — the Linux boundary:* a file descriptor (FD) is a process handle, not necessarily an ordinary file. An `ioctl` sends a device-specific request through that handle; `mmap` makes memory accessible in the process. With KVM, the system FD creates a VM FD, the VM FD creates vCPU FDs, and each vCPU has a shared run area for exit information. The VMM supplies guest RAM separately.
 
-![KVM system, VM and vCPU descriptors lead to a KVM\_RUN loop; userspace inspects exits through a shared run mapping.](assets/image16.png)
+![KVM system, VM and vCPU descriptors lead to a KVM\_RUN loop; userspace inspects exits through a shared run mapping.](../assets/image16.png)
 
 *Figure 6. Return to KVM\_RUN only when the exit is handled and execution should continue; HLT ends the tiny reference payload.*
 

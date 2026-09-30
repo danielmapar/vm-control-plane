@@ -22,7 +22,7 @@
 
 *Why the extra checks:* WSS protects transport, but does not replace application login or per-VM authorization — validate the Origin and session as well ([OWASP WebSocket guidance](https://cheatsheetseries.owasp.org/cheatsheets/WebSocket_Security_Cheat_Sheet.html)).
 
-![Authenticate, authorize and issue a cookie ticket; check the WebSocket upgrade, consume the ticket once and connect a server-resolved private backend.](assets/image5.png)
+![Authenticate, authorize and issue a cookie ticket; check the WebSocket upgrade, consume the ticket once and connect a server-resolved private backend.](../assets/image5.png)
 
 *Figure 10. Read the session contract above with this flow. Serial and VNC use different clients and protocols.*
 

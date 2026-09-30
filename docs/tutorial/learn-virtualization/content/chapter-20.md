@@ -17,7 +17,7 @@ Everything needed for the worked exercises is in this extension: complete source
 
 These are concrete development skills. Reading alone does not establish them: the checkpoint is explaining and reproducing the result, then answering the completion interview without consulting the worked answers. This course does not claim that one device and one MMU path cover all of QEMU or KVM. It gives you a working method for approaching the next subsystem responsibly.
 
-![Two development loops and their test boundaries](assets/image3.png)
+![Two development loops and their test boundaries](../assets/image3.png)
 
 *Figure 11. qtest exercises a QEMU device without a guest OS; a KVM selftest runs real guest instructions against the kernel under test. The Linux driver lab connects the two layers.*
 
@@ -29,7 +29,7 @@ These are concrete development skills. Reading alone does not establish them: th
 
 **libvirt and virsh remain the management layer.** You use direct source-built QEMU commands here because you are testing private device and kernel behavior. An upstream QEMU feature later needs management integration and compatibility review before it becomes a normal libvirt configuration.
 
-![Guest and host address spaces](assets/image8.png)
+![Guest and host address spaces](../assets/image8.png)
 
 *Figure 12. GVA, GPA, HVA, and HPA name different address spaces. The KVM fixture deliberately uses an identity guest mapping, so its GVA equals its GPA; that does not make either one a host pointer. The DMA API returns a device address, which may include an IOMMU translation.*
 
