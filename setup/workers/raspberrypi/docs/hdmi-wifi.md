@@ -1,6 +1,6 @@
 # Pi 5 HDMI and Wi-Fi findings
 
-Hardware tests: 29–30 September 2026. For installation, use the [setup guide](README.md).
+Hardware tests: 29–30 September 2026. For installation, use the [setup guide](../flash/README.md).
 
 **1080p at 60 Hz is the tested display setting for this worker.** At
 3440×1440/100 Hz, HDMI repeatedly prevented discovery of the hidden 2.4 GHz

@@ -1,0 +1,115 @@
+---
+- name: Configure Raspberry Pi workers after first boot
+  hosts: raspberrypi
+  gather_facts: false
+  serial: 1
+
+  vars:
+    fan_full_speed: true
+
+  tasks:
+    - name: Read the board model
+      ansible.builtin.command: cat /proc/device-tree/model
+      register: board_model
+      changed_when: false
+      check_mode: false
+
+    - name: Require a Raspberry Pi 5
+      ansible.builtin.assert:
+        that: board_model.stdout.startswith('Raspberry Pi 5 Model B')
+        fail_msg: This playbook supports Raspberry Pi 5 Model B only.
+
+    - name: Find the fan controller
+      ansible.builtin.shell: |
+        for path in /sys/class/hwmon/hwmon*; do
+          if [ "$(cat "$path/name")" = pwmfan ]; then
+            printf '%s\n' "$path"
+            exit 0
+          fi
+        done
+        echo 'No PWM fan detected. Check the Pi fan connector.' >&2
+        exit 1
+      register: fan_controller
+      changed_when: false
+      check_mode: false
+      when: fan_full_speed | bool
+
+    - name: Save the original boot configuration once
+      become: true
+      ansible.builtin.copy:
+        src: /boot/firmware/config.txt
+        dest: /var/backups/vmc-pi-config.txt
+        remote_src: true
+        force: false
+        mode: "0600"
+      when: fan_full_speed | bool
+
+    - name: Configure full-speed cooling at boot
+      become: true
+      ansible.builtin.blockinfile:
+        path: /boot/firmware/config.txt
+        create: false
+        insertafter: EOF
+        marker: "# {mark} VM Control Plane fan settings"
+        state: "{{ 'present' if fan_full_speed | bool else 'absent' }}"
+        block: |
+          [pi5]
+          dtparam=cooling_fan=on
+          dtparam=fan_temp0=0
+          dtparam=fan_temp0_hyst=0
+          dtparam=fan_temp0_speed=255
+          dtparam=fan_temp1_speed=255
+          dtparam=fan_temp2_speed=255
+          dtparam=fan_temp3_speed=255
+          [all]
+      register: fan_config
+
+    - name: Reboot to apply changed fan settings
+      become: true
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        post_reboot_delay: 5
+      when:
+        - fan_config.changed
+        - not ansible_check_mode
+
+    - name: Find the fan controller after reboot
+      ansible.builtin.shell: |
+        for path in /sys/class/hwmon/hwmon*; do
+          if [ "$(cat "$path/name")" = pwmfan ]; then
+            printf '%s\n' "$path"
+            exit 0
+          fi
+        done
+        exit 1
+      register: running_fan
+      changed_when: false
+      when:
+        - fan_full_speed | bool
+        - not ansible_check_mode
+
+    - name: Verify full PWM output and fan rotation
+      ansible.builtin.command:
+        argv:
+          - cat
+          - "{{ running_fan.stdout }}/pwm1"
+          - "{{ running_fan.stdout }}/fan1_input"
+      register: fan_readings
+      changed_when: false
+      retries: 10
+      delay: 2
+      until:
+        - fan_readings.rc == 0
+        - fan_readings.stdout_lines | length == 2
+        - fan_readings.stdout_lines[0] | int == 255
+        - fan_readings.stdout_lines[1] | int > 0
+      when:
+        - fan_full_speed | bool
+        - not ansible_check_mode
+
+    - name: Report fan speed
+      ansible.builtin.debug:
+        msg: "Fan at 100% PWM; measured {{ fan_readings.stdout_lines[1] }} RPM."
+      when:
+        - fan_full_speed | bool
+        - not ansible_check_mode
