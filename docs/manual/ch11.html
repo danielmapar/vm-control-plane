@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>11. The KVM API and a tiny VMM · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li class="here"><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><p class="part-banner">Part IV — Understand the virtualization machinery</p>
+<h1 class="unit-title" id="u-ch11">11. The KVM API and a tiny VMM</h1>
+<p><strong>Goal.</strong> Write a <em>VMM</em> (virtual machine monitor) of about 110 lines of C that runs a guest through <code>/dev/kvm</code>, the same kernel interface QEMU uses. You will read KVM&#x27;s capabilities, create a VM, give it memory and a virtual CPU, run 16 bytes of guest code, and handle every exit that reaches your program.</p>
+<p>Until now QEMU was the VMM: the user-space program that asks KVM to run guest code and emulates the hardware around it. Here you replace QEMU with your own program, so that <a class="xref" href="../manual/ch12.html">chapter 12</a> can show what QEMU adds. You need to read simple C; no guest, kernel build or extra hardware is needed.</p>
+<p>Reading: <a href="https://lwn.net/Articles/658511/" target="_blank" rel="noopener">Using the KVM API</a> (LWN), the <a href="https://docs.kernel.org/virt/kvm/api.html" target="_blank" rel="noopener">KVM API reference</a>, and <code>ioctl(2)</code>.</p>
+<h2 id="s11-0" class="msec"><span class="sec-no">11.0</span> Starting point <a class="hlink" href="#s11-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-09.html#lab-ch11-0" style="--hue:285">Day 9 lab</a></h2>
+<p><strong>Goal.</strong> Check access to <code>/dev/kvm</code> and install the C compiler.</p>
+<p><strong>Commands.</strong> On Fedora, <code>/dev/kvm</code> is readable and writable by every local user (mode <code>crw-rw-rw-</code>), so your program needs no sudo. <code>gcc</code> also pulls in the kernel&#x27;s user-space headers, which define the KVM interface in <code>&lt;linux/kvm.h&gt;</code>. Install it if it is missing and record the transaction, as in <a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+if [ ! -f ~/kvm-course/.created-by-course ]; then echo &#x27;Set up the course first (chapter 0.3)&#x27;; exit 1; fi
+ls -l /dev/kvm
+if rpm -q gcc &gt;/dev/null; then
+  echo &#x27;gcc is already installed&#x27;
+else
+  sudo dnf install -y gcc
+  dnf history list | awk &#x27;NR==2 {print $1}&#x27; &gt;&gt; ~/kvm-course/dnf-transactions.txt
+fi
+gcc --version | head -1
+rpm -qf /usr/include/linux/kvm.h
+mkdir -p ~/kvm-course/ch11
+)
+cd ~/kvm-course/ch11</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host, where gcc was already installed (dates and versions differ):</p>
+<pre class="code code-text"><code class=" language-text">crw-rw-rw-. 1 root kvm 10, 232 Oct  2 00:22 /dev/kvm
+gcc is already installed
+gcc (GCC) 16.2.1 20260819 (Red Hat 16.2.1-2)
+kernel-headers-7.2.4-200.fc44.x86_64</code></pre>
+<p><strong>Check.</strong> <code>/dev/kvm</code> is a character device you can read and write, and <code>gcc</code> runs.</p>
+<p><strong>If it fails.</strong> No <code>/dev/kvm</code>: repeat <a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>. <code>Permission denied</code> later: compare the mode with the line above. Never reload the KVM modules on a host with running VMs.</p>
+<p>All later commands run in <code>~/kvm-course/ch11</code>. In a new terminal, <code>cd</code> there first.</p>
+<h2 id="s11-1" class="msec"><span class="sec-no">11.1</span> Ask KVM what it supports <a class="hlink" href="#s11-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-09.html#lab-ch11-1" style="--hue:285">Day 9 lab</a></h2>
+<p><strong>Goal.</strong> Make your first KVM request and read the answers.</p>
+<p><strong>How a program talks to KVM.</strong> A <em>file descriptor</em> (fd) is a number that stands for an open file or device. An <em>ioctl</em> (&quot;I/O control&quot;) is a request sent to a device through such a descriptor: <code>ioctl(fd, REQUEST, argument)</code>. A VMM controls KVM with ioctls on three kinds of descriptor (the KVM API also has a fourth, for in-kernel devices, which this chapter does not need):</p>
+<ol><li>The <em>system</em> descriptor, from <code>open(&quot;/dev/kvm&quot;)</code>, answers questions about KVM itself and creates VMs.</li><li>A <em>VM</em> descriptor, returned by <code>KVM_CREATE_VM</code>, owns the guest&#x27;s memory map and creates virtual CPUs.</li><li>A <em>vCPU</em> descriptor, returned by <code>KVM_CREATE_VCPU</code>, holds one virtual CPU&#x27;s registers and runs it.</li></ol>
+<p>A <em>capability</em> is an optional KVM feature. <code>KVM_CHECK_EXTENSION</code> asks about one: the answer is 0 when it is absent, and otherwise 1 or a number such as a limit. Ask about features this way rather than guessing from the kernel version.</p>
+<p><strong>Commands.</strong> Save a program that asks eight questions on the system descriptor: the API version, six capabilities and the size of the vCPU run area. The last capability exists only on IBM s390 mainframes, so an x86 host answers 0:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/ch11/caps.c &lt;&lt;&#x27;EOF&#x27;
+/* caps.c: ask KVM about itself through the system descriptor, /dev/kvm. */
+#include &lt;fcntl.h&gt;
+#include &lt;linux/kvm.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;sys/ioctl.h&gt;
+
+static void show(int kvm, const char *name, int capability)
+{
+    /* KVM_CHECK_EXTENSION answers 0 (absent), 1 (present) or a number such as a limit. */
+    printf(&quot;%-24s %d\n&quot;, name, ioctl(kvm, KVM_CHECK_EXTENSION, capability));
+}
+
+int main(void)
+{
+    int kvm = open(&quot;/dev/kvm&quot;, O_RDWR | O_CLOEXEC);
+    if (kvm &lt; 0) {
+        perror(&quot;open /dev/kvm&quot;);
+        return 1;
+    }
+    printf(&quot;%-24s %d\n&quot;, &quot;KVM_GET_API_VERSION&quot;, ioctl(kvm, KVM_GET_API_VERSION, 0));
+    show(kvm, &quot;KVM_CAP_USER_MEMORY&quot;, KVM_CAP_USER_MEMORY);
+    show(kvm, &quot;KVM_CAP_IRQCHIP&quot;, KVM_CAP_IRQCHIP);
+    show(kvm, &quot;KVM_CAP_NR_VCPUS&quot;, KVM_CAP_NR_VCPUS);
+    show(kvm, &quot;KVM_CAP_MAX_VCPUS&quot;, KVM_CAP_MAX_VCPUS);
+    show(kvm, &quot;KVM_CAP_NR_MEMSLOTS&quot;, KVM_CAP_NR_MEMSLOTS);
+    show(kvm, &quot;KVM_CAP_S390_UCONTROL&quot;, KVM_CAP_S390_UCONTROL);
+    printf(&quot;%-24s %d\n&quot;, &quot;KVM_GET_VCPU_MMAP_SIZE&quot;, ioctl(kvm, KVM_GET_VCPU_MMAP_SIZE, 0));
+    return 0;
+}
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Compile it with all warnings turned into errors, and run it:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">gcc -std=gnu11 -Wall -Wextra -Werror -O2 -o caps caps.c
+./caps</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (20 host CPUs):</p>
+<pre class="code code-text"><code class=" language-text">KVM_GET_API_VERSION      12
+KVM_CAP_USER_MEMORY      1
+KVM_CAP_IRQCHIP          1
+KVM_CAP_NR_VCPUS         20
+KVM_CAP_MAX_VCPUS        4096
+KVM_CAP_NR_MEMSLOTS      32764
+KVM_CAP_S390_UCONTROL    0
+KVM_GET_VCPU_MMAP_SIZE   12288</code></pre>
+<p>The KVM documentation tells programs to refuse any API version other than 12. <code>USER_MEMORY</code> (guest RAM taken from the VMM&#x27;s own memory) and <code>IRQCHIP</code> (interrupt controllers emulated inside KVM) are present. The next three are numbers: KVM recommends at most 20 vCPUs here (one per host CPU) and allows 4096, and a VM can have 32764 memory slots (guest RAM areas, 11.2). The last line is the size of the area each vCPU shares with its VMM; 11.3 maps it.</p>
+<p><strong>Check.</strong> The API version is 12 and the s390 capability is 0.</p>
+<p><strong>If it fails.</strong> <code>fatal error: linux/kvm.h: No such file or directory</code>: 11.0 did not finish (its <code>rpm -qf</code> line checks that file); run 11.0 again. Different numbers on your host are expected; they depend on its CPUs and kernel.</p>
+<h2 id="s11-2" class="msec"><span class="sec-no">11.2</span> Create the VM and its memory <a class="hlink" href="#s11-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-09.html#lab-ch11-2" style="--hue:285">Day 9 lab</a></h2>
+<p><strong>Goal.</strong> Create a VM and give it one page of RAM that holds the guest program.</p>
+<p><strong>The guest program.</strong> A new x86 vCPU starts in <em>real mode</em>, the 16-bit mode of the original 8086. There the CPU adds a <em>segment base</em> to each address in an instruction (one base for code, one for data); with a base of 0, an address is used as it is. That keeps the guest tiny. Its 16 bytes read a number from an I/O <em>port</em>, add 3, write the result as a digit, store it to an address where there is no RAM, write <code>!</code>, and halt. A port is a separate x86 address space for devices, used with the <code>IN</code> and <code>OUT</code> instructions. Port 0x3f8 is where PCs have their first serial port; here it is a toy device your VMM invents.</p>
+<p><strong>Guest memory.</strong> Guest RAM is ordinary memory of the VMM process. <code>mmap</code> allocates one 4 KiB page, and <code>KVM_SET_USER_MEMORY_REGION</code> tells KVM that this page appears to the guest at <em>guest physical address</em> (GPA) 0x1000. Such a mapping is a <em>memory slot</em>. Guest addresses outside every slot have no RAM behind them.</p>
+<p><strong>Commands.</strong> The first block creates <code>tiny-vmm.c</code>; 11.3 and 11.4 append the rest of the program. If you paste a block twice, start again here.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/ch11/tiny-vmm.c &lt;&lt;&#x27;EOF&#x27;
+/* tiny-vmm.c: a minimal VMM that runs 16 bytes of real-mode x86 code with KVM. */
+#include &lt;err.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;linux/kvm.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &lt;sys/ioctl.h&gt;
+#include &lt;sys/mman.h&gt;
+
+/* The guest program. It runs in real mode from guest physical address 0x1000. */
+static const uint8_t code[] = {
+    0xba, 0xf8, 0x03,   /* mov dx, 0x3f8     the I/O port of our toy device   */
+    0xec,               /* in  al, dx        read a number from the device    */
+    0x00, 0xd8,         /* add al, bl        add BL (the VMM sets it to 3)    */
+    0x04, &#x27;0&#x27;,          /* add al, &#x27;0&#x27;       turn the number into a digit     */
+    0xee,               /* out dx, al        write the digit to the device    */
+    0xa2, 0x00, 0x50,   /* mov [0x5000], al  store to an address without RAM  */
+    0xb0, &#x27;!&#x27;,          /* mov al, &#x27;!&#x27;                                        */
+    0xee,               /* out dx, al        write &#x27;!&#x27; to the device          */
+    0xf4,               /* hlt               stop the CPU                     */
+};
+
+int main(void)
+{
+    /* 1. The system descriptor: check the API before using it. */
+    int kvm = open(&quot;/dev/kvm&quot;, O_RDWR | O_CLOEXEC);
+    if (kvm &lt; 0)
+        err(1, &quot;open /dev/kvm&quot;);
+    if (ioctl(kvm, KVM_GET_API_VERSION, 0) != KVM_API_VERSION)
+        errx(1, &quot;unexpected KVM API version&quot;);
+    if (ioctl(kvm, KVM_CHECK_EXTENSION, KVM_CAP_USER_MEMORY) &lt;= 0)
+        errx(1, &quot;KVM_CAP_USER_MEMORY is missing&quot;);
+
+    /* 2. The VM descriptor. */
+    int vm = ioctl(kvm, KVM_CREATE_VM, 0);
+    if (vm &lt; 0)
+        err(1, &quot;KVM_CREATE_VM&quot;);
+
+    /* 3. Guest RAM: one page of this process&#x27;s memory, seen by the guest at 0x1000. */
+    uint8_t *ram = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (ram == MAP_FAILED)
+        err(1, &quot;mmap guest RAM&quot;);
+    memcpy(ram, code, sizeof(code));
+    struct kvm_userspace_memory_region region = {
+        .slot = 0,
+        .guest_phys_addr = 0x1000,
+        .memory_size = 0x1000,
+        .userspace_addr = (uint64_t)ram,
+    };
+    if (ioctl(vm, KVM_SET_USER_MEMORY_REGION, &amp;region) &lt; 0)
+        err(1, &quot;KVM_SET_USER_MEMORY_REGION&quot;);
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>err()</code> prints the program name, your message and the system error, then exits; <code>errx()</code> does the same without a system error. Two addresses describe the same page: <code>ram</code> is where the VMM sees it, 0x1000 is where the guest sees it. The guest can never see VMM memory outside its slots.</p>
+<p><strong>Check.</strong> You can say which line creates the VM descriptor and which line makes guest address 0x1000 usable.</p>
+<h2 id="s11-3" class="msec"><span class="sec-no">11.3</span> Create the vCPU and set its registers <a class="hlink" href="#s11-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-09.html#lab-ch11-3" style="--hue:285">Day 9 lab</a></h2>
+<p><strong>Goal.</strong> Create one virtual CPU, map its shared run area and point it at the guest program.</p>
+<p><strong>The run area.</strong> Each vCPU has a <code>struct kvm_run</code> that the kernel and the VMM share: <code>mmap</code> on the vCPU descriptor maps it (its size came from <code>KVM_GET_VCPU_MMAP_SIZE</code> in 11.1). When the guest stops, KVM writes there why it stopped and the details, such as the port and data of an <code>OUT</code>.</p>
+<p><strong>Registers.</strong> <code>KVM_GET_SREGS</code> and <code>KVM_SET_SREGS</code> read and write the <em>special</em> registers: segment registers, control registers and descriptor tables. At reset the code segment&#x27;s base is 0xffff0000, so the CPU fetches its first instruction near 4 GiB; the program sets that base to 0 (the data segment&#x27;s base is already 0). Then <code>KVM_SET_REGS</code> sets the general registers: <code>RIP</code> (the next instruction) to 0x1000, and <code>RBX</code> to 3, the number the guest adds.</p>
+<p><strong>Commands.</strong> Append the next part:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt;&gt; ~/kvm-course/ch11/tiny-vmm.c &lt;&lt;&#x27;EOF&#x27;
+
+    /* 4. The vCPU descriptor, and the kvm_run structure it shares with this process. */
+    int vcpu = ioctl(vm, KVM_CREATE_VCPU, 0);
+    if (vcpu &lt; 0)
+        err(1, &quot;KVM_CREATE_VCPU&quot;);
+    int run_size = ioctl(kvm, KVM_GET_VCPU_MMAP_SIZE, 0);
+    if (run_size &lt; (int)sizeof(struct kvm_run))
+        errx(1, &quot;KVM_GET_VCPU_MMAP_SIZE failed&quot;);
+    struct kvm_run *run = mmap(NULL, run_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpu, 0);
+    if (run == MAP_FAILED)
+        err(1, &quot;mmap kvm_run&quot;);
+
+    /* 5. Registers. Real mode with code segment base 0: the CPU fetches from address RIP. */
+    struct kvm_sregs sregs;
+    if (ioctl(vcpu, KVM_GET_SREGS, &amp;sregs) &lt; 0)
+        err(1, &quot;KVM_GET_SREGS&quot;);
+    sregs.cs.base = 0;
+    sregs.cs.selector = 0;
+    if (ioctl(vcpu, KVM_SET_SREGS, &amp;sregs) &lt; 0)
+        err(1, &quot;KVM_SET_SREGS&quot;);
+    struct kvm_regs regs = {
+        .rip = 0x1000,      /* the first instruction */
+        .rbx = 3,           /* the number the program adds */
+        .rflags = 0x2,      /* bit 1 of RFLAGS is always 1 */
+    };
+    if (ioctl(vcpu, KVM_SET_REGS, &amp;regs) &lt; 0)
+        err(1, &quot;KVM_SET_REGS&quot;);
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Check.</strong> You can name the three descriptors the program now holds (<code>kvm</code>, <code>vm</code>, <code>vcpu</code>) and what each one is for.</p>
+<h2 id="s11-4" class="msec"><span class="sec-no">11.4</span> Run the guest and handle its exits <a class="hlink" href="#s11-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-09.html#lab-ch11-4" style="--hue:285">Day 9 lab</a></h2>
+<p><strong>Goal.</strong> Run the vCPU and handle each reason the guest stops, until it halts.</p>
+<p><strong>The run loop.</strong> <code>KVM_RUN</code> makes the calling thread execute guest code on the real CPU until something needs attention. Then the ioctl returns, and <code>run-&gt;exit_reason</code> says why. Each such return is an <em>exit</em>. Many events never reach your program, because KVM handles them inside the kernel (<a class="xref" href="../manual/ch13.html">chapter 13</a> counts them). Three kinds reach this VMM:</p>
+<ul><li><code>KVM_EXIT_IO</code>: the guest used <code>IN</code> or <code>OUT</code>. For <code>OUT</code>, the byte is already in the run area. For <code>IN</code>, the VMM writes the answer there; the next <code>KVM_RUN</code> finishes the instruction with that value.</li><li><code>KVM_EXIT_MMIO</code>: a load or store to a guest address without RAM. Real devices are often reached this way (<em>memory-mapped I/O</em>, MMIO), so a VMM emulates such devices here.</li><li><code>KVM_EXIT_HLT</code>: the guest executed <code>HLT</code>. A VMM without KVM&#x27;s interrupt controllers gets this exit, and here it ends the program. QEMU uses the in-kernel controllers, so its halted vCPUs wait inside KVM instead.</li></ul>
+<figure class="manual-fig"><img src="../assets/figures/fig6.png" alt="Figure 6. Return to KVM_RUN only when the exit is handled and execution should continue; HLT ends the tiny guest program." loading="lazy"></figure>
+<p class="figcap"><em>Figure 6. Return to KVM_RUN only when the exit is handled and execution should continue; HLT ends the tiny guest program.</em></p>
+<p><strong>Commands.</strong> Append the loop, which completes the program:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt;&gt; ~/kvm-course/ch11/tiny-vmm.c &lt;&lt;&#x27;EOF&#x27;
+
+    /* 6. Run the guest. Every return from KVM_RUN is an exit the VMM must handle. */
+    for (int n = 1;; n++) {
+        if (ioctl(vcpu, KVM_RUN, 0) &lt; 0)
+            err(1, &quot;KVM_RUN&quot;);
+        switch (run-&gt;exit_reason) {
+        case KVM_EXIT_IO: {
+            uint8_t *data = (uint8_t *)run + run-&gt;io.data_offset;
+            if (run-&gt;io.port != 0x3f8 || run-&gt;io.size != 1 || run-&gt;io.count != 1)
+                errx(1, &quot;unexpected I/O at port 0x%x&quot;, run-&gt;io.port);
+            if (run-&gt;io.direction == KVM_EXIT_IO_IN) {
+                *data = 2;  /* what the guest&#x27;s IN instruction receives */
+                printf(&quot;exit %d: KVM_EXIT_IO   in  port 0x3f8: the VMM answers 2\n&quot;, n);
+            } else {
+                printf(&quot;exit %d: KVM_EXIT_IO   out port 0x3f8: the guest wrote &#x27;%c&#x27;\n&quot;, n, *data);
+            }
+            break;
+        }
+        case KVM_EXIT_MMIO:
+            printf(&quot;exit %d: KVM_EXIT_MMIO %s address 0x%llx: &#x27;%c&#x27;\n&quot;, n,
+                   run-&gt;mmio.is_write ? &quot;write to&quot; : &quot;read from&quot;,
+                   (unsigned long long)run-&gt;mmio.phys_addr, run-&gt;mmio.data[0]);
+            break;
+        case KVM_EXIT_HLT:
+            if (ioctl(vcpu, KVM_GET_REGS, &amp;regs) &lt; 0)
+                err(1, &quot;KVM_GET_REGS&quot;);
+            printf(&quot;exit %d: KVM_EXIT_HLT  the guest halted, RIP=0x%llx\n&quot;, n,
+                   (unsigned long long)regs.rip);
+            return 0;
+        default:
+            errx(1, &quot;exit %d: unexpected exit reason %u&quot;, n, run-&gt;exit_reason);
+        }
+    }
+}
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>When the program returns, the kernel closes the three descriptors and frees the VM. Compile and run it:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">gcc -std=gnu11 -Wall -Wextra -Werror -O2 -o tiny-vmm tiny-vmm.c
+./tiny-vmm</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host, an Intel system with unrestricted guest execution (<a class="xref" href="../manual/ch13.html#s13-1">chapter 13.1</a>). <strong>Not validated here:</strong> AMD hosts and Intel hosts without that feature; no such machine was available.</p>
+<pre class="code code-text"><code class=" language-text">exit 1: KVM_EXIT_IO   in  port 0x3f8: the VMM answers 2
+exit 2: KVM_EXIT_IO   out port 0x3f8: the guest wrote &#x27;5&#x27;
+exit 3: KVM_EXIT_MMIO write to address 0x5000: &#x27;5&#x27;
+exit 4: KVM_EXIT_IO   out port 0x3f8: the guest wrote &#x27;!&#x27;
+exit 5: KVM_EXIT_HLT  the guest halted, RIP=0x1010</code></pre>
+<p>Read it against the guest program. The guest received 2 from your VMM, added the 3 you put in <code>RBX</code>, and wrote the digit <code>5</code>. The store to 0x5000 caused an exit because no slot covers that address; a VMM with a device there would act on it, and this one only reports it. <code>RIP</code> is 0x1010, just after the <code>HLT</code> at 0x100f.</p>
+<p><strong>Check.</strong> Five exits in this order, ending with <code>KVM_EXIT_HLT</code>, and exit status 0.</p>
+<p><strong>If it fails.</strong> <code>KVM_SET_USER_MEMORY_REGION: Invalid argument</code>: a guest address, size or host address that is not a multiple of 4 KiB. <code>unexpected exit reason 17</code> (<code>KVM_EXIT_INTERNAL_ERROR</code>): KVM could not run the guest code, usually because a code byte or the registers in 11.3 are wrong. Without the code-segment change, for example, the vCPU starts near 4 GiB, where there is no memory.</p>
+<h2 id="s11-5" class="msec"><span class="sec-no">11.5</span> From the tiny VMM to QEMU <a class="hlink" href="#s11-5" aria-label="Link to this section">#</a></h2>
+<p><strong>Goal.</strong> Know what a real VMM adds to the loop you just wrote.</p>
+<p>Your program has one vCPU, one page of RAM, one toy port and no interrupts. QEMU uses the same three descriptors and the same <code>KVM_RUN</code> loop, and adds everything a real operating system needs:</p>
+<ul><li>one thread per vCPU, each calling <code>KVM_RUN</code> in its own loop, plus a main thread that runs device emulation and executes monitor commands (<a class="xref" href="../manual/ch12.html">chapter 12</a>);</li><li>several memory slots for guest RAM and firmware, with device registers in the gaps between them, so device accesses arrive as MMIO exits;</li><li><code>KVM_CREATE_IRQCHIP</code> and timers inside KVM, so interrupts and halts no longer cost a trip to user space;</li><li>firmware (SeaBIOS or OVMF) and emulated hardware, such as a PCI bus, a serial port and the VirtIO devices of <a class="xref" href="../manual/ch12.html">chapter 12</a>;</li><li><code>KVM_SET_CPUID2</code>, which tells the guest which CPU features it may use; the CPU you choose in libvirt (<code>--cpu host-passthrough</code> in <a class="xref" href="../manual/ch01.html">chapter 1</a>, the <code>&lt;cpu&gt;</code> element in <a class="xref" href="../manual/ch08.html">chapter 8</a>) ends up there.</li></ul>
+<p><strong>Chapter pass.</strong> Explain, using your program: what each of the three descriptors is for, the two addresses of guest RAM, why the <code>IN</code> answer is written before the next <code>KVM_RUN</code>, and why the store to 0x5000 produced an exit.</p>
+<h2 id="s11-cleanup" class="msec">Clean up <a class="hlink" href="#s11-cleanup" aria-label="Link to this section">#</a></h2>
+<p>Keep <code>~/kvm-course/ch11</code>: <a class="xref" href="../manual/ch13.html">chapter 13</a> runs <code>tiny-vmm</code> again to count the exits KVM handles without telling your program. It holds only a few small files. <a class="xref" href="../manual/appendix-b.html">Appendix B</a> removes it, and undoes the <code>gcc</code> installation, with the rest of the course.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch10.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>10. The libvirt API</span></a><a class="pager-next" href="ch12.html"><span><small>Next</small>12. QEMU, VirtIO and the I/O path</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

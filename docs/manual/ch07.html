@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7. Backups and restore · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li class="here"><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-ch07">7. Backups and restore</h1>
+<p><strong>Goal.</strong> Back up linux-01 while it is stopped and while it runs, make the live copy consistent with the guest agent, back up only what changed, and prove every restore by checking file checksums inside the guest. A guest that boots after a restore is not yet proof: its data must match.</p>
+<p>Read <a href="https://libvirt.org/kbase/domainstatecapture.html" target="_blank" rel="noopener">domain state capture</a>, <a href="https://libvirt.org/formatbackup.html" target="_blank" rel="noopener">backup XML</a>, <a href="https://libvirt.org/formatcheckpoint.html" target="_blank" rel="noopener">checkpoint XML</a> and <a href="https://www.qemu.org/docs/master/tools/qemu-img.html" target="_blank" rel="noopener">qemu-img</a>. The backups stay in the course pool, on the same disk as the guest. A real backup also needs a copy on other media, which this chapter does not validate.</p>
+<h2 id="s7-0" class="msec"><span class="sec-no">7.0</span> Starting point <a class="hlink" href="#s7-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-0" style="--hue:145">Day 6 lab</a></h2>
+<p><strong>Goal.</strong> Start linux-01.</p>
+<p><strong>Commands.</strong> If you removed the course, save the <a class="xref" href="../manual/ch01.html#s1-7">chapter 1.7</a> scripts again first. <code>LC_ALL=C</code> makes commands in this terminal print the English words that later checks match, such as <code>Job type: Completed</code>. <code>new-guest.sh</code> starts linux-01, or builds it if it is missing:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">export LC_ALL=C
+bash ~/kvm-course/bin/new-guest.sh linux-01
+mkdir -p ~/kvm-course/ch07</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> The last lines are cloud-init&#x27;s state and the guest&#x27;s hostname:</p>
+<pre class="code code-text"><code class=" language-text">status: done
+linux-01</code></pre>
+<p><strong>If it fails.</strong> <code>No such file</code>: save the 1.7 scripts. <code>STOP: linux-01 exists and is not a course guest</code>: rename your own VM called linux-01.</p>
+<p><strong>Clean up.</strong> Keep linux-01 running.</p>
+<h2 id="s7-1" class="msec"><span class="sec-no">7.1</span> Write data to check later <a class="hlink" href="#s7-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-1" style="--hue:145">Day 6 lab</a></h2>
+<p><strong>Goal.</strong> Put files with known contents in the guest and record their checksums outside it.</p>
+<p><strong>Commands.</strong> A <strong>checksum</strong> (here SHA-256) is a fingerprint of a file&#x27;s contents: change one byte and it changes. Write three files of random data to <code>~/data</code> in the guest, then save their checksums on the host:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config linux-01 &#x27;set -e; mkdir -p data; for f in a b c; do head -c 4M /dev/urandom &gt; data/$f.bin; done; sync&#x27;
+ssh -F ~/kvm-course/ssh/config linux-01 &#x27;sha256sum data/*&#x27; &gt; ~/kvm-course/ch07/set1.sha256
+cat ~/kvm-course/ch07/set1.sha256</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Later, <code>ssh … &#x27;sha256sum -c&#x27; &lt; set1.sha256</code> sends this list to the guest, which checks every file against it.</p>
+<p><strong>Expected output.</strong> On the validation host this printed the following; your checksums differ, because the data are random:</p>
+<pre class="code code-text"><code class=" language-text">5b9f04f52367f3c9b837dbead1a3859eb448960ddc24c5bedf357fd530e8bdbc  data/a.bin
+bd514936651671f31f50dc38968d455b6606cb584e9508815fdc696f24055638  data/b.bin
+f53869f40c5bc86191054adf45bc781d2eeae6af36a93c805280b0dd540a154a  data/c.bin</code></pre>
+<p><strong>Check.</strong> The list names <code>data/a.bin</code>, <code>data/b.bin</code> and <code>data/c.bin</code>.</p>
+<p><strong>If it fails.</strong> SSH refuses or times out: run 7.0 again; <code>new-guest.sh</code> refreshes the guest&#x27;s address and checks its key.</p>
+<p><strong>Clean up.</strong> Keep the files: every restore below checks them.</p>
+<h2 id="s7-2" class="msec"><span class="sec-no">7.2</span> Back up the stopped guest <a class="hlink" href="#s7-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-2" style="--hue:145">Day 6 lab</a></h2>
+<p><strong>Goal.</strong> Copy the disk of the shut-off guest into one self-contained file.</p>
+<p><strong>Commands.</strong> An <strong>offline backup</strong> is taken while the guest is shut off, so nothing writes to the disk during the copy. linux-01&#x27;s disk is an overlay on <code>base.qcow2</code> (<a class="xref" href="../manual/ch01.html#s1-3">chapter 1.3</a>), so the overlay alone would miss most of the system. <code>qemu-img convert</code> reads the whole chain and writes one standalone image, as the right side of Figure 3 (<a class="xref" href="../manual/ch04.html">chapter 4</a>) shows.</p>
+<p>The domain XML belongs to the backup too. A UEFI guest also needs its NVRAM file, and a guest with an emulated TPM its TPM state; <code>grep</code> confirms that linux-01 has neither. A disk backup holds all of the guest&#x27;s data, so only root should read it: <code>umask 077</code> makes new files readable only by their owner, and <code>sudo</code> keeps this stricter umask for <code>qemu-img</code>, which runs as root.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+umask 077
+P=/var/lib/libvirt/images/kvm-course
+bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo virsh -c qemu:///system dumpxml linux-01 --inactive &gt; ~/kvm-course/ch07/linux-01.xml
+if grep -E &#x27;&lt;nvram|&lt;tpm&#x27; ~/kvm-course/ch07/linux-01.xml; then echo &#x27;STOP: back up the NVRAM and TPM state too&#x27;; false; fi
+sudo qemu-img convert -O qcow2 $P/linux-01.qcow2 $P/linux-01-offline.qcow2
+sudo qemu-img info $P/linux-01-offline.qcow2
+sudo qemu-img check $P/linux-01-offline.qcow2
+sudo sha256sum $P/linux-01-offline.qcow2 &gt; ~/kvm-course/ch07/offline.sha256
+sudo ls -l $P/linux-01-offline.qcow2
+bash ~/kvm-course/bin/new-guest.sh linux-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Trimmed; sizes and dates differ:</p>
+<pre class="code code-text"><code class=" language-text">Domain &#x27;linux-01&#x27; is being shutdown
+image: /var/lib/libvirt/images/kvm-course/linux-01-offline.qcow2
+file format: qcow2
+virtual size: 20 GiB (21474836480 bytes)
+disk size: 772 MiB
+No errors were found on the image.
+-rw-------. 1 root root 809172992 Oct  2 03:01 /var/lib/libvirt/images/kvm-course/linux-01-offline.qcow2
+Domain &#x27;linux-01&#x27; started</code></pre>
+<p><strong>Check.</strong> <code>qemu-img info</code> shows no <code>backing file:</code> line, <code>check</code> finds no errors, and only root may read the file.</p>
+<p><strong>If it fails.</strong> <code>STOP: linux-01 is still running after 120 seconds</code>: log in and look for a hung service, or force it off with <code>sudo virsh -c qemu:///system destroy linux-01</code> (like pulling the plug). <code>No space left on device</code>: the backup needs about as much space as the guest uses.</p>
+<p><strong>Clean up.</strong> Keep the backup and its checksum for 7.3.</p>
+<h2 id="s7-3" class="msec"><span class="sec-no">7.3</span> Restore and verify <a class="hlink" href="#s7-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-3" style="--hue:145">Day 6 lab</a></h2>
+<p><strong>Goal.</strong> Lose data on purpose, restore the offline backup over the disk, and prove the restore with the checksums.</p>
+<p><strong>Commands.</strong> Simulate the accident: delete the data, and write one file after the backup:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config linux-01 &#x27;set -e; rm -r data; echo written after the backup &gt; after.txt; sync&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Restore: stop the guest, check the backup against its recorded checksum (never restore a damaged backup), then copy it over the disk. The domain definition did not change, so the disk is all you replace:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo sha256sum -c ~/kvm-course/ch07/offline.sha256
+sudo cp $P/linux-01-offline.qcow2 $P/linux-01.qcow2
+bash ~/kvm-course/bin/new-guest.sh linux-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Verify inside the guest. A restore returns the disk to the moment of the backup, so <code>after.txt</code> must be gone. One guest command checks both, so an SSH error cannot pass as success:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config linux-01 &#x27;set -e; sha256sum -c; test ! -e after.txt; echo &quot;expected: after.txt is gone&quot;&#x27; &lt; ~/kvm-course/ch07/set1.sha256</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Trimmed:</p>
+<pre class="code code-text"><code class=" language-text">/var/lib/libvirt/images/kvm-course/linux-01-offline.qcow2: OK
+Domain &#x27;linux-01&#x27; started
+data/a.bin: OK
+data/b.bin: OK
+data/c.bin: OK
+expected: after.txt is gone</code></pre>
+<p><strong>Check.</strong> The backup and all three files print <code>OK</code>, and <code>after.txt</code> is gone. Whatever was written after the last backup is lost, so how often you back up decides how much you can lose.</p>
+<p><strong>If it fails.</strong> <code>FAILED</code> for the backup: it changed after 7.2; do not restore it. A data file <code>FAILED</code> or missing: the restore is bad, even though the guest boots.</p>
+<p><strong>Clean up.</strong> linux-01 now runs from the restored standalone disk; keep it.</p>
+<h2 id="s7-4" class="msec"><span class="sec-no">7.4</span> Back up the running guest <a class="hlink" href="#s7-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-4" style="--hue:145">Day 6 lab</a></h2>
+<p><strong>Goal.</strong> Take a live backup at a consistent moment, and start tracking changes for an incremental backup.</p>
+<p><strong>Commands.</strong> A <strong>live backup</strong> copies the disk while the guest runs. In libvirt&#x27;s <strong>push mode</strong>, QEMU writes a file containing the disk&#x27;s contents at the job&#x27;s start, even as the guest keeps writing. Without guest coordination this is <strong>crash-consistent</strong>, like storage after a power cut. <code>virsh domfsfreeze</code> asks the <strong>guest agent</strong> (the guest service of 6.1) to flush and freeze supported local filesystems; <code>virsh domfsthaw</code> releases them. This gives filesystem consistency, not a copy of RAM or a guarantee that applications flushed their own buffers. Our test files are already closed and synced. Freeze only while starting the job.</p>
+<p>A <strong>checkpoint</strong> marks a moment: from then on QEMU records which disk blocks change, in a <strong>bitmap</strong> kept in the qcow2 file. 7.5 uses it to copy only those blocks.</p>
+<p>Describe the backup and the checkpoint. <code>vda</code> is linux-01&#x27;s disk; <code>sda</code>, the seed CD-ROM, is read-only and left out:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/ch07/full.xml &lt;&lt;&#x27;EOF&#x27;
+&lt;domainbackup mode=&#x27;push&#x27;&gt;
+  &lt;disks&gt;
+    &lt;disk name=&#x27;vda&#x27; type=&#x27;file&#x27;&gt;
+      &lt;driver type=&#x27;qcow2&#x27;/&gt;
+      &lt;target file=&#x27;/var/lib/libvirt/images/kvm-course/linux-01-full.qcow2&#x27;/&gt;
+    &lt;/disk&gt;
+    &lt;disk name=&#x27;sda&#x27; backup=&#x27;no&#x27;/&gt;
+  &lt;/disks&gt;
+&lt;/domainbackup&gt;
+EOF
+cat &gt; ~/kvm-course/ch07/checkpoint.xml &lt;&lt;&#x27;EOF&#x27;
+&lt;domaincheckpoint&gt;
+  &lt;name&gt;full&lt;/name&gt;
+  &lt;disks&gt;
+    &lt;disk name=&#x27;vda&#x27; checkpoint=&#x27;bitmap&#x27;/&gt;
+    &lt;disk name=&#x27;sda&#x27; checkpoint=&#x27;no&#x27;/&gt;
+  &lt;/disks&gt;
+&lt;/domaincheckpoint&gt;
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Freeze, start the job together with its checkpoint, then thaw. <code>trap … EXIT</code> attempts thawing when the subshell exits, including when <code>backup-begin</code> fails. A killed shell, host failure or failed thaw can still leave the guest frozen. Check for <code>thawed</code> below; otherwise use the manual thaw in <strong>If it fails</strong> before continuing:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+sudo virsh -c qemu:///system domfsfreeze linux-01
+trap &#x27;sudo virsh -c qemu:///system domfsthaw linux-01&#x27; EXIT
+sudo virsh -c qemu:///system backup-begin linux-01 ~/kvm-course/ch07/full.xml --checkpointxml ~/kvm-course/ch07/checkpoint.xml
+)
+sudo virsh -c qemu:///system qemu-agent-command linux-01 &#x27;{&quot;execute&quot;:&quot;guest-fsfreeze-status&quot;}&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>Backup started</code> means only that the job began. <code>domjobinfo</code> shows <code>Job type: None</code> once no job runs; <code>--completed</code> then tells how the last job ended, and <code>--anystats</code> includes failed jobs. <code>tee</code> saves the result for inspection. Continue only if this block succeeds:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+timeout 300 bash -c &#x27;until sudo virsh -c qemu:///system domjobinfo linux-01 | grep -q &quot;Job type: *None&quot;; do sleep 2; done&#x27;
+sudo virsh -c qemu:///system domjobinfo linux-01 --completed --anystats | tee ~/kvm-course/ch07/job.txt
+grep &#x27;Job type: *Completed&#x27; ~/kvm-course/ch07/job.txt
+sudo virsh -c qemu:///system checkpoint-list linux-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Trimmed; the time differs. The job counts the disk&#x27;s whole virtual size (20 GiB), but unused parts take no space in the file:</p>
+<pre class="code code-text"><code class=" language-text">Froze 1 filesystem(s)
+Backup started
+Thawed 1 filesystem(s)
+{&quot;return&quot;:&quot;thawed&quot;}
+Job type:         Completed
+Operation:        Backup
+File processed:   20.000 GiB
+ Name   Creation Time
+-----------------------------------
+ full   2026-10-02 03:01:53 -0700</code></pre>
+<p><strong>Check.</strong> The agent reports <code>thawed</code>, the job <code>Completed</code>, and the checkpoint <code>full</code> exists.</p>
+<p><strong>If it fails.</strong> <code>domfsfreeze</code> fails: the guest agent is not running (<code>systemctl status qemu-guest-agent</code> in the guest). A guest that hangs after an interrupted block may still be frozen: <code>sudo virsh -c qemu:///system domfsthaw linux-01</code>. <code>Job type: Failed</code>: read its <code>Error message:</code> line in <code>~/kvm-course/ch07/job.txt</code>, and do not use the file.</p>
+<p><strong>Clean up.</strong> Keep the full backup and the checkpoint for 7.5.</p>
+<h2 id="s7-5" class="msec"><span class="sec-no">7.5</span> Back up only the changes <a class="hlink" href="#s7-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-5" style="--hue:145">Day 6 lab</a></h2>
+<p><strong>Goal.</strong> Copy only the blocks changed since the checkpoint, restore full plus incremental, and check the newest data.</p>
+<p><strong>Commands.</strong> Change the data: replace <code>a.bin</code>, delete <code>b.bin</code>, add <code>d.bin</code>. Record the new list:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config linux-01 &#x27;set -e; head -c 4M /dev/urandom &gt; data/a.bin; rm data/b.bin; head -c 4M /dev/urandom &gt; data/d.bin; sync&#x27;
+ssh -F ~/kvm-course/ssh/config linux-01 &#x27;sha256sum data/*&#x27; &gt; ~/kvm-course/ch07/set2.sha256</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>An <strong>incremental backup</strong> names the checkpoint it starts from in <code>&lt;incremental&gt;</code> and copies only the blocks changed since then:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/ch07/inc.xml &lt;&lt;&#x27;EOF&#x27;
+&lt;domainbackup mode=&#x27;push&#x27;&gt;
+  &lt;incremental&gt;full&lt;/incremental&gt;
+  &lt;disks&gt;
+    &lt;disk name=&#x27;vda&#x27; type=&#x27;file&#x27;&gt;
+      &lt;driver type=&#x27;qcow2&#x27;/&gt;
+      &lt;target file=&#x27;/var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2&#x27;/&gt;
+    &lt;/disk&gt;
+    &lt;disk name=&#x27;sda&#x27; backup=&#x27;no&#x27;/&gt;
+  &lt;/disks&gt;
+&lt;/domainbackup&gt;
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Take it the same way as the full one, wait for successful completion, and compare the sizes of the two backups. Continue to the loss-and-restore drill only if both subshells succeed:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+sudo virsh -c qemu:///system domfsfreeze linux-01
+trap &#x27;sudo virsh -c qemu:///system domfsthaw linux-01&#x27; EXIT
+sudo virsh -c qemu:///system backup-begin linux-01 ~/kvm-course/ch07/inc.xml
+)
+(
+set -euo pipefail
+timeout 300 bash -c &#x27;until sudo virsh -c qemu:///system domjobinfo linux-01 | grep -q &quot;Job type: *None&quot;; do sleep 2; done&#x27;
+sudo virsh -c qemu:///system domjobinfo linux-01 --completed --anystats | tee ~/kvm-course/ch07/job.txt
+grep &#x27;Job type: *Completed&#x27; ~/kvm-course/ch07/job.txt
+sudo du -h /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2 /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Simulate the loss again, then restore. The incremental file is not a disk on its own. <code>qemu-img rebase -u</code> writes the full backup&#x27;s path into its header as its backing file (<code>-u</code> changes only the header and copies no data), so the two files read as one chain, and <code>convert</code> flattens that chain into linux-01&#x27;s disk. The restored disk carries no bitmap, so the checkpoint no longer matches it: <code>checkpoint-delete --metadata</code> drops libvirt&#x27;s record, and the next backup must again be a full one.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config linux-01 &#x27;rm -r data&#x27;
+(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo qemu-img rebase -u -F qcow2 -b $P/linux-01-full.qcow2 $P/linux-01-inc.qcow2
+sudo qemu-img info --backing-chain $P/linux-01-inc.qcow2 | grep -E &#x27;^(image|backing file):&#x27;
+sudo qemu-img convert -O qcow2 $P/linux-01-inc.qcow2 $P/linux-01.qcow2
+sudo virsh -c qemu:///system checkpoint-delete linux-01 full --metadata
+bash ~/kvm-course/bin/new-guest.sh linux-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Verify, again in one guest command: the new list must match, and <code>b.bin</code> must stay deleted:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config linux-01 &#x27;set -e; sha256sum -c; test ! -e data/b.bin; echo &quot;expected: b.bin stays deleted&quot;&#x27; &lt; ~/kvm-course/ch07/set2.sha256</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Trimmed; sizes differ:</p>
+<pre class="code code-text"><code class=" language-text">File processed:   16.062 MiB
+780M	/var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
+17M	/var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
+image: /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
+backing file: /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
+image: /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
+Domain checkpoint full deleted
+data/a.bin: OK
+data/c.bin: OK
+data/d.bin: OK
+expected: b.bin stays deleted</code></pre>
+<p><strong>Check.</strong> The incremental file is a small fraction of the full one. The restored guest holds the newest <code>a.bin</code>, <code>c.bin</code> and <code>d.bin</code>, and <code>b.bin</code> stays deleted.</p>
+<p><strong>If it fails.</strong> An incremental is usable only on top of the exact full it followed: rebased onto another full, it gives a wrong disk without any error, so keep each incremental with its full. <code>backup-begin</code> fails with a checkpoint or bitmap error, such as <code>missing or broken bitmap</code>: the record of changed blocks is gone, so take a new full backup with a new checkpoint (7.4).</p>
+<p><strong>Clean up.</strong> Nothing more; the chapter Clean up removes the backups.</p>
+<h2 id="s7-cleanup" class="msec">Clean up <a class="hlink" href="#s7-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-cleanup" style="--hue:145">Day 6 lab</a></h2>
+<p><a class="xref" href="../manual/ch08.html">Chapter 8</a> builds a fresh linux-01 in its 8.0. Remove this one, whose disk is now a restored standalone image, then the three backups and this chapter&#x27;s files:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+bash ~/kvm-course/bin/remove-guest.sh linux-01
+sudo rm -f /var/lib/libvirt/images/kvm-course/linux-01-{offline,full,inc}.qcow2
+rm -rf ~/kvm-course/ch07
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>To remove the whole course instead, run <a class="xref" href="../manual/appendix-b.html#sB-2">Appendix B.2</a>.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch06.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>6. Security boundaries and recovery access</span></a><a class="pager-next" href="ch08.html"><span><small>Next</small>8. Migration and host maintenance</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

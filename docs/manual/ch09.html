@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>9. Incident response · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li class="here"><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-ch09">9. Incident response</h1>
+<p><strong>Goal.</strong> Practise an operator&#x27;s incident routine on linux-01: break it in three ways that real incidents produce, find each cause with libvirt&#x27;s own tools, make the smallest repair, and prove that the guest&#x27;s data survived.</p>
+<p>Every drill follows the same steps. <strong>Impact</strong>: what stopped working. <strong>Evidence</strong>: look from the outside in, at libvirt&#x27;s view of the VM, its virtual CPUs, its network card, then the guest. <strong>Hypothesis</strong>: the cause the evidence points to. <strong>Smallest repair</strong>: change only what the cause needs. <strong>Verify</strong>: the data checksum from <a class="xref" href="../manual/ch08.html#s8-2">chapter 8.2</a>. <strong>Record</strong>: write down what happened. You inject each fault yourself, so this is a rehearsal; diagnosing a fault someone else chose, and losing a physical host, are <strong>not validated here</strong>.</p>
+<p>Reference: <a href="https://libvirt.org/kbase/debuglogs.html" target="_blank" rel="noopener">libvirt logging and debugging</a>.</p>
+<h2 id="s9-0" class="msec"><span class="sec-no">9.0</span> Starting point <a class="hlink" href="#s9-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-0" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Start linux-01 with its test data.</p>
+<p><strong>Commands.</strong> linux-01 still holds the data and checksum written in <a class="xref" href="../manual/ch08.html#s8-2">chapter 8.2</a>. If you rebuilt it since, the block writes new data. <code>sync</code> writes the guest&#x27;s pending file writes to its disk now: 9.4 kills the VM without warning, and whatever is then only in memory is lost:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+bash ~/kvm-course/bin/new-guest.sh linux-01
+ssh -F ~/kvm-course/ssh/config linux-01 &#x27;set -e
+if [ ! -f /srv/kc-data/SHA256SUMS ]; then
+  sudo install -d -o fedora -g fedora /srv/kc-data
+  head -c 64M /dev/urandom &gt; /srv/kc-data/data.bin
+  cd /srv/kc-data &amp;&amp; sha256sum data.bin &gt; SHA256SUMS
+fi
+cd /srv/kc-data &amp;&amp; sha256sum -c SHA256SUMS
+sync&#x27;
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> The last line is <code>data.bin: OK</code>.</p>
+<p><strong>Check.</strong> The block ends without an error.</p>
+<p><strong>If it fails.</strong> <code>new-guest.sh</code> is missing: repeat <a class="xref" href="../manual/ch01.html#s1-7">chapter 1.7</a>. <code>FAILED</code> from <code>sha256sum</code>: the data changed; delete <code>/srv/kc-data</code> in linux-01 and run the block again.</p>
+<p><strong>Clean up.</strong> Keep linux-01.</p>
+<h2 id="s9-1" class="msec"><span class="sec-no">9.1</span> Record the healthy state <a class="hlink" href="#s9-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-1" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Start a timeline, and know what &quot;healthy&quot; looks like before anything breaks.</p>
+<p><strong>Commands.</strong> Start the timeline: <code>virsh event</code> (<a class="xref" href="../manual/ch02.html#s2-4">chapter 2.4</a>) writes every lifecycle event of linux-01, with a timestamp, to a file in the background. 9.5 stops it (<code>timeout 1800</code> would after 30 minutes); <code>EVENTS=$!</code> saves its process ID. The <code>domstate</code> line lets <code>sudo</code> ask for your password now; the background <code>sudo -n</code> cannot ask:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">mkdir -p ~/kvm-course/ch09
+sudo virsh -c qemu:///system domstate linux-01
+timeout 1800 sudo -n virsh -c qemu:///system event linux-01 --event lifecycle --loop --timestamp &gt; ~/kvm-course/ch09/events.txt &amp;
+EVENTS=$!</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Every drill ends with the same checks; save them: libvirt&#x27;s state and reason (<code>domstate --reason</code>), then the guest&#x27;s boot ID (new at every boot) and data checksum:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/ch09/verify.sh &lt;&lt;&#x27;BASH&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+sudo virsh -c qemu:///system domstate linux-01 --reason
+ssh -F ~/kvm-course/ssh/config linux-01 &#x27;echo &quot;boot ID: $(cat /proc/sys/kernel/random/boot_id)&quot;; cd /srv/kc-data &amp;&amp; sha256sum -c SHA256SUMS&#x27;
+BASH</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Record the healthy state. <code>domstats</code> prints counters that libvirt reads on the host: <code>cpu.time</code> is the CPU time, in nanoseconds, used by linux-01&#x27;s QEMU process (guest plus QEMU&#x27;s own work); <code>net.0.rx.bytes</code> and <code>net.0.tx.bytes</code> count the bytes towards and from the guest&#x27;s first network card, read from its host device (<code>net.0.name</code>). <code>domblkerror</code> lists disks currently in an error state:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+bash ~/kvm-course/ch09/verify.sh
+sudo virsh -c qemu:///system domstats linux-01 --cpu-total --interface
+sudo virsh -c qemu:///system domblkerror linux-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; boot IDs, counters, addresses and the device name differ on yours):</p>
+<pre class="code code-text"><code class=" language-text">running (booted)
+boot ID: 1a78630f-ae2c-42a0-8930-c1b2eb44fd9c
+data.bin: OK
+  cpu.time=8291926000
+  net.0.name=vnet123
+  net.0.rx.bytes=54800
+  net.0.tx.bytes=43976
+No errors found</code></pre>
+<p><strong>Check.</strong> linux-01 is <code>running (booted)</code>, <code>data.bin: OK</code>, and no disk is in an error state.</p>
+<p><strong>If it fails.</strong> The terminal showed <code>sudo: a password is required</code> and <code>events.txt</code> stays empty: sudo had forgotten your password. Run the first block again, including <code>EVENTS=$!</code>.</p>
+<p><strong>Clean up.</strong> Keep the timeline running until 9.5.</p>
+<h2 id="s9-2" class="msec"><span class="sec-no">9.2</span> The guest stops answering <a class="hlink" href="#s9-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-2" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Find out why linux-01 stops answering while its QEMU process still runs, and bring it back without a reboot.</p>
+<p><strong>Commands.</strong> Inject the fault: <code>virsh suspend</code> pauses linux-01&#x27;s virtual CPUs, while QEMU keeps its memory. In real incidents a guest is paused by an operator or, after a disk error such as a full host filesystem, by QEMU itself (state <code>paused (ioerror)</code>, <strong>not validated here</strong>). The impact: SSH times out:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+sudo virsh -c qemu:///system suspend linux-01
+if ssh -F ~/kvm-course/ssh/config -o ConnectTimeout=5 linux-01 true; then
+  echo &#x27;UNEXPECTED: linux-01 still answers&#x27;; false
+fi
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Evidence, from the outside in: libvirt&#x27;s state and reason, then <code>cpu.time</code> twice, five seconds apart. A running guest uses CPU time even when idle; with its virtual CPUs paused, only QEMU&#x27;s own small work remains:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+sudo virsh -c qemu:///system domstate linux-01 --reason
+sudo virsh -c qemu:///system domstats linux-01 --cpu-total | grep &#x27;cpu.time=&#x27;
+sleep 5
+sudo virsh -c qemu:///system domstats linux-01 --cpu-total | grep &#x27;cpu.time=&#x27;
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Hypothesis: linux-01 is paused, not broken, and its memory is intact. Smallest repair: <code>virsh resume</code>. Then verify; the boot ID must be the one from 9.1:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+sudo virsh -c qemu:///system resume linux-01
+bash ~/kvm-course/ch09/verify.sh
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; addresses, IDs and counters differ on yours):</p>
+<pre class="code code-text"><code class=" language-text">Domain &#x27;linux-01&#x27; suspended
+ssh: connect to host 192.168.122.238 port 22: Connection timed out
+paused (user)
+  cpu.time=8295140000
+  cpu.time=8296830000
+Domain &#x27;linux-01&#x27; resumed
+running (unpaused)
+boot ID: 1a78630f-ae2c-42a0-8930-c1b2eb44fd9c
+data.bin: OK</code></pre>
+<p><strong>Check.</strong> The state was <code>paused (user)</code>, <code>cpu.time</code> hardly changed, and after <code>resume</code> the boot ID is unchanged and <code>data.bin: OK</code>.</p>
+<p><strong>If it fails.</strong> The reason is <code>ioerror</code>: <code>sudo virsh -c qemu:///system domblkerror linux-01</code> names the disk and the error; fix that (for example, free space) before you resume.</p>
+<p><strong>Clean up.</strong> linux-01 runs again.</p>
+<h2 id="s9-3" class="msec"><span class="sec-no">9.3</span> The network is cut <a class="hlink" href="#s9-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-3" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Tell a network fault from a guest fault, and repair only the network.</p>
+<p><strong>Commands.</strong> Inject the fault: set the link of linux-01&#x27;s network card down, like pulling its cable (<a class="xref" href="../manual/ch03.html#s3-4">chapter 3.4</a>):</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+mac=$(sudo virsh -c qemu:///system domiflist linux-01 | awk &#x27;$2 == &quot;network&quot; {print $5}&#x27;)
+sudo virsh -c qemu:///system domif-setlink linux-01 &quot;$mac&quot; down
+if ssh -F ~/kvm-course/ssh/config -o ConnectTimeout=5 linux-01 true; then
+  echo &#x27;UNEXPECTED: linux-01 still answers&#x27;; false
+fi
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Evidence: libvirt says <code>running</code> and <code>cpu.time</code> keeps growing, so the VM was not paused. <code>net.0.tx.bytes</code>, what the guest sent, stops growing (<code>rx</code> may still grow: the host keeps delivering packets that the card drops), and <code>domif-getlink</code> checks the link:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+mac=$(sudo virsh -c qemu:///system domiflist linux-01 | awk &#x27;$2 == &quot;network&quot; {print $5}&#x27;)
+sudo virsh -c qemu:///system domstate linux-01 --reason
+sudo virsh -c qemu:///system domstats linux-01 --cpu-total --interface | grep -E &#x27;cpu.time=|net.0.(rx|tx).bytes=&#x27;
+sleep 5
+sudo virsh -c qemu:///system domstats linux-01 --cpu-total --interface | grep -E &#x27;cpu.time=|net.0.(rx|tx).bytes=&#x27;
+sudo virsh -c qemu:///system domif-getlink linux-01 &quot;$mac&quot;
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Hypothesis: the down link explains the failed SSH. Smallest repair: set the link up, then verify; the boot ID is still the one from 9.1:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+mac=$(sudo virsh -c qemu:///system domiflist linux-01 | awk &#x27;$2 == &quot;network&quot; {print $5}&#x27;)
+sudo virsh -c qemu:///system domif-setlink linux-01 &quot;$mac&quot; up
+bash ~/kvm-course/ch09/verify.sh
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; addresses, MAC, IDs and counters differ on yours):</p>
+<pre class="code code-text"><code class=" language-text">Device updated successfully
+ssh: connect to host 192.168.122.238 port 22: Connection timed out
+running (unpaused)
+  cpu.time=8417439000
+  net.0.rx.bytes=61442
+  net.0.tx.bytes=49994
+  cpu.time=8516547000
+  net.0.rx.bytes=61738
+  net.0.tx.bytes=49994
+52:54:00:61:b6:8c down
+Device updated successfully
+running (unpaused)
+boot ID: 1a78630f-ae2c-42a0-8930-c1b2eb44fd9c
+data.bin: OK</code></pre>
+<p><strong>Check.</strong> During the fault <code>cpu.time</code> grew while <code>net.0.tx.bytes</code> stood still and the link was <code>down</code>; after the repair the boot ID is unchanged and <code>data.bin: OK</code>.</p>
+<p><strong>If it fails.</strong> The link is <code>up</code> but SSH still fails: look further out, at the host&#x27;s network (<a class="xref" href="../manual/ch03.html#s3-1">chapter 3.1</a>).</p>
+<p><strong>Clean up.</strong> The link is up again.</p>
+<h2 id="s9-4" class="msec"><span class="sec-no">9.4</span> The QEMU process dies <a class="hlink" href="#s9-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-4" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Recognise a crashed VM, restart it, and check its data.</p>
+<p><strong>Commands.</strong> Inject the fault: kill linux-01&#x27;s QEMU process. When a host runs out of memory, the kernel&#x27;s out-of-memory killer can do the same to QEMU. libvirt keeps the process ID in <code>/run/libvirt/qemu/linux-01.pid</code>. The impact: SSH fails, here with <code>No route to host</code> (a timeout is also possible):</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+sudo kill -9 &quot;$(sudo cat /run/libvirt/qemu/linux-01.pid)&quot;
+if ssh -F ~/kvm-course/ssh/config -o ConnectTimeout=5 linux-01 true; then
+  echo &#x27;UNEXPECTED: linux-01 still answers&#x27;; false
+fi
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Evidence: the state and reason, and the end of QEMU&#x27;s log, where libvirt notes how the VM stopped:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+sudo virsh -c qemu:///system domstate linux-01 --reason
+sudo tail -n 2 /var/log/libvirt/qemu/linux-01.log
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Hypothesis: QEMU ended without libvirt asking; <code>crashed</code> says no more (on a real host, look for an out-of-memory kill in the kernel log). The guest lost what was only in memory; data on its disk should be intact. Repair: start it, wait with <code>trust.sh</code> (<a class="xref" href="../manual/ch01.html#s1-7">chapter 1.7</a>) until SSH answers, then verify; this time the boot ID must change:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+sudo virsh -c qemu:///system start linux-01
+bash ~/kvm-course/bin/trust.sh linux-01
+bash ~/kvm-course/ch09/verify.sh
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; addresses, times and IDs differ on yours):</p>
+<pre class="code code-text"><code class=" language-text">ssh: connect to host 192.168.122.238 port 22: No route to host
+shut off (crashed)
+char device redirected to /dev/pts/3 (label charserial0)
+2026-10-02 07:45:08.212+0000: shutting down, reason=crashed
+Domain &#x27;linux-01&#x27; started
+running (booted)
+boot ID: 051953d6-aa34-4eae-9eb6-eca3d432a835
+data.bin: OK</code></pre>
+<p><strong>Check.</strong> The state was <code>shut off (crashed)</code>; after the restart the boot ID is new and <code>data.bin: OK</code>.</p>
+<p><strong>If it fails.</strong> The VM does not start: read <code>sudo tail -n 20 /var/log/libvirt/qemu/linux-01.log</code> and <code>sudo journalctl -u virtqemud -n 20</code>. <code>FAILED</code> from <code>sha256sum</code>: restore from your backup (<a class="xref" href="../manual/ch07.html#s7-3">chapter 7.3</a>).</p>
+<p><strong>Clean up.</strong> linux-01 runs again.</p>
+<h2 id="s9-5" class="msec"><span class="sec-no">9.5</span> Write the incident record <a class="hlink" href="#s9-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-5" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Leave a record that the next operator can use.</p>
+<p><strong>Commands.</strong> Stop the timeline and read it. It records the pause and the crash with their times; the link fault leaves no lifecycle event:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">kill $EVENTS; wait $EVENTS || true
+cat ~/kvm-course/ch09/events.txt</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Write the record. Its rows describe the validated drills; change them to match what you saw. The timeline and versions follow:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+cat &gt; ~/kvm-course/ch09/record.md &lt;&lt;&#x27;EOF&#x27;
+# Incident drill on linux-01
+| Impact | Deciding evidence | Cause | Repair | Verified |
+|---|---|---|---|---|
+| SSH timed out | domstate: paused (user); cpu.time barely moves | VM paused | virsh resume | same boot ID, checksum OK |
+| SSH timed out | running; cpu.time grows; tx bytes still; link down | link down | domif-setlink up | same boot ID, checksum OK |
+| No route to host | domstate: shut off (crashed); QEMU log | QEMU killed | virsh start | new boot ID, checksum OK |
+## Timeline
+EOF
+cat ~/kvm-course/ch09/events.txt &gt;&gt; ~/kvm-course/ch09/record.md
+sudo virsh -c qemu:///system version &gt;&gt; ~/kvm-course/ch09/record.md
+cat ~/kvm-course/ch09/record.md
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; times differ on yours). A restart shows <code>Resumed Unpaused</code> before <code>Started Booted</code>, as in <a class="xref" href="../manual/ch02.html#s2-4">chapter 2.4</a>:</p>
+<pre class="code code-text"><code class=" language-text">2026-10-02 07:44:45.855+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Suspended Paused
+2026-10-02 07:44:56.020+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Resumed Unpaused
+2026-10-02 07:45:08.254+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Stopped Failed
+2026-10-02 07:45:12.355+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Resumed Unpaused
+2026-10-02 07:45:12.355+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Started Booted
+| No route to host | domstate: shut off (crashed); QEMU log | QEMU killed | virsh start | new boot ID, checksum OK |
+Running hypervisor: QEMU 10.2.2</code></pre>
+<p><strong>Check.</strong> The record has one row per incident, the timeline and the versions.</p>
+<p><strong>If it fails.</strong> The timeline is empty: the listener was not running (9.1).</p>
+<p><strong>Clean up.</strong> Copy <code>record.md</code> to your own notes if you want to keep it.</p>
+<h2 id="s9-cleanup" class="msec">Clean up <a class="hlink" href="#s9-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-cleanup" style="--hue:8">Day 8 lab</a></h2>
+<p>Keep linux-01 for <a class="xref" href="../manual/ch10.html">chapter 10</a>. Stop the timeline if it still runs. If a drill stopped halfway, linux-01 may still be paused or have its link down: resume it and set the link up (<code>LC_ALL=C</code> keeps virsh&#x27;s state words in English). Then delete the chapter folder:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">if [ -n &quot;${EVENTS:-}&quot; ]; then kill &quot;$EVENTS&quot; 2&gt;/dev/null || true; wait &quot;$EVENTS&quot; 2&gt;/dev/null || true; fi
+(
+set -euo pipefail
+export LC_ALL=C
+state=$(sudo virsh -c qemu:///system domstate linux-01 2&gt;/dev/null || true)
+if [ &quot;$state&quot; = paused ]; then sudo virsh -c qemu:///system resume linux-01; state=running; fi
+if [ &quot;$state&quot; = running ]; then
+  mac=$(sudo virsh -c qemu:///system domiflist linux-01 | awk &#x27;$2 == &quot;network&quot; {print $5}&#x27;)
+  sudo virsh -c qemu:///system domif-setlink linux-01 &quot;$mac&quot; up
+fi
+rm -rf ~/kvm-course/ch09
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>To remove the whole course instead, use <a class="xref" href="../manual/appendix-b.html">Appendix B</a>.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch08.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>8. Migration and host maintenance</span></a><a class="pager-next" href="ch10.html"><span><small>Next</small>10. The libvirt API</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

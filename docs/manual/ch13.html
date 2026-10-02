@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13. Hardware virtualization, the KVM MMU and VFIO · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li class="here"><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-ch13">13. Hardware virtualization, the KVM MMU and VFIO</h1>
+<p><strong>Goal.</strong> Connect what you have seen to the CPU features underneath: count the VM exits behind your tiny VMM and linux-01, measure how vCPU placement and the host pages behind guest RAM change speed, and check, without doing it, whether this host could give a physical device to a guest.</p>
+<p>Reading: <a href="https://docs.kernel.org/virt/kvm/x86/mmu.html" target="_blank" rel="noopener">KVM x86 MMU</a>, <a href="https://docs.kernel.org/driver-api/vfio.html" target="_blank" rel="noopener">VFIO</a>, <a href="https://libvirt.org/formatdomain.html" target="_blank" rel="noopener">libvirt domain XML</a>, and the book <a href="https://link.springer.com/book/10.1007/978-3-031-01753-7" target="_blank" rel="noopener">Hardware and Software Support for Virtualization</a>.</p>
+<h2 id="s13-0" class="msec"><span class="sec-no">13.0</span> Starting point <a class="hlink" href="#s13-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-10.html#lab-ch13-0" style="--hue:45">Day 10 lab</a></h2>
+<p><strong>Goal.</strong> Have linux-01 running, <a class="xref" href="../manual/ch11.html">chapter 11</a>&#x27;s <code>tiny-vmm</code> built, and <code>perf</code> installed.</p>
+<p><strong>Commands.</strong> Start or rebuild linux-01:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">bash ~/kvm-course/bin/new-guest.sh linux-01</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><em>perf</em> is the kernel&#x27;s performance tool. Install it if it is missing and record the transaction, as in <a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+if [ ! -x ~/kvm-course/ch11/tiny-vmm ]; then echo &#x27;Build tiny-vmm first (chapter 11.0-11.4)&#x27;; exit 1; fi
+if rpm -q perf &gt;/dev/null; then
+  echo &#x27;perf is already installed&#x27;
+else
+  sudo dnf install -y perf
+  dnf history list | awk &#x27;NR==2 {print $1}&#x27; &gt;&gt; ~/kvm-course/dnf-transactions.txt
+fi
+perf --version
+mkdir -p ~/kvm-course/ch13
+)
+cd ~/kvm-course/ch13</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output, trimmed.</strong> On the validation host:</p>
+<pre class="code code-text"><code class=" language-text">linux-01
+perf version 7.2.8-200.fc44.x86_64</code></pre>
+<p><strong>Check.</strong> <code>new-guest.sh</code> ends with <code>linux-01</code>, and perf prints its version. All later commands run in <code>~/kvm-course/ch13</code>.</p>
+<h2 id="s13-1" class="msec"><span class="sec-no">13.1</span> VT-x and EPT in brief <a class="hlink" href="#s13-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-10.html#lab-ch13-1" style="--hue:45">Day 10 lab</a></h2>
+<p><strong>Goal.</strong> Know what a VM exit is and how a guest address becomes a host address.</p>
+<p><strong>VM entry and exit.</strong> This section follows Intel&#x27;s VT-x (AMD-V is alike under other names). It gives the CPU a <em>root</em> mode for the host and KVM and a <em>non-root</em> mode for guests (unrelated to the root user). <code>KVM_RUN</code> makes a <em>VM entry</em>, and the guest&#x27;s instructions run directly on the CPU. When the guest does something the hypervisor must see (an I/O instruction, <code>HLT</code>, a memory access KVM has not mapped) or the host needs the CPU back, the CPU makes a <em>VM exit</em> to KVM and records an <em>exit reason</em>. Intel&#x27;s <em>VMCS</em> (VM control structure), one per vCPU, holds the guest&#x27;s saved state and the rules for which events exit. KVM handles most exits itself; only the rest return from <code>KVM_RUN</code> to the VMM, as in <a class="xref" href="../manual/ch11.html">chapter 11</a>.</p>
+<p><strong>Two levels of address translation.</strong> A guest program uses <em>guest virtual addresses</em> (GVA); the guest&#x27;s own page tables translate them to <em>guest physical addresses</em> (GPA), as on real hardware. <em>EPT</em> (extended page tables; NPT on AMD) translate GPAs to <em>host physical addresses</em> (HPA). KVM builds the EPT tables, and the CPU walks both levels in hardware whenever its translation cache, the <em>TLB</em>, misses.</p>
+<p>KVM fills the EPT tables lazily. The first access to a guest page without an EPT entry causes an <em>EPT violation</em> exit: KVM finds the memory slot (<a class="xref" href="../manual/ch11.html">chapter 11</a>) and the host page behind it, writes the entry and resumes the guest. For a GPA without a memory slot, KVM writes a deliberately invalid entry instead, so later accesses cause <em>EPT misconfiguration</em> exits, handled as MMIO. KVM&#x27;s <em>TDP MMU</em> (two-dimensional paging) manages these tables.</p>
+<figure class="manual-fig"><img src="../assets/figures/fig8.png" alt="Figure 8. CPU translation maps guest addresses to host memory; the IOMMU controls device DMA separately." loading="lazy"></figure>
+<p class="figcap"><em>Figure 8. CPU translation maps guest addresses to host memory; the IOMMU controls device DMA separately.</em></p>
+<p>This section covers the top of Figure 8; 13.4 covers the bottom. Without EPT, KVM must combine both levels in software, in slower <em>shadow page tables</em>.</p>
+<p><strong>Commands.</strong> Read KVM&#x27;s settings: <code>ept</code> (EPT in use), <code>unrestricted_guest</code> (the CPU runs real-mode guests such as <a class="xref" href="../manual/ch11.html">chapter 11</a>&#x27;s directly), <code>enable_apicv</code> (the CPU virtualizes the interrupt controller, saving exits) and <code>tdp_mmu</code>. <strong>Not validated here:</strong> AMD hosts (none available); there the <code>kvm_intel</code> lines fail, <code>kvm_amd</code>&#x27;s <code>npt</code> replaces <code>ept</code>, and 13.2&#x27;s exit names differ.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">for p in ept unrestricted_guest enable_apicv; do echo &quot;kvm_intel.$p=$(cat /sys/module/kvm_intel/parameters/$p)&quot;; done
+echo &quot;kvm.tdp_mmu=$(cat /sys/module/kvm/parameters/tdp_mmu)&quot;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (Intel Core i9-12900HK):</p>
+<pre class="code code-text"><code class=" language-text">kvm_intel.ept=Y
+kvm_intel.unrestricted_guest=Y
+kvm_intel.enable_apicv=Y
+kvm.tdp_mmu=Y</code></pre>
+<p><strong>Check.</strong> <code>ept=Y</code> and <code>tdp_mmu=Y</code>.</p>
+<h2 id="s13-2" class="msec"><span class="sec-no">13.2</span> Count VM exits <a class="hlink" href="#s13-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-10.html#lab-ch13-2" style="--hue:45">Day 10 lab</a></h2>
+<p><strong>Goal.</strong> See the exits KVM handles without telling the VMM.</p>
+<p><strong>Commands.</strong> <code>perf record</code> records chosen KVM tracepoints (12.0) while a command runs; <code>perf script</code> prints them in order. Start with your tiny VMM, which printed five exits in <a class="xref" href="../manual/ch11.html">chapter 11</a>. <code>-e</code> names the two tracepoints: <code>kvm_exit</code> fires on every VM exit, <code>kvm_userspace_exit</code> when <code>KVM_RUN</code> returns to the VMM. <code>-N</code> stops perf from writing a build-ID cache into root&#x27;s home directory, <code>-q</code> silences its progress messages, and <code>-F trace:event,trace</code> prints only each event&#x27;s name and details:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo perf record -N -q -e kvm:kvm_exit -e kvm:kvm_userspace_exit -o tiny.data ~/kvm-course/ch11/tiny-vmm
+sudo perf script -i tiny.data -F trace:event,trace</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output, trimmed</strong> (after tiny-vmm&#x27;s own five lines). On the validation host:</p>
+<pre class="code code-text"><code class=" language-text">          kvm:kvm_exit: reason EPT_VIOLATION rip 0x1000 info 784 0
+          kvm:kvm_exit: reason IO_INSTRUCTION rip 0x1003 info 3f80008 0
+kvm:kvm_userspace_exit: reason KVM_EXIT_IO (2)
+          kvm:kvm_exit: reason IO_INSTRUCTION rip 0x1008 info 3f80000 0
+kvm:kvm_userspace_exit: reason KVM_EXIT_IO (2)
+          kvm:kvm_exit: reason EPT_VIOLATION rip 0x1009 info 782 0
+kvm:kvm_userspace_exit: reason KVM_EXIT_MMIO (6)
+          kvm:kvm_exit: reason IO_INSTRUCTION rip 0x100e info 3f80000 0
+kvm:kvm_userspace_exit: reason KVM_EXIT_IO (2)
+          kvm:kvm_exit: reason HLT rip 0x100f info 0 0
+kvm:kvm_userspace_exit: reason KVM_EXIT_HLT (5)</code></pre>
+<p>The CPU left the guest six times; <code>KVM_RUN</code> returned five times. The first <code>EPT_VIOLATION</code>, at the first instruction (RIP 0x1000), is the guest&#x27;s first touch of its page: KVM mapped it and resumed the guest without telling your VMM. The second, at the store (RIP 0x1009), found no memory slot behind 0x5000, so KVM passed it on as <code>KVM_EXIT_MMIO</code>. Each I/O instruction and the <code>HLT</code> became one exit to user space.</p>
+<p>Now record linux-01&#x27;s QEMU for two seconds during a four-second disk read in 4 KiB blocks, started in the background; <code>wait &quot;$READ_PID&quot;</code> reports whether it succeeded. <code>perf kvm stat report</code> pairs each exit with the next entry and groups the intervals by exit reason; an interval includes any time the vCPU spent waiting:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+PID=$(sudo cat /run/libvirt/qemu/linux-01.pid)
+ssh -F ~/kvm-course/ssh/config linux-01 &#x27;sudo dd if=/dev/vda of=/dev/null bs=4k count=100000 iflag=direct&#x27; &amp;
+READ_PID=$!
+sleep 1
+sudo perf record -N -q -e kvm:kvm_entry -e kvm:kvm_exit -p &quot;$PID&quot; -o guest.data sleep 2
+wait &quot;$READ_PID&quot;
+sudo perf kvm -i guest.data stat report
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output, trimmed.</strong> On the validation host:</p>
+<pre class="code code-text"><code class=" language-text">                                 VM-EXIT    Samples  Samples%     Time%    Min Time    Max Time         Avg time 
+                                     HLT      43606    46.82%    99.12%      0.19us  86369.62us     86.51us ( +-   6.75% )
+                           EPT_MISCONFIG      41918    45.01%     0.80%      0.56us     41.09us      0.73us ( +-   0.37% )
+                               MSR_WRITE       7046     7.57%     0.05%      0.17us      5.13us      0.25us ( +-   0.93% )
+Total Samples:93130, Total events handled time:3805952.99us.</code></pre>
+<p>During the two-second recording, linux-01&#x27;s vCPUs left the guest about 93,000 times. <code>EPT_MISCONFIG</code> exits are MMIO accesses (13.1): KVM handles some itself, such as the disk notifications it turns into ioeventfds (12.4), and passes others to QEMU, such as 12.5&#x27;s USB registers. They averaged 0.73 µs; the report shows neither the register nor whether QEMU was involved. Halted vCPUs wait in KVM for an interrupt, so <code>HLT</code> holds 99% of the summed intervals, not of host CPU time. <code>MSR_WRITE</code> exits are writes to <em>model-specific registers</em> (MSRs), CPU settings that KVM emulates.</p>
+<p><strong>Check.</strong> The tiny VMM shows an exit it never printed, and linux-01&#x27;s report shows <code>EPT_MISCONFIG</code> and <code>HLT</code>. Explain why a VM exit need not become a return to QEMU.</p>
+<h2 id="s13-3" class="msec"><span class="sec-no">13.3</span> Placement and memory backing, measured <a class="hlink" href="#s13-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-10.html#lab-ch13-3" style="--hue:45">Day 10 lab</a></h2>
+<p><strong>Goal.</strong> Measure two tuning choices: which host CPU runs a vCPU, and which host pages back guest RAM.</p>
+<p><strong>vCPU pinning.</strong> The host scheduler may run each vCPU thread on any host CPU; <em>pinning</em> restricts a vCPU to chosen CPUs. That matters on hybrid CPUs such as the validation host&#x27;s, which mixes fast <em>P-cores</em> (performance) and slower <em>E-cores</em> (efficiency). The block sorts <code>lscpu -p</code>&#x27;s list of maximum clocks to pick the fastest and slowest CPU, shows their lines, then shows where each vCPU may run now:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">FAST=$(lscpu -p=CPU,MAXMHZ | grep -v &#x27;^#&#x27; | sort -t, -k2,2n | tail -1 | cut -d, -f1)
+SLOW=$(lscpu -p=CPU,MAXMHZ | grep -v &#x27;^#&#x27; | sort -t, -k2,2n | head -1 | cut -d, -f1)
+lscpu -e=CPU,CORE,MAXMHZ | grep -E &quot;^ *(CPU|$FAST|$SLOW) &quot;
+sudo virsh -c qemu:///system vcpupin linux-01</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host, a P-core, an E-core, and vCPUs allowed on all 20 CPUs:</p>
+<pre class="code code-text"><code class=" language-text">CPU CORE    MAXMHZ
+  7    3 5000.0000
+ 12    6 3800.0000
+ VCPU   CPU Affinity
+----------------------
+ 0      0-19
+ 1      0-19</code></pre>
+<p>Pin vCPU 0 to each CPU in turn and time a Python loop on guest CPU 0. <code>--live</code> changes only the running guest; the last command restores the affinity saved in <code>ORIG</code>:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ORIG=$(sudo virsh -c qemu:///system vcpupin linux-01 --vcpu 0 | awk &#x27;$1 == &quot;0&quot; {print $2}&#x27;)
+for cpu in &quot;$FAST&quot; &quot;$SLOW&quot;; do
+  sudo virsh -c qemu:///system vcpupin linux-01 0 &quot;$cpu&quot; --live
+  printf &#x27;vCPU 0 on host CPU %s: &#x27; &quot;$cpu&quot;
+  ssh -F ~/kvm-course/ssh/config linux-01 &#x27;taskset -c 0 python3 -c &quot;import time; t = time.perf_counter(); sum(range(30_000_000)); print(round(time.perf_counter() - t, 2), \&quot;s\&quot;)&quot;&#x27;
+done
+sudo virsh -c qemu:///system vcpupin linux-01 0 &quot;$ORIG&quot; --live</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host:</p>
+<pre class="code code-text"><code class=" language-text">vCPU 0 on host CPU 7: 0.22 s
+vCPU 0 on host CPU 12: 0.44 s</code></pre>
+<p>The same loop took 0.22 s on a P-core and 0.44 s on an E-core. On a host whose cores are all alike, both lines show about the same time.</p>
+<p><code>virsh vcpupin … --config</code> pins permanently, writing <code>&lt;cputune&gt;&lt;vcpupin vcpu=&#x27;0&#x27; cpuset=&#x27;4&#x27;/&gt;&lt;/cputune&gt;</code>. Pinning does not keep other programs off that CPU.</p>
+<p><strong>NUMA.</strong> On larger servers each group of CPUs has its own nearby memory, a <em>NUMA node</em>; memory on another node is slower to reach. Check this host:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system capabilities | grep -E &#x27;&lt;cells num|&lt;cell id&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host:</p>
+<pre class="code code-text"><code class=" language-text">      &lt;cells num=&#x27;1&#x27;&gt;
+        &lt;cell id=&#x27;0&#x27;&gt;</code></pre>
+<p>One node: all memory is equally close to every CPU. On a multi-node host you keep a guest&#x27;s memory and vCPUs on one node, with <code>&lt;numatune&gt;&lt;memory mode=&#x27;strict&#x27; nodeset=&#x27;0&#x27;/&gt;&lt;/numatune&gt;</code> and matching <code>vcpupin</code> CPUs. <strong>Not validated here:</strong> remote-node effects (single-node host).</p>
+<p><strong>Host pages behind guest RAM.</strong> Guest RAM is QEMU&#x27;s memory (<a class="xref" href="../manual/ch11.html">chapter 11</a>); this lab compares 4 KiB host pages with 2 MiB <em>huge pages</em>. KVM can use a 2 MiB EPT entry only where a large host page backs the guest page; fewer, larger entries mean fewer EPT violations and TLB misses:</p>
+<div class="table-wrap"><table><thead><tr><th>Backing</th><th>libvirt XML</th><th>Host pages</th></tr></thead><tbody><tr><td>default</td><td>none</td><td>Anonymous memory, with 2 MiB <em>transparent huge pages</em> (THP) where possible</td></tr><tr><td>memfd</td><td><code>&lt;memoryBacking&gt;&lt;source type=&#x27;memfd&#x27;/&gt;&lt;/memoryBacking&gt;</code></td><td>A shared-memory file (<em>memfd</em>); 4 KiB pages under Fedora&#x27;s default shared-memory THP policy (<code>never</code>)</td></tr><tr><td>hugetlbfs</td><td><code>&lt;memoryBacking&gt;&lt;hugepages/&gt;&lt;/memoryBacking&gt;</code></td><td>2 MiB pages reserved in advance</td></tr></tbody></table></div>
+<p>Save a test that writes 512 MiB into the guest&#x27;s RAM disk <code>/dev/shm</code>, touching fresh memory, then shows KVM&#x27;s EPT entries by size and QEMU&#x27;s huge pages; the guest command returns the fill&#x27;s status, so a failed fill stops it:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/ch13/measure.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+# measure.sh: write 512 MiB in linux-01, then show how KVM and the host back its RAM.
+set -euo pipefail
+ssh -F ~/kvm-course/ssh/config linux-01 &#x27;dd if=/dev/zero of=/dev/shm/fill bs=1M count=512; result=$?; rm -f /dev/shm/fill; exit $result&#x27;
+sudo virsh -c qemu:///system qemu-monitor-command linux-01 --hmp &#x27;info stats vm pages_4k,pages_2m&#x27; | grep pages
+PID=$(sudo cat /run/libvirt/qemu/linux-01.pid)
+sudo grep -E &#x27;^(AnonHugePages|Private_Hugetlb):&#x27; /proc/&quot;$PID&quot;/smaps_rollup
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Run linux-01 once with each backing, from a fresh boot each time. <em>virt-xml</em> (from virt-install) edits a domain from the command line; <code>--no-define --start</code> boots the guest once with the change, without saving it. First memfd:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo virt-xml --connect qemu:///system linux-01 --edit --memorybacking source.type=memfd --no-define --start
+bash ~/kvm-course/bin/trust.sh linux-01
+bash measure.sh
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Then hugetlbfs: reserve 1024 huge pages of 2 MiB (the guest&#x27;s 2 GiB), keeping the original value (a retry keeps the first one):</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+if [ ! -f nr_hugepages.before ]; then cat /proc/sys/vm/nr_hugepages &gt; nr_hugepages.before; fi
+sudo sysctl -w vm.nr_hugepages=$(( $(cat nr_hugepages.before) + 1024 ))
+grep -E &#x27;HugePages_(Total|Free)&#x27; /proc/meminfo
+bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo virt-xml --connect qemu:///system linux-01 --edit --memorybacking hugepages=on --no-define --start
+bash ~/kvm-course/bin/trust.sh linux-01
+bash measure.sh
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Finally the default, which leaves linux-01 running normally for <a class="xref" href="../manual/ch14.html">chapter 14</a>. Stopping the hugetlbfs guest frees its pages, so the reservation goes back first:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo sysctl -w vm.nr_hugepages=&quot;$(cat nr_hugepages.before)&quot;
+rm nr_hugepages.before
+sudo virsh -c qemu:///system start linux-01
+bash ~/kvm-course/bin/trust.sh linux-01
+bash measure.sh
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output, trimmed.</strong> On the validation host (memfd, hugetlbfs, default, in that order; your numbers differ):</p>
+<pre class="code code-text"><code class=" language-text">536870912 bytes (537 MB, 512 MiB) copied, 0.33084 s, 1.6 GB/s
+    pages_2m (instant): 0
+    pages_4k (instant): 267094
+AnonHugePages:      2048 kB
+Private_Hugetlb:       0 kB
+HugePages_Total:    1024
+536870912 bytes (537 MB, 512 MiB) copied, 0.0915951 s, 5.9 GB/s
+    pages_2m (instant): 532
+    pages_4k (instant): 478
+AnonHugePages:      2048 kB
+Private_Hugetlb: 2097152 kB
+536870912 bytes (537 MB, 512 MiB) copied, 0.104794 s, 5.1 GB/s
+    pages_2m (instant): 512
+    pages_4k (instant): 478
+AnonHugePages:   1052672 kB
+Private_Hugetlb:       0 kB</code></pre>
+<p>With memfd every EPT entry was 4 KiB (267,094, about 1 GiB of guest RAM) and the fill took 0.33 s. With hugetlbfs and the default, about 520 entries of 2 MiB mapped most of it and the fill took about 0.1 s: one 2 MiB entry replaces 512 small ones, each costing an EPT violation (the times also include host page allocation). On the host, hugetlbfs held the guest&#x27;s whole 2 GiB in reserved huge pages (<code>Private_Hugetlb</code>), the default got about 1 GiB of THP pages (<code>AnonHugePages</code>) as the guest touched memory, and memfd none (the 2048 kB of the memfd and hugetlbfs runs lies outside guest RAM). Another shared-memory THP policy could give memfd huge pages. THP was nearly as fast; hugetlbfs adds a guarantee, its pages reserved before boot, at the cost of memory nothing else can use.</p>
+<p><strong>Check.</strong> With Fedora&#x27;s defaults, memfd shows no <code>pages_2m</code>, hugetlbfs <code>Private_Hugetlb</code>, the default a large <code>AnonHugePages</code>.</p>
+<p><strong>If it fails.</strong> <code>HugePages_Total</code> below 1024, or no hugepages boot: the host lacks free 2 MiB blocks. Close programs and retry, or go on with the default run, which restores the reservation.</p>
+<h2 id="s13-4" class="msec"><span class="sec-no">13.4</span> IOMMU and VFIO: check, do not assign <a class="hlink" href="#s13-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-10.html#lab-ch13-4" style="--hue:45">Day 10 lab</a></h2>
+<p><strong>Goal.</strong> Understand device assignment and check, read-only, whether this host supports it.</p>
+<p><strong>Device assignment</strong> (<em>passthrough</em>) gives a physical PCI device to a guest, whose own driver then runs it. The difficulty is <em>DMA</em> (direct memory access): devices read and write memory themselves, without the CPU&#x27;s page tables, at addresses the guest&#x27;s driver gives them, guest physical ones. The <em>IOMMU</em> (Intel VT-d, AMD-Vi) translates and restricts every such <em>I/O virtual address</em> (IOVA), as the bottom of Figure 8 shows.</p>
+<ul><li>An <em>IOMMU group</em> is the smallest set of devices the IOMMU can keep apart. Devices in one group can reach each other, so a whole group has one owner.</li><li><em>VFIO</em> lets QEMU drive a device safely: the <code>vfio-pci</code> driver takes the device from its host driver, and QEMU maps guest RAM into the IOMMU through <code>/dev/vfio</code> (or the newer <em>IOMMUFD</em>, <code>/dev/iommu</code>). Neither creates isolation the hardware lacks.</li><li>With <code>&lt;hostdev mode=&#x27;subsystem&#x27; type=&#x27;pci&#x27; managed=&#x27;yes&#x27;&gt;</code>, libvirt moves the device to <code>vfio-pci</code> when the guest starts and back when it stops.</li><li>A guest with an assigned device usually cannot migrate (<a class="xref" href="../manual/ch08.html">chapter 8</a>): the device&#x27;s state is inside the hardware.</li></ul>
+<p><strong>Commands.</strong> These only read. Check that the IOMMU is on, then list the groups:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virt-host-validate qemu | grep -i iommu
+for g in $(ls /sys/kernel/iommu_groups | sort -n); do echo &quot;group $g: $(ls /sys/kernel/iommu_groups/$g/devices | tr &#x27;\n&#x27; &#x27; &#x27;)&quot;; done</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output, trimmed.</strong> On the validation host (5 of its 18 groups):</p>
+<pre class="code code-text"><code class=" language-text">  QEMU: Checking for device assignment IOMMU support                         : PASS
+  QEMU: Checking if IOMMU is enabled by kernel                               : PASS
+group 0: 0000:00:02.0 
+group 8: 0000:00:0e.0 10000:e0:06.0 10000:e0:06.2 10000:e1:00.0 10000:e2:00.0 
+group 11: 0000:00:14.3 
+group 16: 0000:01:00.0 0000:01:00.1 
+group 17: 0000:2c:00.0 </code></pre>
+<p>A name such as <code>0000:2c:00.0</code> is a PCI address (domain:bus:device.function). Now look at the network card of your default route, a device you must never assign. The block assumes that route uses a PCI card directly, as on the validation host:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">NIC=$(ip route show default | awk &#x27;{print $5; exit}&#x27;)
+BDF=$(basename &quot;$(readlink -f /sys/class/net/$NIC/device)&quot;)
+echo &quot;$NIC is PCI device $BDF&quot;
+lspci -nnk -s &quot;$BDF&quot;
+echo &quot;IOMMU group $(basename &quot;$(readlink /sys/bus/pci/devices/$BDF/iommu_group)&quot;): $(ls /sys/bus/pci/devices/$BDF/iommu_group/devices | tr &#x27;\n&#x27; &#x27; &#x27;)&quot;
+cat /sys/bus/pci/devices/$BDF/reset_method 2&gt;/dev/null || echo &#x27;no reset method listed&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output, trimmed.</strong> On the validation host:</p>
+<pre class="code code-text"><code class=" language-text">wlo1 is PCI device 0000:00:14.3
+0000:00:14.3 Network controller [0280]: Intel Corporation Alder Lake-P PCH CNVi WiFi [8086:51f0] (rev 01)
+	Kernel driver in use: iwlwifi
+IOMMU group 11: 0000:00:14.3 
+flr</code></pre>
+<p>The group line lists every device in the card&#x27;s IOMMU group. <code>reset_method</code> lists how the kernel can reset the device between owners: <code>flr</code> resets only this function; <code>bus</code> resets it through its bridge, which the kernel offers only when nothing else sits behind that bridge. The validation host&#x27;s Wi-Fi card is alone in group 11 and lists <code>flr</code>; these prerequisites do not prove that assignment would work, and the card stays with the host as its network connection.</p>
+<p><strong>Assignment itself is not validated here:</strong> the course never takes a device from the workstation it runs on. The validation host&#x27;s GPUs (groups 0 and 16), NVMe drives (group 8) and Wi-Fi card are in use; its unused Realtek 2.5GbE port, alone in group 17 and behind its bridge, would qualify. On a machine with a spare card that is alone in its group, can be reset, and is not your way in, assignment uses this XML, here with the Realtek port&#x27;s address (for reading, not run):</p>
+<pre class="code code-xml"><code class=" language-xml">&lt;hostdev mode=&#x27;subsystem&#x27; type=&#x27;pci&#x27; managed=&#x27;yes&#x27;&gt;
+  &lt;source&gt;
+    &lt;address domain=&#x27;0x0000&#x27; bus=&#x27;0x2c&#x27; slot=&#x27;0x00&#x27; function=&#x27;0x0&#x27;/&gt;
+  &lt;/source&gt;
+&lt;/hostdev&gt;</code></pre>
+<p>Never assign the device you reach the host through, its disk controller or its display, and keep a console that does not depend on the device.</p>
+<p><strong>Check.</strong> You can name your management card&#x27;s group, its other members, and why the card stays with the host.</p>
+<p><strong>If it fails.</strong> <code>virt-host-validate</code> warns that the IOMMU is disabled and no groups are listed: Fedora&#x27;s kernel turns on an Intel IOMMU only with the boot option <code>intel_iommu=on</code> or when the firmware asks, as the validation laptop&#x27;s does (so this branch is not validated here). The course changes no boot options; read the rest as text. No PCI device for <code>$NIC</code>: the route uses a bridge, VPN or USB adapter; set <code>NIC</code> to your card&#x27;s name from <code>ip link</code>.</p>
+<p><strong>Chapter pass.</strong> From your output, explain which exits your tiny VMM never saw, what the <code>EPT_MISCONFIG</code> exits were, why the E-core run was slower, and why memfd needed more EPT entries.</p>
+<h2 id="s13-cleanup" class="msec">Clean up <a class="hlink" href="#s13-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-10.html#lab-ch13-cleanup" style="--hue:45">Day 10 lab</a></h2>
+<p>Keep linux-01 for <a class="xref" href="../manual/ch14.html">chapter 14</a>. The block stops linux-01, restores any saved huge-page reservation and starts linux-01 from its saved definition, which ends live pinning or a one-off backing left by an interrupted step, then deletes this chapter&#x27;s files; a failure stops it and keeps the saved reservation:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cd ~
+(
+set -euo pipefail
+if sudo virsh -c qemu:///system dominfo linux-01 &gt;/dev/null 2&gt;&amp;1; then bash ~/kvm-course/bin/stop-guest.sh linux-01; fi
+if [ -f ~/kvm-course/ch13/nr_hugepages.before ]; then
+  sudo sysctl -w vm.nr_hugepages=&quot;$(cat ~/kvm-course/ch13/nr_hugepages.before)&quot;
+fi
+if sudo virsh -c qemu:///system dominfo linux-01 &gt;/dev/null 2&gt;&amp;1; then sudo virsh -c qemu:///system start linux-01; fi
+rm -rf ~/kvm-course/ch13
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><a class="xref" href="../manual/appendix-b.html">Appendix B</a> removes the rest of the course, including perf.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch12.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>12. QEMU, VirtIO and the I/O path</span></a><a class="pager-next" href="ch14.html"><span><small>Next</small>14. Final integration and continued expertise</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

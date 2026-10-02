@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5. Repeatable Linux images · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li class="here"><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-ch05">5. Repeatable Linux images</h1>
+<p><strong>Goal.</strong> Build a customized template image once, record what went into it, and create guests from it that each get their own identity. Read <a href="https://libguestfs.org/virt-customize.1.html" target="_blank" rel="noopener">virt-customize</a>, <a href="https://libguestfs.org/virt-sysprep.1.html" target="_blank" rel="noopener">virt-sysprep</a>, <a href="https://docs.cloud-init.io/en/latest/reference/cli.html" target="_blank" rel="noopener">cloud-init clean</a> and <a href="https://docs.cloud-init.io/en/latest/explanation/first_boot.html" target="_blank" rel="noopener">first-boot determination</a>.</p>
+<figure class="manual-fig"><img src="../assets/figures/fig4.png" alt="Figure 4. Storage independence and guest identity are separate checks." loading="lazy"></figure>
+<p class="figcap"><em>Figure 4. Storage independence and guest identity are separate checks.</em></p>
+<p>A flattened disk (<a class="xref" href="../manual/ch04.html#s4-3">chapter 4.3</a>) no longer needs its base, but it still carries the <strong>identity</strong> of the machine it came from: hostname, machine ID, SSH host keys and cloud-init&#x27;s record of its first boot. A <strong>template</strong> is an image with that identity removed, or <strong>generalized</strong>, so that every guest made from it gets its own. The image tools in this chapter change disks offline; never point them at the disk of a running guest. Blocks in parentheses stop at their first failing command (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>).</p>
+<h2 id="s5-0" class="msec"><span class="sec-no">5.0</span> Starting point <a class="hlink" href="#s5-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch05-0" style="--hue:330">Day 5 lab</a></h2>
+<p><strong>Goal.</strong> Reuse linux-01, or rebuild it with the <a class="xref" href="../manual/ch01.html#s1-7">chapter 1.7</a> scripts.</p>
+<p><strong>Commands.</strong> If you removed the course, save the 1.7 scripts again first. <code>new-guest.sh</code> starts linux-01 if it is off, or builds it if it is missing:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">export LC_ALL=C
+bash ~/kvm-course/bin/new-guest.sh linux-01</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> The last two lines; the lines before them vary:</p>
+<pre class="code code-text"><code class=" language-text">status: done
+linux-01</code></pre>
+<p><strong>Check.</strong> The last lines are <code>status: done</code> and <code>linux-01</code>.</p>
+<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; rename it. Otherwise read the message it printed.</p>
+<p><strong>Clean up.</strong> Keep linux-01.</p>
+<h2 id="s5-1" class="msec"><span class="sec-no">5.1</span> Customize an image offline <a class="hlink" href="#s5-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch05-1" style="--hue:330">Day 5 lab</a></h2>
+<p><strong>Goal.</strong> Change a copy of the verified Fedora image without booting it, and write down what went in.</p>
+<p><strong>Commands.</strong> A <strong>manifest</strong> records the inputs of a build: the source image, its checksum and the tool versions. Start one:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">mkdir -p ~/kvm-course/ch05
+{
+  echo &#x27;source: Fedora-Cloud-Base-Generic-44-1.7.x86_64.qcow2, verified in chapter 1.1&#x27;
+  sudo sha256sum /var/lib/libvirt/images/kvm-course/base.qcow2
+  rpm -q guestfs-tools libguestfs qemu-img
+} | tee ~/kvm-course/ch05/manifest.txt</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>libguestfs</strong> tools such as <code>virt-customize</code> open a disk image by booting a tiny helper VM of their own, the <strong>appliance</strong>, with the image attached. Save a helper that runs them as root (the pool&#x27;s images belong to root), starts the appliance with QEMU directly, not through libvirt (<code>LIBGUESTFS_BACKEND=direct</code>), and keeps its cache and temporary files in <code>~/kvm-course/ch05/guestfs</code>:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/guestfs.sh &lt;&lt;&#x27;BASH&#x27;
+#!/usr/bin/env bash
+# guestfs.sh TOOL ARGS...: run a libguestfs tool as root, keeping its files in ~/kvm-course/ch05/guestfs
+set -euo pipefail
+G=$HOME/kvm-course/ch05/guestfs
+mkdir -p &quot;$G&quot;
+exec sudo env LIBGUESTFS_BACKEND=direct LIBGUESTFS_CACHEDIR=&quot;$G&quot; LIBGUESTFS_TMPDIR=&quot;$G&quot; &quot;$@&quot;
+BASH</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Copy the base into <code>build.qcow2</code> and list its filesystems without booting it. Inside the appliance the image is <code>/dev/sda</code>; a guest sees the same disk as <code>/dev/vda</code>. <code>--format=qcow2</code> states the format, so the tool never guesses:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+if sudo test -e &quot;$P/build.qcow2&quot;; then echo &#x27;STOP: build.qcow2 already exists; run the chapter Clean up first&#x27;; false; fi
+sudo install -m 0644 &quot;$P/base.qcow2&quot; &quot;$P/build.qcow2&quot;
+bash ~/kvm-course/bin/guestfs.sh virt-filesystems --format=qcow2 -a &quot;$P/build.qcow2&quot; --filesystems --long -h
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>virt-customize</code> adds a marker line to <code>/etc/course-build</code> inside the image and then relabels the files for SELinux by itself. Make the build read-only and add its checksum to the manifest:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+bash ~/kvm-course/bin/guestfs.sh virt-customize --format=qcow2 -a &quot;$P/build.qcow2&quot; \
+  --append-line /etc/course-build:fedora44-course-v1
+sudo chmod 0444 &quot;$P/build.qcow2&quot;
+sudo sha256sum &quot;$P/build.qcow2&quot; | tee -a ~/kvm-course/ch05/manifest.txt
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Excerpt (<code>…</code> marks a cut); versions and checksums differ:</p>
+<pre class="code code-text"><code class=" language-text">guestfs-tools-1.56.0-1.fc44.x86_64
+/dev/sda3                filesystem  btrfs  fedora  4.9G  -
+[   3.6] Setting a random seed
+[   3.6] Appending line to /etc/course-build
+[   3.6] SELinux relabelling
+bff84b655a403a75…  /var/lib/libvirt/images/kvm-course/build.qcow2</code></pre>
+<p><strong>Check.</strong> The manifest names the source, its checksum, the tool versions and the build&#x27;s checksum.</p>
+<p><strong>If it fails.</strong> The appliance does not start: add <code>-v -x</code> after the tool name for a detailed log; keep SELinux enforcing. No <code>btrfs</code> line: a wrong or damaged file; compare its checksum with the manifest.</p>
+<p><strong>Clean up.</strong> Keep build.qcow2 for 5.2.</p>
+<h2 id="s5-2" class="msec"><span class="sec-no">5.2</span> Generalize a template <a class="hlink" href="#s5-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch05-2" style="--hue:330">Day 5 lab</a></h2>
+<p><strong>Goal.</strong> Boot the build once to test it, then remove the identity that the boot created.</p>
+<p><strong>Commands.</strong> Boot template-01 on an overlay of build.qcow2, as in <a class="xref" href="../manual/ch01.html">chapter 1</a>, and read the marker. The boot gives the guest an identity: a machine ID (<code>/etc/machine-id</code>, systemd&#x27;s ID for this installation), SSH host keys, DHCP leases, logs and cloud-init&#x27;s record of its instance:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+if sudo test -e &quot;$P/template-01.qcow2&quot;; then echo &#x27;STOP: template-01.qcow2 already exists&#x27;; false; fi
+bash ~/kvm-course/bin/seed.sh template-01
+sudo install -m 0644 ~/kvm-course/template-01/seed.iso &quot;$P/template-01-seed.iso&quot;
+sudo qemu-img create -f qcow2 -F qcow2 -b &quot;$P/build.qcow2&quot; &quot;$P/template-01.qcow2&quot; 20G
+bash ~/kvm-course/bin/launch.sh template-01
+bash ~/kvm-course/bin/trust.sh template-01
+ssh -F ~/kvm-course/ssh/config template-01 &#x27;cat /etc/course-build /etc/machine-id&#x27;
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>cloud-init clean</code> deletes what cloud-init keeps under <code>/var/lib/cloud</code>, so that it runs its first-boot setup again on the next boot; <code>--seed</code> also removes <code>/var/lib/cloud/seed</code>, where an image can carry seed files, and <code>--configs network</code> removes the network settings cloud-init wrote. virt-sysprep, below, removes the logs and the machine ID. Run <code>cloud-init clean</code> as the guest&#x27;s last action, then shut the guest down:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+ssh -F ~/kvm-course/ssh/config template-01 &#x27;sudo cloud-init clean --seed --configs network&#x27;
+bash ~/kvm-course/bin/stop-guest.sh template-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Flatten the stopped disk into a standalone <code>template.qcow2</code> (<a class="xref" href="../manual/ch04.html#s4-3">chapter 4.3</a>). <strong>virt-sysprep</strong> then cleans what the operating system keeps; <code>--operations</code> picks the SSH host keys, the machine ID, DHCP leases and log files. Make the template read-only and record its checksum:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+if sudo test -e &quot;$P/template.qcow2&quot;; then echo &#x27;STOP: template.qcow2 already exists and guests may depend on it&#x27;; false; fi
+sudo qemu-img convert -O qcow2 &quot;$P/template-01.qcow2&quot; &quot;$P/template.qcow2&quot;
+bash ~/kvm-course/bin/guestfs.sh virt-sysprep --format=qcow2 -a &quot;$P/template.qcow2&quot; \
+  --operations ssh-hostkeys,machine-id,dhcp-client-state,logfiles
+sudo chmod 0444 &quot;$P/template.qcow2&quot;
+sudo sha256sum &quot;$P/template.qcow2&quot; | tee ~/kvm-course/ch05/template.sha256
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Never boot template.qcow2 itself; guests boot from overlays on it. It holds the course&#x27;s SSH public key, so your course key can log in to every guest made from it: do not share it outside your lab.</p>
+<p><strong>Expected output.</strong> Excerpt; the machine ID and checksum differ:</p>
+<pre class="code code-text"><code class=" language-text">fedora44-course-v1
+267aab1fec5f4ac79924b081ecd5b099
+[   1.5] Performing &quot;dhcp-client-state&quot; ...
+[   1.5] Performing &quot;logfiles&quot; ...
+[   1.6] Performing &quot;machine-id&quot; ...
+[   1.6] Performing &quot;ssh-hostkeys&quot; ...</code></pre>
+<p><strong>Check.</strong> template-01 was shut off before sysprep ran, sysprep performed the four operations, and template.qcow2 has a recorded checksum.</p>
+<p><strong>If it fails.</strong> <code>stop-guest.sh</code> times out: never sysprep a disk that a running VM may still write; find out why it did not stop. sysprep stops with an error: delete template.qcow2 and flatten again; a half-cleaned template gives its guests duplicate identities.</p>
+<p><strong>Clean up.</strong> template-01 stays off until the chapter Clean up.</p>
+<h2 id="s5-3" class="msec"><span class="sec-no">5.3</span> Provision two guests <a class="hlink" href="#s5-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch05-3" style="--hue:330">Day 5 lab</a></h2>
+<p><strong>Goal.</strong> Create two guests from the template and show that each has its own identity.</p>
+<p><strong>Commands.</strong> Check that the template is the one you recorded, then create linux-02 and clone-01 as overlays on it. Each gets its own seed, with a new hostname and a new cloud-init <strong>instance ID</strong>, and virt-install gives each a new UUID and MAC address. Save each guest&#x27;s machine ID, SSH host-key fingerprint and instance ID in a file; <code>cut</code> keeps only the fingerprint, because the comment after it (<code>root@NAME</code>) is a free label, not part of the key:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+sudo sha256sum -c ~/kvm-course/ch05/template.sha256
+for name in linux-02 clone-01; do
+  if sudo test -e &quot;$P/$name.qcow2&quot;; then echo &quot;STOP: $name.qcow2 already exists&quot;; false; fi
+  bash ~/kvm-course/bin/seed.sh &quot;$name&quot;
+  sudo install -m 0644 ~/kvm-course/&quot;$name&quot;/seed.iso &quot;$P/$name-seed.iso&quot;
+  sudo qemu-img create -f qcow2 -F qcow2 -b &quot;$P/template.qcow2&quot; &quot;$P/$name.qcow2&quot; 20G
+  bash ~/kvm-course/bin/launch.sh &quot;$name&quot;
+  bash ~/kvm-course/bin/trust.sh &quot;$name&quot;
+  ssh -n -F ~/kvm-course/ssh/config &quot;$name&quot; &#x27;cat /etc/machine-id; sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d&quot; &quot; -f2; cloud-init query v1.instance_id&#x27; &gt; ~/kvm-course/ch05/&quot;$name&quot;.id
+done
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>paste</code> shows the two files side by side; <code>grep -Fxf A B</code> prints the lines of B that also appear in A, and must print nothing. Then show each guest&#x27;s build marker and VM UUID:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+cd ~/kvm-course/ch05
+paste linux-02.id clone-01.id
+if grep -Fxf linux-02.id clone-01.id; then echo &#x27;UNEXPECTED: the guests share an identity&#x27;; false; fi
+for name in linux-02 clone-01; do
+  ssh -n -F ~/kvm-course/ssh/config &quot;$name&quot; &#x27;cat /etc/course-build&#x27;
+  sudo virsh -c qemu:///system domuuid &quot;$name&quot;
+done
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Each machine ID is its VM&#x27;s UUID without the dashes: sysprep emptied <code>/etc/machine-id</code>, so systemd took the UUID that libvirt gives the virtual firmware (DMI <code>product_uuid</code>, machine-id(5)). A copy that kept its domain UUID would keep its machine ID too.</p>
+<p><strong>Expected output.</strong> Excerpt (<code>…</code> marks a cut); identities differ:</p>
+<pre class="code code-text"><code class=" language-text">/var/lib/libvirt/images/kvm-course/template.qcow2: OK
+6f2c174c8fa74687aa739f1b9415d667	b739c4ee1e3f4aacbe68fdc742880c4b
+SHA256:dS+kBJI5…	SHA256:1aNtyb+u…
+linux-02-28f712f9-d778-4dfc-97e9-aac504420160	clone-01-6c5ec304-4294-4e09-b36c-5bb70fb54d1a
+fedora44-course-v1
+6f2c174c-8fa7-4687-aa73-9f1b9415d667
+fedora44-course-v1
+b739c4ee-1e3f-4aac-be68-fdc742880c4b</code></pre>
+<p><strong>Check.</strong> The machine IDs, key fingerprints and instance IDs differ, both guests have the marker, each machine ID matches its VM&#x27;s UUID, and the template checksum was <code>OK</code>.</p>
+<p><strong>If it fails.</strong> <code>grep</code> printed a line: the template was not generalized; rebuild it from 5.2 instead of repairing the guests.</p>
+<p><strong>Clean up.</strong> The chapter Clean up removes both guests.</p>
+<h2 id="s5-4" class="msec"><span class="sec-no">5.4</span> Reproduce identity trouble <a class="hlink" href="#s5-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch05-4" style="--hue:330">Day 5 lab</a></h2>
+<p><strong>Goal.</strong> Show that a new seed with the old instance ID does not rerun first-boot setup on a disk that has already booted, then fix it.</p>
+<p><strong>Commands.</strong> cloud-init runs some modules once per <strong>instance</strong>, that is, once per instance ID from the seed&#x27;s meta-data, and records the ID it has handled under <code>/var/lib/cloud</code>. <strong>runcmd</strong>, which runs shell commands, is one of them. Build the disposable guest profile-probe with a runcmd line that appends <code>first</code> to a file; after editing user-data, rebuild the seed with <code>cloud-localds</code> (<a class="xref" href="../manual/ch01.html#s1-2">chapter 1.2</a>):</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+bash ~/kvm-course/bin/seed.sh profile-probe
+cat &gt;&gt; ~/kvm-course/profile-probe/user-data &lt;&lt;&#x27;YAML&#x27;
+runcmd:
+  - [sh, -c, &#x27;echo first &gt;&gt; /var/tmp/runcmd.txt&#x27;]
+YAML
+cloud-localds ~/kvm-course/profile-probe/seed.iso ~/kvm-course/profile-probe/user-data ~/kvm-course/profile-probe/meta-data
+bash ~/kvm-course/bin/disk.sh profile-probe
+bash ~/kvm-course/bin/launch.sh profile-probe
+bash ~/kvm-course/bin/trust.sh profile-probe
+ssh -F ~/kvm-course/ssh/config profile-probe &#x27;cat /var/tmp/runcmd.txt&#x27;
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Change the runcmd line to <code>second</code> and rebuild the seed with the <strong>same</strong> meta-data, so the instance ID stays. Stop the guest, put the new seed in the pool and start the guest. cloud-init knows this instance ID, so runcmd does not run again and the file keeps one line:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+bash ~/kvm-course/bin/stop-guest.sh profile-probe
+sed -i &#x27;s/echo first/echo second/&#x27; ~/kvm-course/profile-probe/user-data
+cloud-localds ~/kvm-course/profile-probe/seed.iso ~/kvm-course/profile-probe/user-data ~/kvm-course/profile-probe/meta-data
+sudo install -m 0644 ~/kvm-course/profile-probe/seed.iso &quot;$P/profile-probe-seed.iso&quot;
+sudo virsh -c qemu:///system start profile-probe
+bash ~/kvm-course/bin/trust.sh profile-probe
+lines=$(ssh -F ~/kvm-course/ssh/config profile-probe &#x27;cat /var/tmp/runcmd.txt&#x27;)
+echo &quot;$lines&quot;
+if [ &quot;$lines&quot; != first ]; then echo &#x27;UNEXPECTED: runcmd ran again&#x27;; false; fi
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Fix it with a new instance ID. cloud-init then treats the disk as a new instance: it reruns runcmd and makes new SSH host keys. Empty the old serial log first, so that <code>trust.sh</code> waits for this boot&#x27;s fingerprints and checks the new key against them:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+bash ~/kvm-course/bin/stop-guest.sh profile-probe
+printf &#x27;instance-id: profile-probe-%s\n&#x27; &quot;$(cat /proc/sys/kernel/random/uuid)&quot; &gt; ~/kvm-course/profile-probe/meta-data
+cloud-localds ~/kvm-course/profile-probe/seed.iso ~/kvm-course/profile-probe/user-data ~/kvm-course/profile-probe/meta-data
+sudo install -m 0644 ~/kvm-course/profile-probe/seed.iso &quot;$P/profile-probe-seed.iso&quot;
+sudo truncate -s 0 /var/log/libvirt/qemu/profile-probe-console.log
+sudo virsh -c qemu:///system start profile-probe
+bash ~/kvm-course/bin/trust.sh profile-probe
+lines=$(ssh -F ~/kvm-course/ssh/config profile-probe &#x27;cat /var/tmp/runcmd.txt&#x27;)
+echo &quot;$lines&quot;
+if [ &quot;$lines&quot; != &quot;$(printf &#x27;first\nsecond&#x27;)&quot; ]; then echo &#x27;UNEXPECTED: runcmd did not run again&#x27;; false; fi
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> The file printed <code>first</code> after the first boot, still only <code>first</code> after the boot with the old instance ID, and then:</p>
+<pre class="code code-text"><code class=" language-text">first
+second</code></pre>
+<p><strong>Check.</strong> One line with the old instance ID; two lines with the new one; <code>trust.sh</code> checked the new host key against this boot&#x27;s console.</p>
+<p><strong>If it fails.</strong> Two lines already after the second boot: compare <code>cloud-init query v1.instance_id</code> in the guest with the seed&#x27;s meta-data. <code>trust.sh</code> stops at the fingerprint: read the console log; never accept a changed host key without that check.</p>
+<p><strong>Clean up.</strong> profile-probe is disposable; the chapter Clean up removes it.</p>
+<p>To rebuild the template later, keep a copy of <code>manifest.txt</code> (the Clean up deletes it), repeat 5.1 and 5.2, and compare: the source checksum and tool versions should match, but the build checksum never does, because virt-customize writes a new random seed into each build (<code>Setting a random seed</code>). An independent rebuild by another person on another host is not validated here.</p>
+<h2 id="s5-cleanup" class="msec">Clean up <a class="hlink" href="#s5-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch05-cleanup" style="--hue:330">Day 5 lab</a></h2>
+<p>Keep linux-01 for <a class="xref" href="../manual/ch06.html">chapter 6</a>. Nothing later needs linux-02 or the template. Remove the four guests with <a class="xref" href="../manual/ch01.html">chapter 1</a>&#x27;s helper, then the images build.qcow2 and template.qcow2 with <code>virsh vol-delete</code>, then this chapter&#x27;s files (some belong to root) and the helper. The block stops if a guest cannot be removed, before any image it may use is deleted:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+for name in template-01 clone-01 profile-probe linux-02; do
+  bash ~/kvm-course/bin/remove-guest.sh &quot;$name&quot;
+done
+for vol in build.qcow2 template.qcow2; do
+  if sudo virsh -c qemu:///system vol-info --pool kvm-course &quot;$vol&quot; &gt;/dev/null 2&gt;&amp;1; then
+    sudo virsh -c qemu:///system vol-delete --pool kvm-course &quot;$vol&quot;
+  fi
+done
+sudo rm -rf ~/kvm-course/ch05
+rm -f ~/kvm-course/bin/guestfs.sh
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>To remove the whole course instead, use <a class="xref" href="../manual/appendix-b.html">Appendix B</a>.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch04.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>4. Storage and backing chains</span></a><a class="pager-next" href="ch06.html"><span><small>Next</small>6. Security boundaries and recovery access</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

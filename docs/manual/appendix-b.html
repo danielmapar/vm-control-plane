@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Appendix B. Remove the course completely · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li class="here"><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-appendix-b">Appendix B. Remove the course completely</h1>
+<p>B.2 deletes all course guests and disks: save what you need. After an interrupted chapter, run its Clean up first; it undoes what B.2 cannot know, like a file in <code>/etc</code>.</p>
+<h2 id="sB-1" class="msec"><span class="sec-no">B.1</span> What the course leaves behind <a class="hlink" href="#sB-1" aria-label="Link to this section">#</a></h2>
+<p><strong>Goal.</strong> Know what B.2 removes and why.</p>
+<p><code>~/kvm-course</code> and the pool directory <code>/var/lib/libvirt/images/kvm-course</code> each hold an empty marker file, <code>.created-by-course</code>. <strong>Course guests</strong> have a disk in the pool directory. B.2 removes the network <code>kc-isolated</code>, or a log, only if its creation time (<code>stat -c %W</code>) is after the marker&#x27;s in <code>~/kvm-course</code>; older or undated ones stay. Without the pool marker, B.2 leaves that directory, its guests and logs alone. The <code>kc-</code> prefix is reserved for the course while it is installed: do not create or edit objects of your own with such names.</p>
+<div class="table-wrap"><table><thead><tr><th>Left behind</th><th>What B.2 does</th></tr></thead><tbody><tr><td>Course guests with UEFI variables, TPM state, saved memory, snapshot and checkpoint records</td><td><code>virsh destroy</code> and <code>undefine</code></td></tr><tr><td>Their QEMU, serial console and TPM logs</td><td>Deletes them</td></tr><tr><td>Network <code>kc-isolated</code> (<a class="xref" href="../manual/ch03.html">chapter 3</a>), pool <code>kvm-course</code> and its directory</td><td>Stops, undefines, deletes; rescans pool <code>default</code>, whose directory held it</td></tr><tr><td>libvirt bookkeeping: empty port directories and <code>.macs</code> list, removed networks&#x27; PID files</td><td>Deletes it</td></tr><tr><td>Certificate files of the TPM emulator swtpm in <code>/var/lib/swtpm-localca</code> (UEFI guests get a TPM)</td><td>Deletes new ones if no TPM state remains</td></tr><tr><td>virt-install&#x27;s log in <code>/root/.cache/virt-manager</code></td><td>Deletes it</td></tr><tr><td>Modules <code>vhost_net</code>, <code>tap</code>, <code>vhost</code>, <code>vhost_iotlb</code>, loaded for guest network cards</td><td><code>rmmod</code> if unused; harmless, as the kernel loads them again on demand. <code>tun</code>, loaded with them, stays: other programs use it</td></tr><tr><td>GnuPG helpers of the course keyring (1.1)</td><td>Stops them</td></tr><tr><td>Packages</td><td>Undoes the transactions in <code>~/kvm-course/dnf-transactions.txt</code>, newest first</td></tr><tr><td><code>~/kvm-course</code></td><td>Deletes it last, with <code>sudo</code> for root-owned files</td></tr></tbody></table></div>
+<p>B.2 keeps <code>~/.config/libvirt</code> and <code>~/.cache/libvirt</code>, which session connections (2.5) create: they may hold your own configuration, so if the course created them they stay behind. Removing them is <strong>not validated here</strong>: both predated the course on the validation host.</p>
+<h2 id="sB-2" class="msec"><span class="sec-no">B.2</span> Remove everything <a class="hlink" href="#sB-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-10.html#lab-appendix-b-2" style="--hue:45">Day 10 lab</a></h2>
+<p><strong>Goal.</strong> Return the host to its pre-course state.</p>
+<p><strong>Commands.</strong> <code>LC_ALL=C</code> keeps virsh output in English for the checks; <code>virsh</code> means <code>sudo virsh -c qemu:///system</code>; <code>after_marker FILE</code> is true for a file created after the marker. It stops at the first error, keeping <code>~/kvm-course</code>.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+export LC_ALL=C
+D=$HOME/kvm-course
+P=/var/lib/libvirt/images/kvm-course
+if [ ! -e &quot;$D&quot; ]; then echo &#x27;Nothing to remove: ~/kvm-course does not exist&#x27;; exit 0; fi
+if [ ! -f &quot;$D/.created-by-course&quot; ]; then echo &#x27;STOP: ~/kvm-course has no course marker&#x27; &gt;&amp;2; exit 1; fi
+if ! command -v virsh &gt;/dev/null; then
+  if [ -s &quot;$D/dnf-transactions.txt&quot; ] || sudo test -f &quot;$P/.created-by-course&quot;; then
+    echo &#x27;STOP: virsh is missing but course VMs, disks or packages remain: install libvirt-client, then run B.2 again&#x27; &gt;&amp;2; exit 1
+  fi
+  rm -rf &quot;$D&quot;; echo &#x27;The course has been removed.&#x27;; exit 0
+fi
+virsh() { sudo virsh -c qemu:///system &quot;$@&quot;; }
+start=$(stat -c %W &quot;$D/.created-by-course&quot;)
+after_marker() { born=$(sudo stat -c %W &quot;$1&quot; 2&gt;/dev/null) || return 1; [ &quot;$start&quot; -gt 0 ] &amp;&amp; [ &quot;$born&quot; -gt &quot;$start&quot; ]; }
+marked=no
+if sudo test -f &quot;$P/.created-by-course&quot;; then marked=yes
+elif sudo test -e &quot;$P&quot;; then echo &quot;Keeping $P: it has no course marker&quot;; fi
+
+echo &#x27;Remove course guests&#x27;
+domains=$(virsh list --all --name)
+while IFS= read -r name; do
+  [ -n &quot;$name&quot; ] &amp;&amp; [ &quot;$marked&quot; = yes ] || continue
+  disks=$(virsh domblklist &quot;$name&quot;)
+  grep -qF &quot; $P/&quot; &lt;&lt;&lt; &quot;$disks&quot; || continue
+  if [ &quot;$(virsh domstate &quot;$name&quot;)&quot; != &#x27;shut off&#x27; ]; then virsh destroy &quot;$name&quot;; fi
+  if virsh dominfo &quot;$name&quot; &gt;/dev/null 2&gt;&amp;1; then
+    virsh undefine &quot;$name&quot; --nvram --tpm --managed-save --snapshots-metadata --checkpoints-metadata
+  fi
+done &lt;&lt;&lt; &quot;$domains&quot;
+
+echo &#x27;Remove their logs&#x27;
+logs=$(sudo find /var/log/libvirt/qemu -maxdepth 1 -type f -name &#x27;*.log&#x27; ! -name &#x27;*-console.log&#x27;)
+while IFS= read -r log; do
+  [ -n &quot;$log&quot; ] &amp;&amp; [ &quot;$marked&quot; = yes ] || continue
+  name=$(basename &quot;$log&quot; .log)
+  if virsh dominfo &quot;$name&quot; &gt;/dev/null 2&gt;&amp;1 || ! sudo grep -qF &quot;$P/&quot; &quot;$log&quot;; then continue; fi
+  for file in $(sudo find /var/log/libvirt/qemu /var/log/swtpm/libvirt/qemu -maxdepth 1 -type f \( -name &quot;$name.log*&quot; -o -name &quot;$name-console.log*&quot; -o -name &quot;$name-swtpm.log*&quot; \) 2&gt;/dev/null); do
+    [ &quot;$file&quot; = &quot;$log&quot; ] &amp;&amp; continue
+    if after_marker &quot;$file&quot;; then sudo rm &quot;$file&quot;; fi
+  done
+  if after_marker &quot;$log&quot;; then sudo rm &quot;$log&quot;; fi
+done &lt;&lt;&lt; &quot;$logs&quot;
+
+echo &#x27;Remove the network kc-isolated (chapter 3) and the pool kvm-course&#x27;
+if virsh net-info kc-isolated &gt;/dev/null 2&gt;&amp;1; then
+  if ! after_marker /etc/libvirt/qemu/networks/kc-isolated.xml; then echo &#x27;Keeping network kc-isolated: older than the course&#x27;
+  else
+    if [ &quot;$(virsh net-info kc-isolated | awk &#x27;/^Active:/ {print $2}&#x27;)&quot; = yes ]; then virsh net-destroy kc-isolated; fi
+    virsh net-undefine kc-isolated
+    sudo rm -f /run/libvirt/network/kc-isolated.pid
+  fi
+fi
+if virsh pool-info kvm-course &gt;/dev/null 2&gt;&amp;1; then
+  xml=$(virsh pool-dumpxml kvm-course)
+  if [ &quot;$marked&quot; = no ] || ! grep -qF &quot;&lt;path&gt;$P&lt;/path&gt;&quot; &lt;&lt;&lt; &quot;$xml&quot;; then echo &quot;Keeping pool kvm-course: it is not the marked $P&quot;
+  else
+    if [ &quot;$(virsh pool-info kvm-course | awk &#x27;/^State:/ {print $2}&#x27;)&quot; = running ]; then virsh pool-destroy kvm-course; fi
+    virsh pool-undefine kvm-course
+  fi
+fi
+if [ &quot;$marked&quot; = yes ]; then sudo rm -rf &quot;$P&quot;; fi
+if [ &quot;$(virsh pool-info default 2&gt;/dev/null | awk &#x27;/^State:/ {print $2}&#x27;)&quot; = running ]; then virsh pool-refresh default; fi
+
+echo &#x27;Remove leftovers&#x27;
+for dir in /run/libvirt/network/default /run/libvirt/network/kc-isolated; do
+  sudo rmdir &quot;$dir/ports&quot; &quot;$dir&quot; 2&gt;/dev/null || true
+done
+sudo rmdir /run/libvirt/qemu/swtpm 2&gt;/dev/null || true
+if [ -z &quot;$(sudo ls -A /var/lib/libvirt/swtpm 2&gt;/dev/null)&quot; ]; then
+  for file in $(sudo find /var/lib/swtpm-localca -maxdepth 1 -type f 2&gt;/dev/null); do
+    if after_marker &quot;$file&quot;; then sudo rm &quot;$file&quot;; fi
+  done
+fi
+bridge=$(virsh net-info default 2&gt;/dev/null | awk &#x27;/^Bridge:/ {print $2}&#x27;) || true
+macs=/var/lib/libvirt/dnsmasq/$bridge.macs
+if [ -n &quot;$bridge&quot; ] &amp;&amp; [ &quot;$(sudo cat &quot;$macs&quot; 2&gt;/dev/null | tr -d &#x27;[:space:]&#x27;)&quot; = &#x27;[]&#x27; ]; then sudo rm &quot;$macs&quot;; fi
+if after_marker /root/.cache/virt-manager; then sudo rm -rf /root/.cache/virt-manager; fi
+if after_marker /root/.cache; then sudo rmdir /root/.cache 2&gt;/dev/null || true; fi
+for module in vhost_net tap vhost vhost_iotlb; do
+  if [ &quot;$(cat &quot;/sys/module/$module/refcnt&quot; 2&gt;/dev/null)&quot; = 0 ]; then sudo rmmod &quot;$module&quot;; fi
+done
+if [ -d &quot;$D/gnupg&quot; ]; then GNUPGHOME=$D/gnupg gpgconf --kill all; fi
+
+echo &#x27;What remains in libvirt:&#x27;
+virsh list --all
+virsh net-list --all
+virsh pool-list --all
+echo &#x27;Undo package installs&#x27;
+if [ -f &quot;$D/dnf-transactions.txt&quot; ]; then
+  for id in $(sort -rnu &quot;$D/dnf-transactions.txt&quot;); do
+    sudo dnf history undo &quot;$id&quot; -y
+    sed -i &quot;/^$id\$/d&quot; &quot;$D/dnf-transactions.txt&quot;
+  done
+fi
+sudo rm -rf &quot;$D&quot;
+echo &#x27;The course has been removed.&#x27;
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Confirm:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">if [ -e ~/kvm-course ]; then echo &#x27;Course files remain: read the error above&#x27; &gt;&amp;2; false; else echo &#x27;~/kvm-course is gone&#x27;; fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> To run every step, the validation also made the network <code>kc-isolated</code> and a UEFI guest with a TPM, profile-probe (trimmed; yours differs):</p>
+<pre class="code code-text"><code class=" language-text">Domain &#x27;linux-01&#x27; destroyed
+Domain &#x27;linux-01&#x27; has been undefined
+Domain &#x27;profile-probe&#x27; has been undefined
+Network kc-isolated has been undefined
+Pool kvm-course has been undefined
+Pool default refreshed
+Removing:
+ cloud-utils-cloud-localds noarch 0:0.33-13.fc44 fedora      52.8 KiB
+ virt-install              noarch 0:5.1.0-4.fc44 fedora      34.9 KiB
+The course has been removed.
+~/kvm-course is gone</code></pre>
+<p><strong>Check.</strong> The three lists show only pre-course objects, and <code>~/kvm-course</code> is gone.</p>
+<p><strong>If it fails.</strong> Fix the error and rerun B.2. If a package undo fails, the failing ID is the largest number left in <code>~/kvm-course/dnf-transactions.txt</code> (<code>dnf history list</code> shows the transactions), and <code>dnf history info ID</code> lists what it installed. The usual cause is a package updated or removed since then (<strong>not validated here</strong>: none changed during these runs). To remove those packages anyway, run <code>sudo dnf remove</code> with exactly their names and without <code>-y</code>, and answer <code>n</code> if dnf also lists any other package. Then, or to keep them, delete only that ID&#x27;s line and rerun B.2.</p>
+<p><strong>Clean up.</strong> A second run prints <code>Nothing to remove</code>.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="appendix-a.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>Appendix A. Preflight and checkpoint C1</span></a><a class="pager-next" href="validation.html"><span><small>Next</small>Validation status and course maintenance</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0. Linux prerequisites and a safe lab · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li class="here"><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-ch00">0. Linux prerequisites and a safe lab</h1>
+<p><strong>Goal.</strong> Check that your Fedora host can run KVM guests, install the virtualization tools, and learn where libvirt reports problems. This chapter creates no VM.</p>
+<p>The course runs on Fedora 44 (x86-64), likely your everyday machine, so it never touches what keeps it working: SELinux stays enforcing, firewalld keeps running, and your <strong>management connection</strong> (the interface carrying your default route, and any remote SSH session) is never changed. Know how to reach the host if its network fails (its own keyboard and screen), and keep a backup on another disk. Reading: the <a href="https://libvirt.org/drvqemu.html" target="_blank" rel="noopener">libvirt QEMU driver</a> and <code>virt-host-validate(1)</code>.</p>
+<h2 id="s0-1" class="msec"><span class="sec-no">0.1</span> Inspect the host <a class="hlink" href="#s0-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-ch00-1" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Know the boot disk, management route, free memory and disk space before giving any to a VM.</p>
+<p><strong>Commands.</strong> <code>LC_ALL=C</code> makes programs print untranslated messages, so your output matches the examples. <code>/var</code> holds libvirt&#x27;s disk images:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">export LC_ALL=C
+uname -r
+lscpu | grep -E &#x27;^(Architecture|CPU\(s\)|Model name|Virtualization):&#x27;
+free -h
+lsblk -f
+findmnt /
+df -h /var
+ip -brief address
+ip route</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt); kernel, CPU, sizes and interfaces differ on yours:</p>
+<pre class="code code-text"><code class=" language-text">7.2.7-200.fc44.x86_64
+Architecture:                            x86_64
+CPU(s):                                  20
+Model name:                              12th Gen Intel(R) Core(TM) i9-12900HK
+Virtualization:                          VT-x</code></pre>
+<p><strong>Check.</strong> Name your root disk (<code>findmnt /</code>) and management interface (<code>default via … dev NAME</code> in <code>ip route</code>). The first guest needs 2 GiB of RAM and up to 20 GiB of disk; <code>available</code> in <code>free -h</code> must cover that plus your own work.</p>
+<p><strong>If it fails.</strong> These commands only read; on a minimal install they come from <code>util-linux</code>, <code>util-linux-core</code>, <code>procps-ng</code>, <code>iproute</code> and <code>coreutils</code>.</p>
+<p><strong>Clean up.</strong> Nothing to undo.</p>
+<h2 id="s0-2" class="msec"><span class="sec-no">0.2</span> Check virtualization <a class="hlink" href="#s0-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-ch00-2" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Tell apart three things: CPU support, the loaded KVM driver and access to its device.</p>
+<p><strong>Commands.</strong> Intel CPUs show the flag <code>vmx</code>, AMD CPUs <code>svm</code>. <code>/dev/kvm</code> exists when the <code>kvm_intel</code> or <code>kvm_amd</code> module is loaded. Running VMs inside a VM is <strong>nested</strong> virtualization; <code>nested</code> says whether your guests may run KVM themselves (<a class="xref" href="../manual/ch06.html">chapters 6</a> and 8 need it):</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">grep -o -m1 -Ew &#x27;vmx|svm&#x27; /proc/cpuinfo
+ls -l /dev/kvm
+if [ -r /sys/module/kvm_intel/parameters/nested ]; then
+  cat /sys/module/kvm_intel/parameters/nested
+elif [ -r /sys/module/kvm_amd/parameters/nested ]; then
+  cat /sys/module/kvm_amd/parameters/nested
+fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> This Intel host printed the following (the date varies; AMD shows <code>svm</code> and <code>1</code>):</p>
+<pre class="code code-text"><code class=" language-text">vmx
+crw-rw-rw-. 1 root kvm 10, 232 Oct  1 23:18 /dev/kvm
+Y</code></pre>
+<p><strong>Check.</strong> The flag is present and <code>/dev/kvm</code> is <code>crw-rw-rw-</code>; nesting can wait until <a class="xref" href="../manual/ch06.html">chapter 6</a>. A flag does not prove that a guest runs under KVM; <a class="xref" href="../manual/ch01.html">chapter 1</a> does.</p>
+<p><strong>If it fails.</strong> No <code>vmx</code> or <code>svm</code>: virtualization is off in the firmware setup, or an outer hypervisor hides it. No <code>/dev/kvm</code>: <code>lsmod | grep kvm</code> shows whether the module is loaded, and <code>sudo journalctl -k | grep -i kvm</code> usually names the cause. Never reload a KVM module while VMs run.</p>
+<p><strong>Clean up.</strong> Nothing to undo.</p>
+<h2 id="s0-3" class="msec"><span class="sec-no">0.3</span> Install the stack <a class="hlink" href="#s0-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-ch00-3" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Install the missing packages, record what you installed, and start libvirt.</p>
+<p><strong>Commands.</strong> Everything the course writes in your home directory goes under <code>~/kvm-course</code>. Its file <code>.created-by-course</code> shows that the course created it, so <a class="xref" href="../manual/appendix-b.html">Appendix B</a> never deletes a <code>~/kvm-course</code> of yours; one without that file is refused. The course also reserves the libvirt storage pool <code>kvm-course</code> and network and pool names starting with <code>kc-</code>.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">if [ -e ~/kvm-course ] &amp;&amp; [ ! -f ~/kvm-course/.created-by-course ]; then
+  echo &#x27;STOP: ~/kvm-course was not created by this course&#x27; &gt;&amp;2; false
+else
+  mkdir -p ~/kvm-course/bin
+  touch ~/kvm-course/.created-by-course
+fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>In the list, <code>virt-install</code> creates VMs, <code>cloud-localds</code> (with <code>genisoimage</code>) builds <a class="xref" href="../manual/ch01.html">chapter 1</a>&#x27;s seed, <code>guestfs-tools</code> edits images (<a class="xref" href="../manual/ch05.html">chapter 5</a>), <code>edk2-ovmf</code> is UEFI firmware (<a class="xref" href="../manual/ch02.html">chapter 2</a>), and <code>gpgv</code> (<code>gnupg2-verify</code>) checks <a class="xref" href="../manual/ch01.html">chapter 1</a>&#x27;s signed checksums. Preview: <code>--assumeno</code> prints dnf&#x27;s plan and answers &quot;no&quot;; dnf then reports an error, so <code>||</code> prints a reminder:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">PKGS=&quot;qemu-kvm qemu-img libvirt-daemon-kvm libvirt-daemon-config-network libvirt-client virt-install
+  cloud-utils-cloud-localds genisoimage guestfs-tools edk2-ovmf gnupg2-verify&quot;
+sudo dnf install --assumeno $PKGS || echo &#x27;Preview only: nothing was installed&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Continue if dnf prints <code>Nothing to do.</code> or a plan with no <code>Upgrading:</code>, <code>Downgrading:</code>, <code>Removing:</code> or <code>Replacing:</code> section; otherwise update your system first (not exercised here).</p>
+<p>The parentheses run the commands between them in a subshell, where <code>set -euo pipefail</code> stops at the first failed command without closing your terminal; later chapters use this without comment. <code>rpm -q</code> succeeds only if every package is installed; otherwise dnf installs them and the transaction&#x27;s ID goes to <code>~/kvm-course/dnf-transactions.txt</code>, so <a class="xref" href="../manual/appendix-b.html">Appendix B</a> can undo exactly that:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+if rpm -q $PKGS &gt;/dev/null; then
+  echo &#x27;All packages are already installed&#x27;
+else
+  sudo dnf install -y $PKGS
+  dnf history list | awk &#x27;NR==2 {print $1}&#x27; &gt;&gt; ~/kvm-course/dnf-transactions.txt
+fi
+)
+rpm -q virt-install cloud-utils-cloud-localds
+virsh --version
+qemu-system-x86_64 --version
+sudo virt-host-validate qemu</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>In <code>virt-host-validate</code> the KVM checks must pass; IOMMU matters only for device assignment, and a secure-guest WARN (no SEV or TDX memory encryption) is fine for ordinary VMs.</p>
+<p>Fedora runs libvirt as separate daemons: <code>virtqemud</code> for VMs, <code>virtnetworkd</code> for networks, <code>virtstoraged</code> for storage. A systemd <strong>socket</strong> starts each daemon when a client connects. <code>qemu:///system</code> is the address (URI) of the host-wide instance run by root, used throughout the course; <code>qemu:///session</code> is a separate per-user instance (<a class="xref" href="../manual/ch02.html">chapter 2</a>). Start the sockets and list the system instance&#x27;s VMs:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo systemctl start virtqemud.socket virtnetworkd.socket virtstoraged.socket
+systemctl is-active virtqemud.socket
+systemctl is-active virtnetworkd.socket
+systemctl is-active virtstoraged.socket
+sudo virsh -c qemu:///system list --all</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; package releases may differ):</p>
+<pre class="code code-text"><code class=" language-text">virt-install-5.1.0-4.fc44.noarch
+cloud-utils-cloud-localds-0.33-13.fc44.noarch
+12.0.0
+QEMU emulator version 10.2.2 (qemu-10.2.2-1.fc44)
+  QEMU: Checking for hardware virtualization                                 : PASS
+  QEMU: Checking for secure guest support                                    : WARN (None of SEV, SEV-ES, SEV-SNP, TDX available)
+active</code></pre>
+<p><strong>Check.</strong> The packages are installed (with the transaction ID recorded if dnf installed any), the three sockets are <code>active</code>, and <code>virsh list</code> answers (it may list VMs you already had).</p>
+<p><strong>If it fails.</strong> A socket that is not active: <code>systemctl status virtqemud.socket</code> and <code>sudo journalctl -u virtqemud</code> (0.5). Do not add yourself to the <code>libvirt</code> group to avoid <code>sudo</code>: controlling system VMs is as powerful as root.</p>
+<p><strong>Clean up.</strong> Keep everything for <a class="xref" href="../manual/ch01.html">chapter 1</a>. <a class="xref" href="../manual/appendix-b.html">Appendix B</a> undoes the recorded installation.</p>
+<p><strong>Not validated here:</strong> a first installation on a fresh host. This workstation already had libvirt, its sockets and the default network.</p>
+<h2 id="s0-4" class="msec"><span class="sec-no">0.4</span> Look at the default network <a class="hlink" href="#s0-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-ch00-4" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Read the existing NAT network that guests will join, without changing it.</p>
+<p><strong>Commands.</strong> libvirt&#x27;s <code>default</code> network is a private virtual switch: a Linux <strong>bridge</strong>, <code>virbr0</code>, where dnsmasq hands out addresses (DHCP) and answers DNS. <strong>NAT</strong> (network address translation) lets guests reach out through your uplink while your LAN cannot reach them:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system net-list --all
+sudo virsh -c qemu:///system net-info default
+sudo virsh -c qemu:///system net-dumpxml default
+ip -brief address show virbr0</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; addresses may differ). Here <code>virbr0</code> was <code>DOWN</code> because no running guest was attached:</p>
+<pre class="code code-text"><code class=" language-text">Active:         yes
+  &lt;forward mode=&#x27;nat&#x27;&gt;
+  &lt;bridge name=&#x27;virbr0&#x27; stp=&#x27;on&#x27; delay=&#x27;0&#x27;/&gt;
+  &lt;ip address=&#x27;192.168.122.1&#x27; netmask=&#x27;255.255.255.0&#x27;&gt;
+      &lt;range start=&#x27;192.168.122.2&#x27; end=&#x27;192.168.122.254&#x27;/&gt;
+virbr0           DOWN           192.168.122.1/24</code></pre>
+<p><strong>Check.</strong> <code>default</code> is active, uses <code>nat</code> and has a DHCP range.</p>
+<p><strong>If it fails.</strong> No <code>default</code> network: install <code>libvirt-daemon-config-network</code> (0.3). An inactive one can be started with <code>sudo virsh -c qemu:///system net-start default</code> (not validated here: this host&#x27;s network was already active). Never move your management interface onto a bridge to fix a guest.</p>
+<p><strong>Clean up.</strong> Leave the network as it is.</p>
+<h2 id="s0-5" class="msec"><span class="sec-no">0.5</span> Find the logs <a class="hlink" href="#s0-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-ch00-5" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Know where to look when a VM fails.</p>
+<p><strong>Commands.</strong> <code>systemctl status</code> shows a unit&#x27;s state, <code>journalctl -u</code> its journal; libvirt writes each VM&#x27;s QEMU messages to <code>/var/log/libvirt/qemu/NAME.log</code> (root only):</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">systemctl status virtqemud.socket --no-pager
+sudo journalctl -u virtqemud --no-pager -n 5
+sudo ls -l /var/log/libvirt/qemu/</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; times differ). The socket shows <code>active (listening)</code> while the daemon is idle, <code>active (running)</code> while it runs:</p>
+<pre class="code code-text"><code class=" language-text">* virtqemud.socket - libvirt QEMU daemon socket
+     Active: active (running) since Wed 2026-09-30 09:37:10 PDT; 1 day 13h ago
+   Triggers: * virtqemud.service</code></pre>
+<p><strong>Check.</strong> You can read the socket&#x27;s state, the daemon&#x27;s journal and the VM log directory.</p>
+<p><strong>If it fails.</strong> An empty log directory is normal before your first VM.</p>
+<p><strong>Clean up.</strong> Nothing to undo.</p>
+<h2 id="s0-cleanup" class="msec">Clean up <a class="hlink" href="#s0-cleanup" aria-label="Link to this section">#</a></h2>
+<p>Keep the packages and <code>~/kvm-course</code>; next run <a class="xref" href="../manual/appendix-a.html#sA-1">Appendix A.1</a>, then <a class="xref" href="../manual/ch01.html">chapter 1</a>. This chapter changed nothing else on the host except starting libvirt&#x27;s sockets. To remove the whole course, run <a class="xref" href="../manual/appendix-b.html#sB-2">Appendix B.2</a>.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="front.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>/dev/kvm: from your first VM to virtualization engineering</span></a><a class="pager-next" href="ch01.html"><span><small>Next</small>1. The mental model and the first Linux VM</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

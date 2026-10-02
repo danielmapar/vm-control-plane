@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2. VM lifecycle, XML and libvirt daemons · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li class="here"><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-ch02">2. VM lifecycle, XML and libvirt daemons</h1>
+<p><strong>Goal.</strong> Tell a VM&#x27;s saved definition apart from its running QEMU process: predict what survives a shutdown, what waits for the next boot, and which libvirt connection owns a VM. Reading: <a href="https://libvirt.org/formatdomain.html" target="_blank" rel="noopener">domain XML</a>, <a href="https://libvirt.org/daemons.html" target="_blank" rel="noopener">libvirt daemons</a> and <code>virsh(1)</code>.</p>
+<h2 id="s2-0" class="msec"><span class="sec-no">2.0</span> Starting point <a class="hlink" href="#s2-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-0" style="--hue:205">Day 2 lab</a></h2>
+<p><strong>Goal.</strong> Make sure <code>linux-01</code> is running and reachable.</p>
+<p><strong>Commands.</strong> <code>new-guest.sh</code> (<a class="xref" href="../manual/ch01.html#s1-7">chapter 1.7</a>) finds <code>linux-01</code>, starts it if needed and checks its SSH key again. If you removed the course, save the 1.7 scripts first; <code>new-guest.sh</code> then rebuilds <code>linux-01</code>:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">export LC_ALL=C
+bash ~/kvm-course/bin/new-guest.sh linux-01
+sudo virsh -c qemu:///system dominfo linux-01</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt):</p>
+<pre class="code code-text"><code class=" language-text">State:          running
+Persistent:     yes
+Autostart:      disable
+Security model: selinux</code></pre>
+<p><strong>Check.</strong> <code>State: running</code>.</p>
+<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>not a course guest</code>: a VM of yours is called <code>linux-01</code>; leave it alone and do not run the course on this host (<a class="xref" href="../manual/ch01.html#s1-4">chapter 1.4</a>).</p>
+<p><strong>Clean up.</strong> Keep linux-01.</p>
+<h2 id="s2-1" class="msec"><span class="sec-no">2.1</span> Inspect the definition <a class="hlink" href="#s2-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-1" style="--hue:205">Day 2 lab</a></h2>
+<p><strong>Goal.</strong> Find each part of the VM in its XML, and see how the running VM differs from the saved one.</p>
+<p><strong>Commands.</strong> libvirt keeps two descriptions of a running VM. The <strong>inactive</strong> XML is the saved, persistent definition that the next start uses. The <strong>active</strong> XML describes the running VM and adds runtime details, such as the <strong>TAP</strong> device (the host end of the virtual network cable), the SELinux label and the disk&#x27;s backing chain:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">mkdir ~/kvm-course/ch02
+cd ~/kvm-course/ch02
+sudo virsh -c qemu:///system dumpxml linux-01 --inactive &gt; inactive.xml
+sudo virsh -c qemu:///system dumpxml linux-01 &gt; active.xml
+grep -E &#x27;&lt;uuid&gt;|&lt;type |&lt;boot |&lt;source |&lt;model &#x27; inactive.xml
+diff -u inactive.xml active.xml &gt; live-vs-saved.diff || head -30 live-vs-saved.diff</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>diff</code> exits with status 1 when the files differ, so <code>||</code> shows the start of the difference.</p>
+<p><strong>Domain capabilities</strong> list what this host&#x27;s QEMU and libvirt can offer one machine type: firmware, CPU models and devices. <code>domxml-to-native</code> shows the QEMU command line libvirt would build from the XML (libvirt also prepares devices, labels and cgroups around it); <code>tr</code> puts each word on its own line, and <code>grep -A1</code> prints five options with the value after each:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cd ~/kvm-course/ch02
+sudo virsh -c qemu:///system domcapabilities --machine pc-q35-10.2 --arch x86_64 --virttype kvm &gt; domcaps.xml
+grep -A2 &quot;&lt;enum name=&#x27;firmware&#x27;&gt;&quot; domcaps.xml
+sudo virsh -c qemu:///system domxml-to-native qemu-argv --xml inactive.xml | tr &#x27; &#x27; &#x27;\n&#x27; | grep -A1 -xE -- &#x27;-(machine|accel|cpu|m|smp)&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host this printed (excerpt; the UUID differs). The 14 <code>pcie-root-port</code> lines are PCIe slots: the disk, the network card and the other PCIe devices each use one, and the rest stay free for hotplug (2.4):</p>
+<pre class="code code-text"><code class=" language-text">  &lt;uuid&gt;758ace24-7ca0-471c-a669-d32e6d74e56e&lt;/uuid&gt;
+    &lt;type arch=&#x27;x86_64&#x27; machine=&#x27;pc-q35-10.2&#x27;&gt;hvm&lt;/type&gt;
+    &lt;boot dev=&#x27;hd&#x27;/&gt;
+      &lt;source file=&#x27;/var/lib/libvirt/images/kvm-course/linux-01.qcow2&#x27;/&gt;
+      &lt;source file=&#x27;/var/lib/libvirt/images/kvm-course/linux-01-seed.iso&#x27;/&gt;
+      &lt;model name=&#x27;pcie-root-port&#x27;/&gt;
+      &lt;source network=&#x27;default&#x27;/&gt;
+      &lt;model type=&#x27;virtio&#x27;/&gt;
+      &lt;value&gt;efi&lt;/value&gt;
+-accel
+kvm
+-cpu
+host,migratable=on</code></pre>
+<p><strong>Check.</strong> Find the UUID, disk, seed, virtio network card, Q35 machine and BIOS boot (<code>&lt;boot dev=&#x27;hd&#x27;/&gt;</code>, no <code>firmware=&#x27;efi&#x27;</code>). In the diff, find a line only the active XML has, such as <code>&lt;backingStore&gt;</code>. In the QEMU arguments, find <code>-accel kvm</code> and <code>-cpu host</code>.</p>
+<p><strong>If it fails.</strong> <code>failed to get domain</code>: you asked another connection; pass <code>-c qemu:///system</code> (2.5).</p>
+<p><strong>Clean up.</strong> Keep <code>~/kvm-course/ch02</code> for this chapter.</p>
+<h2 id="s2-2" class="msec"><span class="sec-no">2.2</span> Boot with UEFI <a class="hlink" href="#s2-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-2" style="--hue:205">Day 2 lab</a></h2>
+<p><strong>Goal.</strong> Boot a second, disposable guest with UEFI firmware and see where its firmware settings live.</p>
+<p><strong>Commands.</strong> <strong>UEFI</strong> is the modern replacement for BIOS firmware; QEMU&#x27;s UEFI firmware is <strong>OVMF</strong> from <code>edk2-ovmf</code>. UEFI keeps settings (boot order, Secure Boot keys) in a variables store, <strong>NVRAM</strong>, and each VM gets its own writable copy. Check that the machine type offers <code>efi</code>:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">grep -A2 &quot;&lt;enum name=&#x27;firmware&#x27;&gt;&quot; ~/kvm-course/ch02/domcaps.xml | grep efi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>FIRMWARE=uefi</code> makes <code>launch.sh</code> pass <code>--boot uefi</code>; libvirt then picks the OVMF files from Fedora&#x27;s firmware descriptions, so you never type their paths. The guest booted with UEFI if <code>/sys/firmware/efi</code> exists:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">FIRMWARE=uefi bash ~/kvm-course/bin/new-guest.sh profile-probe
+ssh -F ~/kvm-course/ssh/config profile-probe &#x27;test -d /sys/firmware/efi &amp;&amp; echo &quot;Guest booted with UEFI&quot;&#x27;
+sudo virsh -c qemu:///system dumpxml profile-probe --inactive &gt; ~/kvm-course/ch02/probe.xml
+sed -n &#x27;/&lt;os/,/&lt;\/os&gt;/p&#x27; ~/kvm-course/ch02/probe.xml
+grep -A2 &#x27;&lt;tpm&#x27; ~/kvm-course/ch02/probe.xml</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>&lt;nvram&gt;</code> is this VM&#x27;s own variables file; back it up with the disk. <code>secure-boot</code> selects firmware able to check boot-loader signatures, <code>enrolled-keys</code> a template holding the keys. virt-install also added an emulated <strong>TPM</strong> security chip (<code>swtpm</code>) with its own state.</p>
+<p><strong>Expected output.</strong> On the validation host this printed (excerpt):</p>
+<pre class="code code-text"><code class=" language-text">Guest booted with UEFI
+  &lt;os firmware=&#x27;efi&#x27;&gt;
+    &lt;firmware&gt;
+      &lt;feature enabled=&#x27;yes&#x27; name=&#x27;enrolled-keys&#x27;/&gt;
+      &lt;feature enabled=&#x27;yes&#x27; name=&#x27;secure-boot&#x27;/&gt;
+    &lt;/firmware&gt;
+    &lt;nvram template=&#x27;/usr/share/edk2/ovmf/OVMF_VARS_4M.secboot.qcow2&#x27; templateFormat=&#x27;qcow2&#x27; format=&#x27;qcow2&#x27;&gt;/var/lib/libvirt/qemu/nvram/profile-probe_VARS.qcow2&lt;/nvram&gt;
+    &lt;tpm model=&#x27;tpm-crb&#x27;&gt;
+      &lt;backend type=&#x27;emulator&#x27; version=&#x27;2.0&#x27;&gt;</code></pre>
+<p><strong>Check.</strong> The guest printed <code>Guest booted with UEFI</code>, and the definition has its own <code>&lt;nvram&gt;</code> file.</p>
+<p><strong>If it fails.</strong> No <code>efi</code> in the capabilities: install <code>edk2-ovmf</code>. The VM does not start: read <code>/var/log/libvirt/qemu/profile-probe.log</code> for loader or NVRAM errors.</p>
+<p><strong>Clean up.</strong> Keep profile-probe for 2.3 and 2.4.</p>
+<h2 id="s2-3" class="msec"><span class="sec-no">2.3</span> Predict the lifecycle <a class="hlink" href="#s2-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-3" style="--hue:205">Day 2 lab</a></h2>
+<p><strong>Goal.</strong> See that the saved definition and the running process have separate lifetimes.</p>
+<p><strong>Commands.</strong> Predict each result with this table first:</p>
+<div class="table-wrap"><table><thead><tr><th>Operation</th><th>Running process</th><th>Saved definition</th><th>Disk data</th></tr></thead><tbody><tr><td>define</td><td>unchanged</td><td>created or updated</td><td>unchanged</td></tr><tr><td>start</td><td>starts</td><td>kept</td><td>guest may write</td></tr><tr><td>shutdown</td><td>asks the guest to stop</td><td>kept</td><td>guest flushes its writes</td></tr><tr><td>destroy</td><td>killed at once, like pulling the plug</td><td>kept</td><td>unflushed writes can be lost</td></tr><tr><td>undefine while running</td><td>keeps running, now <strong>transient</strong></td><td>removed</td><td>kept</td></tr><tr><td>autostart</td><td>unchanged now</td><td>kept; autostart enabled</td><td>unchanged</td></tr></tbody></table></div>
+<p>Use only the disposable profile-probe. <strong>Autostart</strong> starts a VM when the host boots; turn it on, look, and turn it off:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system autostart profile-probe
+sudo virsh -c qemu:///system dominfo profile-probe | grep -E &#x27;^(State|Autostart):&#x27;
+sudo virsh -c qemu:///system autostart profile-probe --disable</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>stop-guest.sh</code> sends <code>shutdown</code> and waits; <code>destroy</code> stops QEMU at once:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">bash ~/kvm-course/bin/stop-guest.sh profile-probe
+sudo virsh -c qemu:///system domstate profile-probe
+sudo virsh -c qemu:///system start profile-probe
+sudo virsh -c qemu:///system destroy profile-probe
+sudo virsh -c qemu:///system domstate profile-probe</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Now remove the definition while the VM runs. <code>undefine</code> refuses to drop a VM with NVRAM unless you choose <code>--nvram</code> (delete it) or <code>--keep-nvram</code>. The TPM state has no such guard: a transient VM&#x27;s TPM state is discarded when it stops.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system start profile-probe
+sudo virsh -c qemu:///system undefine profile-probe --keep-nvram
+sudo virsh -c qemu:///system dominfo profile-probe | grep -E &#x27;^(State|Persistent):&#x27;
+sudo virsh -c qemu:///system destroy profile-probe
+sudo virsh -c qemu:///system list --all --name &gt; ~/kvm-course/ch02/after-destroy.txt
+if grep -Fx profile-probe ~/kvm-course/ch02/after-destroy.txt; then
+  echo &#x27;UNEXPECTED: the stopped transient VM still exists&#x27; &gt;&amp;2; false
+else
+  echo &#x27;expected: the transient VM disappeared when it stopped&#x27;
+fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Bring it back from the XML saved in 2.2: same UUID, disks and NVRAM file, fresh TPM state:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system define ~/kvm-course/ch02/probe.xml
+sudo virsh -c qemu:///system start profile-probe</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host this printed (excerpt):</p>
+<pre class="code code-text"><code class=" language-text">Autostart:      enable
+Domain &#x27;profile-probe&#x27; unmarked as autostarted
+shut off
+Domain &#x27;profile-probe&#x27; destroyed
+shut off
+Domain &#x27;profile-probe&#x27; has been undefined
+State:          running
+Persistent:     no
+expected: the transient VM disappeared when it stopped
+Domain &#x27;profile-probe&#x27; defined from /home/daniel/kvm-course/ch02/probe.xml</code></pre>
+<p><strong>Check.</strong> The transient VM kept running after <code>undefine</code>, vanished after <code>destroy</code> and came back from the saved XML.</p>
+<p><strong>If it fails.</strong> <code>stop-guest.sh</code> timed out: a booting guest can ignore the shutdown request; run it again. If a step failed after <code>undefine</code>, run the last block to get the persistent VM back.</p>
+<p><strong>Clean up.</strong> profile-probe is persistent and running again.</p>
+<h2 id="s2-4" class="msec"><span class="sec-no">2.4</span> Hotplug a disk <a class="hlink" href="#s2-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-4" style="--hue:205">Day 2 lab</a></h2>
+<p><strong>Goal.</strong> See what <code>--live</code> and <code>--config</code> do when you add a disk to a running VM.</p>
+<p><strong>Commands.</strong> <strong>Hotplug</strong> means adding a device to a running VM. <code>--live</code> changes only the running VM, <code>--config</code> only the saved definition; both together change both. Make an empty 1-GiB disk; <code>vdb</code> is its target name (a hint: the guest may name it differently) and <code>--subdriver qcow2</code> its format. <code>--print-xml</code> shows the device XML virsh would send, without attaching it:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">P=/var/lib/libvirt/images/kvm-course
+sudo qemu-img create -f qcow2 $P/hotplug.qcow2 1G
+sudo virsh -c qemu:///system attach-disk profile-probe $P/hotplug.qcow2 vdb --targetbus virtio --subdriver qcow2 --live --print-xml</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>libvirt reports state changes as <strong>events</strong>. Record them in the background (<code>&amp;</code>). <code>sudo true</code> asks for your password now, because the background <code>sudo -n</code> never asks; <code>$!</code> is the listener&#x27;s process ID; <code>timeout 600</code> ends it if you forget:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo true
+timeout 600 sudo -n virsh -c qemu:///system event profile-probe --event lifecycle --loop &gt; ~/kvm-course/ch02/events.txt &amp;
+EVENTS=$!</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Attach with <code>--live</code> only: the disk is in the running VM but not in the saved definition (<code>--inactive</code>). Then restart the VM. A booting guest may ignore a shutdown request, so <code>trust.sh</code> first waits until it answers. Each block stops at its first failure:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+sudo virsh -c qemu:///system attach-disk profile-probe $P/hotplug.qcow2 vdb --targetbus virtio --subdriver qcow2 --live
+sudo virsh -c qemu:///system domblklist profile-probe
+sudo virsh -c qemu:///system domblklist profile-probe --inactive
+bash ~/kvm-course/bin/trust.sh profile-probe
+bash ~/kvm-course/bin/stop-guest.sh profile-probe
+sudo virsh -c qemu:///system start profile-probe
+sudo virsh -c qemu:///system domblklist profile-probe &gt; ~/kvm-course/ch02/after-restart.txt
+if grep -w vdb ~/kvm-course/ch02/after-restart.txt; then
+  echo &#x27;UNEXPECTED: the live-only disk survived a restart&#x27; &gt;&amp;2; false
+else
+  echo &#x27;expected: the live-only disk is gone after the restart&#x27;
+fi
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Attach with <code>--live --config</code>, restart, and see that the disk stays. Then detach it from both:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+sudo virsh -c qemu:///system attach-disk profile-probe $P/hotplug.qcow2 vdb --targetbus virtio --subdriver qcow2 --live --config
+bash ~/kvm-course/bin/trust.sh profile-probe
+bash ~/kvm-course/bin/stop-guest.sh profile-probe
+sudo virsh -c qemu:///system start profile-probe
+sudo virsh -c qemu:///system domblklist profile-probe | grep -w vdb
+sudo virsh -c qemu:///system detach-disk profile-probe vdb --live --config
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Stop the listener and read what it saw:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">kill $EVENTS; wait $EVENTS || true
+cat ~/kvm-course/ch02/events.txt
+if ! grep -F &#x27;Started Booted&#x27; ~/kvm-course/ch02/events.txt &gt;/dev/null; then echo &#x27;UNEXPECTED: no events recorded&#x27; &gt;&amp;2; false; fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host this printed (excerpt):</p>
+<pre class="code code-text"><code class=" language-text">expected: the live-only disk is gone after the restart
+ vdb      /var/lib/libvirt/images/kvm-course/hotplug.qcow2
+event &#x27;lifecycle&#x27; for domain &#x27;profile-probe&#x27;: Shutdown Finished after guest request
+event &#x27;lifecycle&#x27; for domain &#x27;profile-probe&#x27;: Stopped Shutdown
+event &#x27;lifecycle&#x27; for domain &#x27;profile-probe&#x27;: Resumed Unpaused
+event &#x27;lifecycle&#x27; for domain &#x27;profile-probe&#x27;: Started Booted
+event &#x27;lifecycle&#x27; for domain &#x27;profile-probe&#x27;: Defined Updated</code></pre>
+<p><strong>Check.</strong> The <code>--live</code> disk vanished at the restart and the <code>--live --config</code> disk survived it. Each restart shows up as events: libvirt starts QEMU with its vCPUs paused and lets them run (<code>Resumed Unpaused</code>) before <code>Started Booted</code>. <code>Defined Updated</code> is a <code>--config</code> change.</p>
+<p><strong>If it fails.</strong> <code>No more available PCI slots</code>: Q35 needs a free PCIe root port per hotplugged device. No events: the listener could not use <code>sudo -n</code>; run <code>sudo true</code> and restart it.</p>
+<p><strong>Clean up.</strong> The disk is detached; the chapter Clean up deletes its file.</p>
+<h2 id="s2-5" class="msec"><span class="sec-no">2.5</span> Compare connections <a class="hlink" href="#s2-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-5" style="--hue:205">Day 2 lab</a></h2>
+<p><strong>Goal.</strong> See that libvirt&#x27;s system and session connections are separate managers with separate VM lists.</p>
+<p><strong>Commands.</strong> A connection <strong>URI</strong> names the libvirt instance virsh talks to. <code>qemu:///system</code> is the host-wide instance: root&#x27;s <code>virtqemud</code>, started by its systemd socket (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>). <code>qemu:///session</code> is your user&#x27;s own instance: libvirt starts a second <code>virtqemud</code> running as you, which keeps its own VM definitions under <code>~/.config/libvirt</code>. Compare their lists and processes:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system list --all
+virsh -c qemu:///session list --all
+ps -o user=,args= -C virtqemud</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Each running VM is its own QEMU process, so restarting <code>virtqemud</code> does not stop running VMs. A URI can also name another host. <code>qemu+ssh://USER@HOST/system</code> makes virsh log in to HOST over SSH as USER and talk to that host&#x27;s system instance; the VMs, their QEMU processes and their disks stay on HOST. <a class="xref" href="../manual/ch08.html">Chapter 8</a> uses this form to migrate guests between hosts.</p>
+<p><strong>Expected output.</strong> On the validation host this printed (excerpt; VM lists, IDs and user names differ):</p>
+<pre class="code code-text"><code class=" language-text"> 108   linux-01            running
+ 114   profile-probe       running
+ Id   Name   State
+--------------------
+root     /usr/bin/virtqemud --timeout 120
+daniel   /usr/bin/virtqemud --timeout=120</code></pre>
+<p><strong>Check.</strong> The system list shows linux-01 and profile-probe. The session list does not (it is empty unless you made per-user VMs; a session VM with the same name would be a different VM). One <code>virtqemud</code> runs as root and one as you.</p>
+<p><strong>If it fails.</strong> A session error such as <code>Failed to connect socket</code>: run it again and read the message. Never add yourself to the <code>libvirt</code> group to make the system connection work without <code>sudo</code> (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>).</p>
+<p><strong>Clean up.</strong> No VM was created; with <code>--timeout=120</code>, the session daemon exits after two minutes without clients or running VMs. Your first session connection creates two small directories, <code>~/.config/libvirt</code> and <code>~/.cache/libvirt</code>. <a class="xref" href="../manual/appendix-b.html">Appendix B</a> leaves them, because they may predate the course; if you had neither before and keep no session VMs, you may delete them.</p>
+<p><strong>Chapter pass.</strong> From your own output, explain which XML the next start uses, why the transient VM vanished, why the <code>--live</code> disk was lost, and which daemon owns linux-01. Section 10.3 makes lifecycle calls through libvirt&#x27;s Python API.</p>
+<h2 id="s2-cleanup" class="msec">Clean up <a class="hlink" href="#s2-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-cleanup" style="--hue:205">Day 2 lab</a></h2>
+<p>Keep linux-01 for <a class="xref" href="../manual/ch03.html">chapter 3</a>. Remove profile-probe, the hotplug disk and this chapter&#x27;s files:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">if [ -n &quot;${EVENTS:-}&quot; ]; then kill $EVENTS 2&gt;/dev/null || true; fi
+(
+set -euo pipefail
+bash ~/kvm-course/bin/remove-guest.sh profile-probe
+sudo rm -f /var/lib/libvirt/images/kvm-course/hotplug.qcow2
+rm -rf ~/kvm-course/ch02
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>To remove the whole course instead, run <a class="xref" href="../manual/appendix-b.html#sB-2">Appendix B.2</a>.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch01.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>1. The mental model and the first Linux VM</span></a><a class="pager-next" href="ch03.html"><span><small>Next</small>3. Networking</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

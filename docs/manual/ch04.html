@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4. Storage and backing chains · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li class="here"><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-ch04">4. Storage and backing chains</h1>
+<p><strong>Goal.</strong> Know which file stores each write, which files a guest disk needs, and how to change a chain safely. Read <a href="https://www.qemu.org/docs/master/tools/qemu-img.html" target="_blank" rel="noopener">qemu-img</a>, <a href="https://libvirt.org/kbase/backing_chains.html" target="_blank" rel="noopener">libvirt backing chains</a> and the <a href="https://www.libvirt.org/manpages/virsh.html" target="_blank" rel="noopener">virsh manual</a>.</p>
+<figure class="manual-fig"><img src="../assets/figures/fig3.png" alt="Figure 3. Separate the active disk chain from an independent backup you can restore." loading="lazy"></figure>
+<p class="figcap"><em>Figure 3. Separate the active disk chain from an independent backup you can restore.</em></p>
+<p><a class="xref" href="../manual/ch01.html#s1-3">Chapter 1.3</a> made linux-01&#x27;s disk an overlay on base.qcow2. A <strong>backing chain</strong> is that list of files: the top file takes the writes and reads everything else from the files below it. Two rules follow. Never change an image with <code>qemu-img</code> while a guest uses it. And a snapshot that depends on the original files is not a backup. Blocks in parentheses stop at their first failing command (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>).</p>
+<h2 id="s4-0" class="msec"><span class="sec-no">4.0</span> Starting point <a class="hlink" href="#s4-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-0" style="--hue:28">Day 4 lab</a></h2>
+<p><strong>Goal.</strong> Reuse linux-01, or rebuild it with the <a class="xref" href="../manual/ch01.html#s1-7">chapter 1.7</a> scripts.</p>
+<p><strong>Commands.</strong> If you removed the course, save the 1.7 scripts again first. <code>new-guest.sh</code> starts linux-01 if it is off, or builds it if it is missing:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">export LC_ALL=C
+bash ~/kvm-course/bin/new-guest.sh linux-01</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> The last two lines; the lines before them vary:</p>
+<pre class="code code-text"><code class=" language-text">status: done
+linux-01</code></pre>
+<p><strong>Check.</strong> The last lines are <code>status: done</code> and <code>linux-01</code>.</p>
+<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; rename it. Otherwise read the <code>STOP:</code> line or the cloud-init or SSH message it printed.</p>
+<p><strong>Clean up.</strong> Keep linux-01.</p>
+<h2 id="s4-1" class="msec"><span class="sec-no">4.1</span> Map the chain <a class="hlink" href="#s4-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-1" style="--hue:28">Day 4 lab</a></h2>
+<p><strong>Goal.</strong> Read a disk&#x27;s chain and tell its three sizes apart.</p>
+<p><strong>Commands.</strong> <code>qemu-img</code> must not open a disk that a running guest writes, and QEMU locks the disk to enforce this: the first <code>qemu-img</code> below fails while linux-01 runs. Stop linux-01, then print the chain and the space each file takes on the host:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">mkdir -p ~/kvm-course/ch04
+P=/var/lib/libvirt/images/kvm-course
+if sudo qemu-img info &quot;$P/linux-01.qcow2&quot;; then echo &#x27;UNEXPECTED: qemu-img opened a disk in use&#x27;; false; fi
+bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo qemu-img info --backing-chain &quot;$P/linux-01.qcow2&quot;
+sudo du -h &quot;$P/base.qcow2&quot; &quot;$P/linux-01.qcow2&quot;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>A disk has three sizes. The <strong>virtual size</strong> is what the guest sees. The <strong>disk size</strong> is the space the file really takes on the host (<code>du</code>). The <strong>file length</strong> (<code>ls -l</code>, or <code>du --apparent-size</code>) can differ from both. A <strong>raw</strong> image has no qcow2 layer: byte N of the file is byte N of the disk. A new raw image is <strong>sparse</strong>: the host stores only the blocks that were written, so a 1-GiB file can take almost no space:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">qemu-img create -f raw ~/kvm-course/ch04/raw-demo.img 1G
+du -h ~/kvm-course/ch04/raw-demo.img
+du -h --apparent-size ~/kvm-course/ch04/raw-demo.img</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Excerpt; sizes and your home directory differ:</p>
+<pre class="code code-text"><code class=" language-text">qemu-img: Could not open &#x27;/var/lib/libvirt/images/kvm-course/linux-01.qcow2&#x27;: Failed to get shared &quot;write&quot; lock
+image: /var/lib/libvirt/images/kvm-course/linux-01.qcow2
+virtual size: 20 GiB (21474836480 bytes)
+disk size: 49.6 MiB
+backing file: /var/lib/libvirt/images/kvm-course/base.qcow2
+image: /var/lib/libvirt/images/kvm-course/base.qcow2
+virtual size: 5 GiB (5368709120 bytes)
+557M	/var/lib/libvirt/images/kvm-course/base.qcow2
+50M	/var/lib/libvirt/images/kvm-course/linux-01.qcow2
+4.0K	/home/daniel/kvm-course/ch04/raw-demo.img
+1.0G	/home/daniel/kvm-course/ch04/raw-demo.img</code></pre>
+<p><strong>Check.</strong> Draw linux-01.qcow2 → base.qcow2 (the arrow points from an overlay to its backing file, as in 1.3), and explain why linux-01.qcow2 is 20 GiB to the guest but takes only the space <code>du</code> shows on the host: it grows as the guest writes.</p>
+<p><strong>If it fails.</strong> The second <code>qemu-img</code> also reports the <code>write</code> lock: the guest still runs; stop it. An error about the backing file means the chain is broken; 4.3 shows how libvirt reports that (<code>Cannot access backing file</code>).</p>
+<p><strong>Clean up.</strong> linux-01 stays off; <a class="xref" href="../manual/ch05.html">chapter 5</a> starts it again. The chapter Clean up deletes raw-demo.img with <code>~/kvm-course/ch04</code>.</p>
+<h2 id="s4-2" class="msec"><span class="sec-no">4.2</span> Add an overlay <a class="hlink" href="#s4-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-2" style="--hue:28">Day 4 lab</a></h2>
+<p><strong>Goal.</strong> Show that a guest&#x27;s writes land in its overlay and never in the base below it.</p>
+<p><strong>Commands.</strong> Later sections hide and delete this guest&#x27;s base, so give it a private, read-only copy of base.qcow2 and record the copy&#x27;s checksum:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+for f in private-base.qcow2 clone-01.qcow2; do
+  if sudo test -e &quot;$P/$f&quot;; then echo &quot;STOP: $f already exists; run this chapter&#x27;s Clean up first&quot;; false; fi
+done
+sudo install -m 0444 &quot;$P/base.qcow2&quot; &quot;$P/private-base.qcow2&quot;
+sudo sha256sum &quot;$P/private-base.qcow2&quot; &gt; ~/kvm-course/ch04/private-base.sha256
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Build clone-01 as in <a class="xref" href="../manual/ch01.html">chapter 1</a>, but with <code>-b</code> naming the private copy:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+bash ~/kvm-course/bin/seed.sh clone-01
+sudo install -m 0644 ~/kvm-course/clone-01/seed.iso &quot;$P/clone-01-seed.iso&quot;
+sudo qemu-img create -f qcow2 -F qcow2 -b &quot;$P/private-base.qcow2&quot; &quot;$P/clone-01.qcow2&quot; 20G
+bash ~/kvm-course/bin/launch.sh clone-01
+bash ~/kvm-course/bin/trust.sh clone-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Write a file in the guest, then check that the base is unchanged:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config clone-01 &#x27;echo written-in-4.2 &gt; marker.txt; cat marker.txt&#x27;
+sudo sha256sum -c ~/kvm-course/ch04/private-base.sha256</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong></p>
+<pre class="code code-text"><code class=" language-text">written-in-4.2
+/var/lib/libvirt/images/kvm-course/private-base.qcow2: OK</code></pre>
+<p><strong>Check.</strong> The base is still <code>OK</code> after a whole boot and a write: every change went to clone-01.qcow2.</p>
+<p><strong>If it fails.</strong> <code>FAILED</code>: something wrote to the base; find out what before you build more overlays on it. An SELinux denial: see <a class="xref" href="../manual/ch06.html#s6-3">chapter 6.3</a>. <code>virt_image_t</code> is the pool&#x27;s default file type, and libvirt relabels a running guest&#x27;s writable disks itself (<code>svirt_image_t</code>); never relabel a running guest&#x27;s files or disable SELinux.</p>
+<p><strong>Clean up.</strong> Keep clone-01 for 4.3–4.5.</p>
+<h2 id="s4-3" class="msec"><span class="sec-no">4.3</span> Flatten a copy <a class="hlink" href="#s4-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-3" style="--hue:28">Day 4 lab</a></h2>
+<p><strong>Goal.</strong> Show that an overlay cannot start without its base, while a flattened copy can.</p>
+<p><strong>Commands.</strong> <code>qemu-img convert</code> reads the whole chain and writes one standalone file. Stop clone-01 and flatten its disk into <code>restore-01.qcow2</code>. A qcow2 file stores only the parts of the disk that hold data, so the copy needs room for the guest&#x27;s data, not for its 20-GiB virtual size; here it took 759 MiB:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+bash ~/kvm-course/bin/stop-guest.sh clone-01
+if sudo test -e &quot;$P/restore-01.qcow2&quot;; then echo &#x27;STOP: restore-01.qcow2 already exists&#x27;; false; fi
+sudo qemu-img convert -O qcow2 &quot;$P/clone-01.qcow2&quot; &quot;$P/restore-01.qcow2&quot;
+sudo qemu-img info &quot;$P/restore-01.qcow2&quot;
+if sudo qemu-img info &quot;$P/restore-01.qcow2&quot; | grep &#x27;backing file&#x27;; then echo &#x27;UNEXPECTED: the copy has a backing file&#x27;; false; fi
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Hide the private base by renaming it. clone-01 now refuses to start, because its chain is broken:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+sudo mv &quot;$P/private-base.qcow2&quot; &quot;$P/private-base.hidden&quot;
+if sudo virsh -c qemu:///system start clone-01; then echo &#x27;UNEXPECTED: clone-01 started without its base&#x27;; false; fi
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>The flat copy boots on its own. Create and start restore-01 on it with <code>virt-install</code>, with no network card (<code>--network none</code>) and with clone-01&#x27;s seed, the one this disk already booted with, so cloud-init does not run its first-boot setup again (<a class="xref" href="../manual/ch05.html#s5-4">chapter 5.4</a>). Inside, it is still clone-01, with the same hostname, machine ID and SSH keys, and two machines with one identity must never share a network. Its serial console log shows the login prompt once it has booted. The block first refuses an existing restore-01 or an old log, which could hold an old prompt:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+LOG=/var/log/libvirt/qemu/restore-01-console.log
+if sudo virsh -c qemu:///system dominfo restore-01 &gt;/dev/null 2&gt;&amp;1 || sudo test -e &quot;$LOG&quot;; then
+  echo &#x27;STOP: restore-01 or its log already exists&#x27;; false
+fi
+sudo virt-install --connect qemu:///system --name restore-01 --memory 2048 --vcpus 2 \
+  --import --osinfo fedora43 --disk path=&quot;$P/restore-01.qcow2&quot;,bus=virtio,format=qcow2 \
+  --disk path=&quot;$P/clone-01-seed.iso&quot;,device=cdrom \
+  --network none --graphics none --serial pty,log.file=&quot;$LOG&quot; --noautoconsole
+timeout 180 bash -c &quot;until sudo grep -q &#x27;login:&#x27; $LOG; do sleep 2; done&quot;
+sudo grep &#x27;login:&#x27; &quot;$LOG&quot;
+sudo virsh -c qemu:///system destroy restore-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Put the base back; clone-01 starts again:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+sudo mv &quot;$P/private-base.hidden&quot; &quot;$P/private-base.qcow2&quot;
+sudo virsh -c qemu:///system start clone-01
+bash ~/kvm-course/bin/trust.sh clone-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Excerpt; sizes differ:</p>
+<pre class="code code-text"><code class=" language-text">disk size: 759 MiB
+error: Cannot access backing file &#x27;/var/lib/libvirt/images/kvm-course/private-base.qcow2&#x27; of storage file &#x27;/var/lib/libvirt/images/kvm-course/clone-01.qcow2&#x27; (as uid:107, gid:107): No such file or directory
+clone-01 login:
+Domain &#x27;restore-01&#x27; destroyed
+Domain &#x27;clone-01&#x27; started</code></pre>
+<p><strong>Check.</strong> <code>qemu-img info</code> shows no <code>backing file</code> line for the copy; clone-01 fails without its base; restore-01 boots to <code>clone-01 login:</code> while the base is hidden; clone-01 starts once the base is back.</p>
+<p><strong>If it fails.</strong> No login line within three minutes: read the whole log with <code>sudo cat</code> for boot errors. If a block stopped while the base was hidden, put it back with the <code>mv</code> above before anything else.</p>
+<p><strong>Clean up.</strong> restore-01 stays defined and off; the chapter Clean up removes it.</p>
+<h2 id="s4-4" class="msec"><span class="sec-no">4.4</span> Grow a disk <a class="hlink" href="#s4-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-4" style="--hue:28">Day 4 lab</a></h2>
+<p><strong>Goal.</strong> Give a running guest more space, layer by layer: virtual disk, partition, filesystem.</p>
+<p><strong>Commands.</strong> <code>virsh blockresize</code> grows the virtual disk of a running guest, and QEMU tells the guest at once. Never use it to shrink a disk: data past the new end is lost.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system blockresize clone-01 vda 24G</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>The guest now sees a 24-GiB disk, but partition 3 and its filesystem keep their old size. <code>growpart</code> extends partition 3 into the new space, then <code>btrfs filesystem resize</code> extends the filesystem (Fedora Cloud uses Btrfs, so <code>resize2fs</code> is the wrong tool):</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config clone-01 &#x27;bash -se&#x27; &lt;&lt;&#x27;GUEST&#x27;
+set -euo pipefail
+lsblk -o NAME,SIZE,FSTYPE /dev/vda
+sudo growpart /dev/vda 3
+sudo btrfs filesystem resize max /
+df -h /
+GUEST</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Excerpt:</p>
+<pre class="code code-text"><code class=" language-text">Block device &#x27;vda&#x27; is resized
+vda      24G
+└─vda3 19.9G btrfs
+CHANGED: partition=3 start=210944 old: size=41732063 end=41943006 new: size=50120671 end=50331614
+Resize device id 1 (/dev/vda3) from 19.90GiB to max
+/dev/vda3        24G  680M   23G   3% /</code></pre>
+<p><strong>Check.</strong> <code>df -h /</code> shows about 24G.</p>
+<p><strong>If it fails.</strong> <code>growpart: command not found</code>: install <code>cloud-utils-growpart</code> in the guest (not validated here: the Fedora 44 Cloud image includes it). <code>NOCHANGE</code>: the partition already fills the disk; compare with <code>lsblk</code>.</p>
+<p><strong>Clean up.</strong> The chapter Clean up deletes clone-01 and its larger disk.</p>
+<h2 id="s4-5" class="msec"><span class="sec-no">4.5</span> Change a chain while the guest runs <a class="hlink" href="#s4-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-5" style="--hue:28">Day 4 lab</a></h2>
+<p><strong>Goal.</strong> Add a temporary top file to a running guest, merge it back, then remove the guest&#x27;s last dependency on its base.</p>
+<p><strong>Commands.</strong> A <strong>block job</strong> is QEMU copying data inside a disk chain while the guest runs; libvirt starts and watches it. First make an <strong>external snapshot</strong>: a new, empty top file that takes all new writes. <code>--disk-only</code> skips guest memory, <code>--no-metadata</code> keeps no snapshot record, and <code>sda,snapshot=no</code> leaves the seed CD-ROM alone. <code>dumpxml</code> lists the chain from the top down, each backing file one indent deeper. Then write a second marker line and <code>sync</code> it, so that it is on disk, in the new top, before the commit:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+if sudo test -e &quot;$P/clone-01-top.qcow2&quot;; then echo &#x27;STOP: clone-01-top.qcow2 already exists&#x27;; false; fi
+sudo virsh -c qemu:///system snapshot-create-as clone-01 --disk-only --no-metadata \
+  --diskspec vda,snapshot=external,file=&quot;$P/clone-01-top.qcow2&quot; --diskspec sda,snapshot=no
+sudo virsh -c qemu:///system dumpxml clone-01 | grep &#x27;&lt;source file=&#x27;
+ssh -F ~/kvm-course/ssh/config clone-01 &#x27;echo written-on-top &gt;&gt; marker.txt; sync&#x27;
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Commit</strong> copies data down from an upper file into a lower one. <code>--base</code> names the lower file, clone-01.qcow2; without it, libvirt would commit into the bottom of the chain, the private base. <code>--pivot</code> commits the file the guest is writing, waits for the copy and then switches the guest to the lower file; <code>--verbose</code> prints progress. Delete the old top only after both the running and the saved definition use clone-01.qcow2:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+sudo virsh -c qemu:///system blockcommit clone-01 vda --base &quot;$P/clone-01.qcow2&quot; --pivot --verbose
+sudo virsh -c qemu:///system domblklist clone-01 | grep -w vda | grep -F &quot;$P/clone-01.qcow2&quot;
+sudo virsh -c qemu:///system domblklist clone-01 --inactive | grep -w vda | grep -F &quot;$P/clone-01.qcow2&quot;
+sudo rm &quot;$P/clone-01-top.qcow2&quot;
+sudo sha256sum -c ~/kvm-course/ch04/private-base.sha256
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>A <strong>pull</strong> copies data up: <code>blockpull</code> copies into clone-01.qcow2 everything it still reads from the base, so the guest no longer needs the base; <code>--wait</code> keeps virsh waiting until the job ends, because the next line shuts the guest down. Prove it: stop the guest, check the chain, delete the private base and start the guest again. Both marker lines are still there:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+sudo virsh -c qemu:///system blockpull clone-01 vda --wait --verbose
+bash ~/kvm-course/bin/stop-guest.sh clone-01
+sudo qemu-img info --backing-chain &quot;$P/clone-01.qcow2&quot;
+if sudo qemu-img info &quot;$P/clone-01.qcow2&quot; | grep &#x27;backing file&#x27;; then echo &#x27;UNEXPECTED: a backing file remains&#x27;; false; fi
+sudo rm &quot;$P/private-base.qcow2&quot;
+sudo virsh -c qemu:///system start clone-01
+bash ~/kvm-course/bin/trust.sh clone-01
+ssh -F ~/kvm-course/ssh/config clone-01 &#x27;cat marker.txt&#x27;
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Excerpt; sizes differ:</p>
+<pre class="code code-text"><code class=" language-text">      &lt;source file=&#x27;/var/lib/libvirt/images/kvm-course/clone-01-top.qcow2&#x27; index=&#x27;4&#x27;/&gt;
+        &lt;source file=&#x27;/var/lib/libvirt/images/kvm-course/clone-01.qcow2&#x27;/&gt;
+          &lt;source file=&#x27;/var/lib/libvirt/images/kvm-course/private-base.qcow2&#x27;/&gt;
+Successfully pivoted
+/var/lib/libvirt/images/kvm-course/private-base.qcow2: OK
+Pull complete
+disk size: 766 MiB
+written-in-4.2
+written-on-top</code></pre>
+<p><strong>Check.</strong> Draw the chain at each stage: base ← clone-01 ← top; base ← clone-01 after the commit; clone-01 alone after the pull. The base stayed <code>OK</code> until you deleted it, and both marker lines survived.</p>
+<p><strong>If it fails.</strong> A failed block job can leave a half-changed chain: read <code>sudo virsh -c qemu:///system domblklist clone-01</code> and <code>sudo virsh -c qemu:///system blockjob clone-01 vda --info</code> before you delete any file. Never &quot;repair&quot; a missing backing file by pointing the overlay at another file (<code>qemu-img rebase -u</code>): its bytes would not match.</p>
+<p><strong>Clean up.</strong> The chapter Clean up removes clone-01 and restore-01.</p>
+<p>Choose formats and pools by need, not by a speed ranking:</p>
+<div class="table-wrap"><table><thead><tr><th>Choice</th><th>What it gives</th><th>What you must still check</th></tr></thead><tbody><tr><td>raw file</td><td>No metadata layer; sparse if the host filesystem allows</td><td>Space use and performance for your workload</td></tr><tr><td>qcow2 file</td><td>Overlays, backing chains, snapshots</td><td>Chain dependencies and recovery</td></tr><tr><td>directory pool</td><td>Volumes are files in a directory</td><td>Host filesystem space and SELinux labels</td></tr><tr><td>LVM pool</td><td>Volumes are logical volumes (block devices)</td><td>Volume group space; never use your workstation&#x27;s volume group</td></tr><tr><td>virtio-blk or virtio-scsi</td><td>A simple VirtIO disk, or a VirtIO SCSI controller with SCSI features</td><td>Guest drivers and workload behaviour</td></tr></tbody></table></div>
+<p>Whether a write survives a power cut depends on the guest flushing its writes, on QEMU&#x27;s cache mode (the disk&#x27;s <code>cache=</code> setting: whether QEMU uses the host&#x27;s page cache and how it passes on the guest&#x27;s flushes) and on the host storage, all together; no single setting guarantees it. These labs show dependencies, not performance or power-loss behaviour.</p>
+<h2 id="s4-cleanup" class="msec">Clean up <a class="hlink" href="#s4-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-cleanup" style="--hue:28">Day 4 lab</a></h2>
+<p>Keep linux-01 for <a class="xref" href="../manual/ch05.html">chapter 5</a>. Remove the two disposable guests (<code>remove-guest.sh</code> also deletes each guest&#x27;s own disk, <code>clone-01.qcow2</code> and <code>restore-01.qcow2</code>), then this chapter&#x27;s other images and files. The block stops if a guest cannot be removed, before any image it may use is deleted:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+bash ~/kvm-course/bin/remove-guest.sh restore-01
+bash ~/kvm-course/bin/remove-guest.sh clone-01
+sudo rm -f &quot;$P/private-base.qcow2&quot; &quot;$P/private-base.hidden&quot; &quot;$P/clone-01-top.qcow2&quot;
+sudo virsh -c qemu:///system pool-refresh kvm-course
+rm -rf ~/kvm-course/ch04
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>To remove the whole course instead, use <a class="xref" href="../manual/appendix-b.html">Appendix B</a>.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch03.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>3. Networking</span></a><a class="pager-next" href="ch05.html"><span><small>Next</small>5. Repeatable Linux images</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

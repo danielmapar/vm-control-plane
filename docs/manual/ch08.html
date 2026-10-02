@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8. Migration and host maintenance · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li class="here"><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-ch08">8. Migration and host maintenance</h1>
+<p><strong>Goal.</strong> Move a VM between two KVM hosts while it is stopped, while it runs, and while it runs together with its disk; then empty a host for maintenance. After every move, prove that exactly one host has the VM and that its data is intact.</p>
+<p>Two Fedora 44 guests, host-a and host-b, act as the KVM hosts. Like host-b in <a class="xref" href="../manual/ch06.html#s6-4">chapter 6.4</a>, they are <strong>nested</strong> hosts: VMs that run KVM VMs themselves (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>). A third guest, nfs-01, holds their shared storage. All three run on your one workstation, so this lab tests the mechanics only: losing a real physical host is <strong>not validated here</strong>, and neither are AMD processors (the validation host is Intel). Validated with libvirt 12.0.0 and QEMU 10.2.2 inside the nested hosts.</p>
+<p>References: <a href="https://libvirt.org/migration.html" target="_blank" rel="noopener">libvirt migration</a>, <a href="https://libvirt.org/manpages/virsh.html#migrate" target="_blank" rel="noopener">virsh migrate</a>, <a href="https://libvirt.org/formatdomain.html#cpu-model-and-topology" target="_blank" rel="noopener">CPU models</a>, <a href="https://libvirt.org/formatnetwork.html" target="_blank" rel="noopener">network XML</a>.</p>
+<figure class="manual-fig"><img src="../assets/figures/fig5.png" alt="Figure 5. A live migration with a shared disk, as in 8.4: what must be ready before, what moves during, and what you check after." loading="lazy"></figure>
+<p class="figcap"><em>Figure 5. A live migration with a shared disk, as in 8.4: what must be ready before, what moves during, and what you check after.</em></p>
+<h2 id="s8-0" class="msec"><span class="sec-no">8.0</span> Starting point <a class="hlink" href="#s8-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-0" style="--hue:190">Day 7 lab</a></h2>
+<p><strong>Goal.</strong> Start linux-01; 8.2 copies it into the lab.</p>
+<p><strong>Commands.</strong> If <code>new-guest.sh</code> is missing, repeat <a class="xref" href="../manual/ch01.html#s1-7">chapter 1.7</a> first:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">bash ~/kvm-course/bin/new-guest.sh linux-01</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> The last line is <code>linux-01</code>.</p>
+<p><strong>Check.</strong> The script ends without an error.</p>
+<p><strong>If it fails.</strong> Read the script&#x27;s last error. After a half-built guest, run <code>bash ~/kvm-course/bin/remove-guest.sh linux-01</code> and retry.</p>
+<p><strong>Clean up.</strong> Keep linux-01.</p>
+<h2 id="s8-1" class="msec"><span class="sec-no">8.1</span> Build two hosts and shared storage <a class="hlink" href="#s8-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-1" style="--hue:190">Day 7 lab</a></h2>
+<p><strong>Goal.</strong> Build host-a and host-b, which can both run linux-01, and nfs-01, which stores linux-01&#x27;s disk for both.</p>
+<p><strong>Commands.</strong> A <strong>migration</strong> moves a VM from one host, the <strong>source</strong>, to another, the <strong>destination</strong>. The destination must offer the CPU features, the disks and the networks the VM uses. Create the three guests. The hosts get 4 GiB each, nfs-01 the default 2 GiB; with linux-01 that is 12 GiB at most, and linux-01 stops in 8.2:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+mkdir -m 0700 ~/kvm-course/ch08
+MEMORY_MIB=4096 bash ~/kvm-course/bin/new-guest.sh host-a
+MEMORY_MIB=4096 bash ~/kvm-course/bin/new-guest.sh host-b
+bash ~/kvm-course/bin/new-guest.sh nfs-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>nfs-01 shares one directory, <code>/srv/kc-shared</code>, with <strong>NFS</strong> (Network File System: files served over the network). <code>bash -s -- A B</code> runs the lines between the <code>GUEST</code> markers in nfs-01, with the two host addresses A and B as <code>$1</code> and <code>$2</code>:</p>
+<ul><li>The export line names the two hosts that may mount the share. <code>no_root_squash</code> lets root on those hosts act as root on the share; libvirt needs that to hand a disk to the <code>qemu</code> user when a VM starts. Allow it only on a private storage network like this one.</li><li>A <strong>delegation</strong> lets one NFS client cache a file as if it were the only user. On the validation host, once host-a had written to the disk, host-b could not even read its attributes (<code>Operation not permitted</code>) and could not start the VM. <code>fs.leases-enable = 0</code> turns delegations off, also after a reboot.</li><li>Fedora Cloud images run no firewall, so no port needs opening.</li></ul>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+a=$(cat ~/kvm-course/host-a/ip)
+b=$(cat ~/kvm-course/host-b/ip)
+ssh -F ~/kvm-course/ssh/config nfs-01 bash -s -- &quot;$a&quot; &quot;$b&quot; &lt;&lt;&#x27;GUEST&#x27;
+set -euo pipefail
+sudo dnf install -y nfs-utils
+echo &#x27;fs.leases-enable = 0&#x27; | sudo tee /etc/sysctl.d/90-kc-nfs.conf
+sudo sysctl -p /etc/sysctl.d/90-kc-nfs.conf
+sudo install -d -o fedora -g fedora /srv/kc-shared
+echo &quot;/srv/kc-shared $1(rw,sync,no_root_squash) $2(rw,sync,no_root_squash)&quot; | sudo tee /etc/exports.d/kc-shared.exports
+sudo systemctl enable --now nfs-server
+GUEST
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Make host-a and host-b KVM hosts: install QEMU and libvirt as in <a class="xref" href="../manual/ch06.html#s6-4">chapter 6.4</a> (<code>install_weak_deps=False</code> skips optional packages), plus <code>nfs-utils</code> to mount the share. Each host downloads about 200 MiB.</p>
+<ul><li>Both mount the share at the same path, <code>/var/lib/libvirt/images/kc-shared</code>, from a line in <code>/etc/fstab</code>, so the mount returns after a reboot (8.5). <code>kc-local</code> is a plain local directory for 8.6.</li><li><code>systemctl enable --now</code> starts libvirt&#x27;s sockets now and at every boot.</li><li>libvirt&#x27;s polkit rule gives members of the <code>libvirt</code> group full control of the system instance (the action <code>org.libvirt.unix.manage</code>, <a class="xref" href="../manual/ch06.html#s6-1">chapter 6.1</a>). Remote virsh logs in as <code>fedora</code>, so <code>fedora</code> joins that group. Grant this only in disposable hosts like these, never on your workstation.</li><li><code>getsebool</code> shows <code>virt_use_nfs</code>, on by default in Fedora: it lets QEMU, confined by sVirt (<a class="xref" href="../manual/ch06.html">chapter 6</a>), use files on NFS.</li></ul>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+n=$(cat ~/kvm-course/nfs-01/ip)
+for host in host-a host-b; do
+  ssh -F ~/kvm-course/ssh/config &quot;$host&quot; bash -s -- &quot;$n&quot; &lt;&lt;&#x27;GUEST&#x27;
+set -euo pipefail
+sudo dnf install -y --setopt=install_weak_deps=False qemu-kvm libvirt-daemon-kvm libvirt-client nfs-utils
+sudo systemctl enable --now virtqemud.socket virtnetworkd.socket virtstoraged.socket
+sudo usermod -aG libvirt fedora
+sudo mkdir /var/lib/libvirt/images/kc-shared /var/lib/libvirt/images/kc-local
+echo &quot;$1:/srv/kc-shared /var/lib/libvirt/images/kc-shared nfs defaults 0 0&quot; | sudo tee -a /etc/fstab
+sudo systemctl daemon-reload
+sudo mount /var/lib/libvirt/images/kc-shared
+findmnt /var/lib/libvirt/images/kc-shared
+getsebool virt_use_nfs
+GUEST
+done
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; addresses differ on yours):</p>
+<pre class="code code-text"><code class=" language-text">fs.leases-enable = 0
+/srv/kc-shared 192.168.122.105(rw,sync,no_root_squash) 192.168.122.160(rw,sync,no_root_squash)
+/var/lib/libvirt/images/kc-shared 192.168.122.20:/srv/kc-shared nfs4   rw,relatime,vers=4.2,…
+virt_use_nfs --&gt; on</code></pre>
+<p><strong>Check.</strong> nfs-01 prints its export line; both hosts show the share in <code>findmnt</code> and <code>virt_use_nfs --&gt; on</code>.</p>
+<p><strong>If it fails.</strong> <code>mount</code> fails: run <code>sudo exportfs -v</code> in nfs-01 and compare the addresses with <code>cat ~/kvm-course/host-a/ip</code>.</p>
+<p><strong>Clean up.</strong> Keep everything for 8.2.</p>
+<h2 id="s8-2" class="msec"><span class="sec-no">8.2</span> Drive both hosts and start linux-01 <a class="hlink" href="#s8-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-2" style="--hue:190">Day 7 lab</a></h2>
+<p><strong>Goal.</strong> Control both hosts from your workstation, give them the same network, check the CPU model, and start linux-01 from the share on host-a.</p>
+<p><strong>Commands.</strong> A connection URI can name another host (<a class="xref" href="../manual/ch02.html#s2-5">chapter 2.5</a>); here you use one for the first time:</p>
+<ul><li>With <code>virsh -c qemu+ssh://host-a/system</code>, virsh logs in to host-a over SSH and talks to the system instance there; the VMs stay on host-a. The URI names no user, because the course SSH settings supply <code>fedora</code>.</li><li>virsh starts <code>ssh</code> itself. <code>command=</code> in the URI makes it start a two-line wrapper instead, which adds those settings.</li><li>The two URIs go into <code>env</code>, which later blocks load with <code>.</code>. This heredoc&#x27;s <code>EOF</code> is not quoted, so the shell fills in <code>$HOME</code>. The <em>If it fails</em> hints use <code>$A</code> and <code>$B</code> too: run <code>. ~/kvm-course/ch08/env</code> at your prompt first.</li></ul>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+cat &gt; ~/kvm-course/bin/course-ssh.sh &lt;&lt;&#x27;BASH&#x27;
+#!/usr/bin/env bash
+exec ssh -F ~/kvm-course/ssh/config &quot;$@&quot;
+BASH
+chmod +x ~/kvm-course/bin/course-ssh.sh
+cat &gt; ~/kvm-course/ch08/env &lt;&lt;EOF
+A=&#x27;qemu+ssh://host-a/system?command=$HOME/kvm-course/bin/course-ssh.sh&#x27;
+B=&#x27;qemu+ssh://host-b/system?command=$HOME/kvm-course/bin/course-ssh.sh&#x27;
+EOF
+. ~/kvm-course/ch08/env
+for uri in &quot;$A&quot; &quot;$B&quot;; do
+  virsh -c &quot;$uri&quot; hostname
+  virsh -c &quot;$uri&quot; version
+done
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Now write two definitions on your workstation. <strong>kc-lab</strong> is a private network that both hosts get, identical: the same subnet, router address and router MAC, and the fixed address 192.168.108.10 for linux-01&#x27;s MAC. Wherever linux-01 runs, it keeps its address and sees the same router. Without a <code>&lt;forward&gt;</code> element the network is <strong>isolated</strong>: linux-01 reaches only the host it runs on.</p>
+<p>linux-01&#x27;s definition is short, and each part matters for migration:</p>
+<ul><li><code>pc-q35-10.2</code> is a versioned machine type, so the destination builds exactly the same virtual hardware; its QEMU must be 10.2 or newer. <code>&lt;acpi/&gt;</code> gives the guest a power button for <code>virsh shutdown</code>.</li><li><code>Nehalem</code> is a named <strong>CPU model</strong>, an old Intel model; the check below must accept it on both hosts. <code>match=&#x27;exact&#x27;</code> adds no extra features, and <code>fallback=&#x27;forbid&#x27;</code> makes the start fail rather than use another model. A moved VM must find every CPU feature it started with; <a class="xref" href="../manual/ch01.html">chapter 1</a>&#x27;s <code>host-passthrough</code> copies one host&#x27;s exact CPU, which only identical hosts can offer.</li><li>The disk is on the share. <code>cache=&#x27;none&#x27;</code> makes QEMU bypass the host&#x27;s page cache, the recommended setting for shared disks.</li><li>The seed (<a class="xref" href="../manual/ch01.html#s1-2">chapter 1.2</a>) comes along as a read-only CD-ROM, and the network card keeps linux-01&#x27;s MAC. The SSH host key and the data travel inside the disk, so the guest is still linux-01.</li></ul>
+<p>The unquoted <code>EOF</code> again lets the shell fill in <code>$mac</code> (from <code>domiflist</code>) and <code>$S</code>:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+mac=$(sudo virsh -c qemu:///system domiflist linux-01 | awk &#x27;$2 == &quot;network&quot; {print $5}&#x27;)
+S=/var/lib/libvirt/images/kc-shared
+cat &gt; ~/kvm-course/ch08/kc-lab.xml &lt;&lt;EOF
+&lt;network&gt;
+  &lt;name&gt;kc-lab&lt;/name&gt;
+  &lt;bridge name=&#x27;kc-lab0&#x27;/&gt;
+  &lt;mac address=&#x27;52:54:00:08:00:01&#x27;/&gt;
+  &lt;ip address=&#x27;192.168.108.1&#x27; netmask=&#x27;255.255.255.0&#x27;&gt;
+    &lt;dhcp&gt;
+      &lt;range start=&#x27;192.168.108.100&#x27; end=&#x27;192.168.108.200&#x27;/&gt;
+      &lt;host mac=&#x27;$mac&#x27; ip=&#x27;192.168.108.10&#x27;/&gt;
+    &lt;/dhcp&gt;
+  &lt;/ip&gt;
+&lt;/network&gt;
+EOF
+cat &gt; ~/kvm-course/ch08/linux-01.xml &lt;&lt;EOF
+&lt;domain type=&#x27;kvm&#x27;&gt;
+  &lt;name&gt;linux-01&lt;/name&gt;
+  &lt;memory unit=&#x27;MiB&#x27;&gt;1024&lt;/memory&gt;
+  &lt;vcpu&gt;1&lt;/vcpu&gt;
+  &lt;os&gt;&lt;type arch=&#x27;x86_64&#x27; machine=&#x27;pc-q35-10.2&#x27;&gt;hvm&lt;/type&gt;&lt;/os&gt;
+  &lt;features&gt;&lt;acpi/&gt;&lt;/features&gt;
+  &lt;cpu mode=&#x27;custom&#x27; match=&#x27;exact&#x27;&gt;&lt;model fallback=&#x27;forbid&#x27;&gt;Nehalem&lt;/model&gt;&lt;/cpu&gt;
+  &lt;devices&gt;
+    &lt;disk type=&#x27;file&#x27; device=&#x27;disk&#x27;&gt;
+      &lt;driver name=&#x27;qemu&#x27; type=&#x27;qcow2&#x27; cache=&#x27;none&#x27;/&gt;
+      &lt;source file=&#x27;$S/linux-01.qcow2&#x27;/&gt;
+      &lt;target dev=&#x27;vda&#x27; bus=&#x27;virtio&#x27;/&gt;
+    &lt;/disk&gt;
+    &lt;disk type=&#x27;file&#x27; device=&#x27;cdrom&#x27;&gt;
+      &lt;source file=&#x27;$S/linux-01-seed.iso&#x27;/&gt;
+      &lt;target dev=&#x27;sda&#x27; bus=&#x27;sata&#x27;/&gt;
+      &lt;readonly/&gt;
+    &lt;/disk&gt;
+    &lt;interface type=&#x27;network&#x27;&gt;
+      &lt;source network=&#x27;kc-lab&#x27;/&gt;
+      &lt;mac address=&#x27;$mac&#x27;/&gt;
+      &lt;model type=&#x27;virtio&#x27;/&gt;
+    &lt;/interface&gt;
+  &lt;/devices&gt;
+&lt;/domain&gt;
+EOF
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Define, start and autostart kc-lab on both hosts; autostart brings it back after a reboot. <code>hypervisor-cpu-compare --error</code> takes the <code>&lt;cpu&gt;</code> element from linux-01&#x27;s definition and fails unless the host can provide that CPU:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+. ~/kvm-course/ch08/env
+for uri in &quot;$A&quot; &quot;$B&quot;; do
+  virsh -c &quot;$uri&quot; net-define ~/kvm-course/ch08/kc-lab.xml
+  virsh -c &quot;$uri&quot; net-start kc-lab
+  virsh -c &quot;$uri&quot; net-autostart kc-lab
+  virsh -c &quot;$uri&quot; hypervisor-cpu-compare --error ~/kvm-course/ch08/linux-01.xml
+done
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Give linux-01 data that every move must keep: 64 MiB of random bytes and their SHA-256 checksum. Then stop linux-01 on your workstation; it stays off for the rest of the chapter, so only one linux-01 runs. <code>qemu-img convert</code> flattens its disk chain into one file (<a class="xref" href="../manual/ch04.html#s4-3">chapter 4.3</a>), because the share has no base image. Copy that file and the seed to the share:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+ssh -F ~/kvm-course/ssh/config linux-01 &#x27;set -e
+sudo install -d -o fedora -g fedora /srv/kc-data
+cd /srv/kc-data
+head -c 64M /dev/urandom &gt; data.bin
+sha256sum data.bin | tee SHA256SUMS&#x27;
+bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo qemu-img convert -f qcow2 -O qcow2 /var/lib/libvirt/images/kvm-course/linux-01.qcow2 ~/kvm-course/ch08/linux-01.qcow2
+cp ~/kvm-course/linux-01/seed.iso ~/kvm-course/ch08/linux-01-seed.iso
+scp -F ~/kvm-course/ssh/config ~/kvm-course/ch08/linux-01.qcow2 ~/kvm-course/ch08/linux-01-seed.iso nfs-01:/srv/kc-shared/
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>You will check the same things after every move, so save them as a script:</p>
+<ul><li>Both hosts are asked about linux-01: the target must run it and the other must not even have its definition. <code>domstate --reason</code> also prints libvirt&#x27;s reason for that state.</li><li>linux-01 sits on the target&#x27;s private network, so SSH reaches it through that host: <code>-J HOST</code> (<strong>jump host</strong>) logs in to HOST first, and <code>HostName</code> replaces the address in the course&#x27;s <code>linux-01</code> entry, whose trusted host key still applies.</li><li>The guest prints its <strong>boot ID</strong>, which changes at every boot: a live move keeps it, a restart does not. <code>sha256sum -c</code> checks the data.</li></ul>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/check-guest.sh &lt;&lt;&#x27;BASH&#x27;
+#!/usr/bin/env bash
+# check-guest.sh HOST: after a move to HOST (host-a or host-b), check linux-01
+set -euo pipefail
+host=${1:?usage: check-guest.sh host-a|host-b}
+. ~/kvm-course/ch08/env
+if [ &quot;$host&quot; = host-a ]; then here=$A; there=$B; else here=$B; there=$A; fi
+virsh -c &quot;$here&quot; domstate linux-01 --reason
+others=$(virsh -c &quot;$there&quot; list --all --name)
+if grep -x linux-01 &lt;&lt;&lt; &quot;$others&quot;; then echo &#x27;STOP: the other host also has linux-01&#x27; &gt;&amp;2; exit 1; fi
+guest() { ssh -F ~/kvm-course/ssh/config -J &quot;$host&quot; -o HostName=192.168.108.10 linux-01 &quot;$@&quot;; }
+for i in $(seq 60); do guest true 2&gt;/dev/null &amp;&amp; break; sleep 3; done
+guest &#x27;echo &quot;boot ID: $(cat /proc/sys/kernel/random/boot_id)&quot;; cd /srv/kc-data &amp;&amp; sha256sum -c SHA256SUMS&#x27;
+BASH</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Define linux-01 on host-a only (a migration carries the definition to the other host), start it and check it:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+. ~/kvm-course/ch08/env
+virsh -c &quot;$A&quot; define ~/kvm-course/ch08/linux-01.xml
+virsh -c &quot;$A&quot; start linux-01
+bash ~/kvm-course/bin/check-guest.sh host-a
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; paths, checksums and IDs differ on yours):</p>
+<pre class="code code-text"><code class=" language-text">host-a
+Running hypervisor: QEMU 10.2.2
+The CPU provided by hypervisor on the host is a superset of CPU described in /home/daniel/kvm-course/ch08/linux-01.xml
+4ba99842e4808a47c838442a3a083be9c9d3885a9c0aeecb1d860b8c29158e8f  data.bin
+running (booted)
+boot ID: 8e42a368-dcf3-4ee3-b146-ba18d8ff9e78
+data.bin: OK</code></pre>
+<p><strong>Check.</strong> Both hosts accept the CPU model, and linux-01 runs on host-a only with <code>data.bin: OK</code>.</p>
+<p><strong>If it fails.</strong> <code>hypervisor-cpu-compare</code> says incompatible: check nested virtualization (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>). linux-01 does not start with <code>Permission denied</code>: run <code>ls -ln /var/lib/libvirt/images/kc-shared</code> in the host. SSH never answers: <code>virsh -c &quot;$A&quot; net-dhcp-leases kc-lab</code> shows whether linux-01 got its address.</p>
+<p><strong>Clean up.</strong> Keep everything for 8.3.</p>
+<h2 id="s8-3" class="msec"><span class="sec-no">8.3</span> Move a stopped VM <a class="hlink" href="#s8-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-3" style="--hue:190">Day 7 lab</a></h2>
+<p><strong>Goal.</strong> Move the stopped linux-01 from host-a to host-b, and see that the shared disk still has only one user.</p>
+<p><strong>Commands.</strong> An <strong>offline migration</strong> (<code>--offline</code>) copies only a VM&#x27;s definition, never its memory or disks, and does not stop the VM: shut it down first. With shared storage that is all a move needs, because host-b opens the same disk file. <code>--persistent</code> defines linux-01 on host-b and <code>--undefinesource</code> removes its definition from host-a, so only one host can start it. <code>virsh await … --condition domain-inactive</code> waits until the shutdown has finished:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+. ~/kvm-course/ch08/env
+virsh -c &quot;$A&quot; shutdown linux-01
+virsh -c &quot;$A&quot; await linux-01 --condition domain-inactive --timeout 120
+virsh -c &quot;$A&quot; migrate --offline --persistent --undefinesource linux-01 &quot;$B&quot;
+virsh -c &quot;$B&quot; start linux-01
+bash ~/kvm-course/bin/check-guest.sh host-b
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>host-a still sees the same file on the share. QEMU locks the disk images it opens, and in this lab the lock works across NFS. <code>qemu-img info</code> opens the image as QEMU does, so on host-a it must be refused; <code>grep</code> proves the lock was the reason. Never test this with <code>virsh start</code> on host-a: libvirt hands the disk to the <code>qemu</code> user before QEMU tries the lock, and after the failed start gives it back to root, cutting off the running linux-01&#x27;s writes:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+if ssh -F ~/kvm-course/ssh/config host-a sudo qemu-img info /var/lib/libvirt/images/kc-shared/linux-01.qcow2 2&gt; ~/kvm-course/ch08/lock.txt; then
+  echo &#x27;UNEXPECTED: host-a opened the disk in use&#x27;; false
+fi
+grep -F &#x27;Failed to get shared &quot;write&quot; lock&#x27; ~/kvm-course/ch08/lock.txt
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; IDs and times differ on yours):</p>
+<pre class="code code-text"><code class=" language-text">running (booted)
+boot ID: c5d107c2-5e32-4dc9-9e0b-0155f2789c5e
+data.bin: OK
+qemu-img: Could not open &#x27;/var/lib/libvirt/images/kc-shared/linux-01.qcow2&#x27;: Failed to get shared &quot;write&quot; lock</code></pre>
+<p><strong>Check.</strong> linux-01 runs on host-b with a new boot ID (it restarted) and <code>data.bin: OK</code>, and host-a&#x27;s <code>qemu-img info</code> was refused with <code>Failed to get shared &quot;write&quot; lock</code>.</p>
+<p><strong>If it fails.</strong> <code>await</code> times out: the guest ignored the shutdown request; look at <code>virsh -c &quot;$A&quot; domstate linux-01 --reason</code> before doing anything else. <code>qemu-img info</code> printed the image details: the lock did not reach nfs-01; <code>findmnt /var/lib/libvirt/images/kc-shared</code> on both hosts must show <code>local_lock=none</code>. Another error: <code>lock.txt</code> names it; the test proved nothing yet.</p>
+<p><strong>Clean up.</strong> linux-01 runs on host-b; host-a has no definition of it.</p>
+<h2 id="s8-4" class="msec"><span class="sec-no">8.4</span> Move a running VM <a class="hlink" href="#s8-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-4" style="--hue:190">Day 7 lab</a></h2>
+<p><strong>Goal.</strong> Move the running linux-01 from host-b back to host-a without restarting it, and measure how long it was paused.</p>
+<p><strong>Commands.</strong> A <strong>live migration</strong> (<code>--live</code>) copies the guest&#x27;s memory to the destination while the guest keeps running, then copies again the pages the guest changed meanwhile, round after round. When the pages left can be sent within the allowed pause (300 ms by default), it pauses the guest for those pages and the device state, and resumes it on the destination. This method is called <strong>pre-copy</strong>. A guest that changes memory faster than the network can carry may not reach that point; <code>virsh -c &quot;$B&quot; domjobabort linux-01</code>, sent to the source from a second terminal, cancels the move, and the guest keeps running there (<strong>not validated here</strong>: idle linux-01 always converges). The disk is not copied: both hosts open the same file. The destination&#x27;s QEMU opens it without the write lock; at the pause the source flushes its writes and lets go, and the destination takes the lock before the guest resumes: one writer at a time.</p>
+<p>The memory goes straight from host-b&#x27;s QEMU to host-a&#x27;s QEMU over TCP; <code>--migrateuri tcp://ADDRESS</code> says where to send it (otherwise libvirt uses host-a&#x27;s host name, which host-b may not resolve); your workstation&#x27;s virsh only directs the move. That stream is <strong>not encrypted</strong>. Here it stays on your workstation&#x27;s private NAT network; between real hosts use <code>--tls</code>, which needs certificates on both hosts (<strong>not validated here</strong>).</p>
+<p>Watch with <code>virsh event</code> (<a class="xref" href="../manual/ch02.html#s2-4">chapter 2.4</a>) on both hosts during the move. <code>domjobinfo --completed</code> then shows the statistics of the finished migration job:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+. ~/kvm-course/ch08/env
+virsh -c &quot;$A&quot; event --event lifecycle --loop --timestamp --timeout 40 &gt; ~/kvm-course/ch08/events-a.txt &amp;
+virsh -c &quot;$B&quot; event --event lifecycle --loop --timestamp --timeout 40 &gt; ~/kvm-course/ch08/events-b.txt &amp;
+sleep 3
+virsh -c &quot;$B&quot; migrate --live --persistent --undefinesource --verbose linux-01 &quot;$A&quot; --migrateuri &quot;tcp://$(cat ~/kvm-course/host-a/ip)&quot;
+wait
+cat ~/kvm-course/ch08/events-b.txt ~/kvm-course/ch08/events-a.txt
+virsh -c &quot;$A&quot; domjobinfo linux-01 --completed
+bash ~/kvm-course/bin/check-guest.sh host-a
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; times, sizes and IDs differ on yours). In time order: host-a starts a QEMU to receive the guest (<code>Started Migrated</code>), host-b pauses the guest for the last pages (<code>Suspended Migrated</code>), host-a resumes it (<code>Resumed Migrated</code>), and host-b&#x27;s QEMU ends. <code>Memory processed</code> is smaller than <code>Memory total</code> because pages full of zeros (<code>Constant pages</code>) travel as a short marker; <code>Iteration</code> counts the pre-copy passes:</p>
+<pre class="code code-text"><code class=" language-text">Migration: [100.00 %]
+2026-10-02 07:41:50.826+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Suspended Migrated
+2026-10-02 07:41:51.120+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Shutdown Finished after host request
+2026-10-02 07:41:51.156+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Stopped Migrated
+2026-10-02 07:41:50.716+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Started Migrated
+2026-10-02 07:41:50.910+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Defined Added
+2026-10-02 07:41:50.913+0000: event &#x27;lifecycle&#x27; for domain &#x27;linux-01&#x27;: Resumed Migrated
+Operation:        Incoming migration
+Time elapsed:     301          ms
+Memory processed: 480.108 MiB
+Memory total:     1.001 GiB
+Iteration:        3
+Constant pages:   140087
+Total downtime:   89           ms
+running (migrated)
+boot ID: c5d107c2-5e32-4dc9-9e0b-0155f2789c5e
+data.bin: OK</code></pre>
+<p><strong>Check.</strong> host-b&#x27;s events end with <code>Stopped Migrated</code>, host-a&#x27;s with <code>Resumed Migrated</code>; <code>domstate</code> says <code>running (migrated)</code>; the boot ID is the one from 8.3; <code>Total downtime</code> is the pause.</p>
+<p><strong>If it fails.</strong> <code>Migration without shared storage is unsafe</code>: the disk is not on an NFS mount on the source (<code>findmnt /var/lib/libvirt/images/kc-shared</code> there). <code>Connection refused</code> or a timeout: check the address after <code>tcp://</code>. Never add <code>--unsafe</code>.</p>
+<p><strong>Clean up.</strong> linux-01 runs on host-a.</p>
+<h2 id="s8-5" class="msec"><span class="sec-no">8.5</span> Drain a host for maintenance <a class="hlink" href="#s8-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-5" style="--hue:190">Day 7 lab</a></h2>
+<p><strong>Goal.</strong> Empty host-a, reboot it as the maintenance step, check that it comes back ready by itself, and move linux-01 back.</p>
+<p><strong>Commands.</strong> <strong>Draining</strong> a host means moving every VM off it before maintenance such as installing updates and rebooting. Here the maintenance is a reboot of the nested host-a; never reboot your workstation. Migrate each running VM to host-b; an empty <code>list --all</code> then means host-a is drained:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+. ~/kvm-course/ch08/env
+for vm in $(virsh -c &quot;$A&quot; list --name); do
+  virsh -c &quot;$A&quot; migrate --live --persistent --undefinesource &quot;$vm&quot; &quot;$B&quot; --migrateuri &quot;tcp://$(cat ~/kvm-course/host-b/ip)&quot;
+done
+left=$(virsh -c &quot;$A&quot; list --all --name)
+test -z &quot;$left&quot;
+bash ~/kvm-course/bin/check-guest.sh host-b
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Reboot host-a. SSH may report a closed connection. <code>sleep 10</code> gives host-a time to go down; then the loop tries SSH every 3 seconds, as <code>check-guest.sh</code> does. The changed boot ID proves the reboot:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+before=$(ssh -F ~/kvm-course/ssh/config host-a cat /proc/sys/kernel/random/boot_id)
+ssh -F ~/kvm-course/ssh/config host-a sudo systemctl reboot || true
+sleep 10
+for i in $(seq 100); do ssh -F ~/kvm-course/ssh/config host-a true 2&gt;/dev/null &amp;&amp; break; sleep 3; done
+after=$(ssh -F ~/kvm-course/ssh/config host-a cat /proc/sys/kernel/random/boot_id)
+echo &quot;host-a boot ID before: $before, after: $after&quot;
+test &quot;$before&quot; != &quot;$after&quot;
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>A host is back in service when its storage and networks return without help. Check the mount from <code>/etc/fstab</code> and the autostarted network, then move linux-01 back:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+. ~/kvm-course/ch08/env
+ssh -F ~/kvm-course/ssh/config host-a findmnt /var/lib/libvirt/images/kc-shared
+virsh -c &quot;$A&quot; net-info kc-lab
+virsh -c &quot;$B&quot; migrate --live --persistent --undefinesource linux-01 &quot;$A&quot; --migrateuri &quot;tcp://$(cat ~/kvm-course/host-a/ip)&quot;
+bash ~/kvm-course/bin/check-guest.sh host-a
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; IDs and addresses differ on yours):</p>
+<pre class="code code-text"><code class=" language-text">running (migrated)
+host-a boot ID before: 06a3ddba-1bdc-4bbb-8324-0b7ca4be485e, after: 77ba70f1-9a38-472e-8ef3-f9ee7152e1db
+/var/lib/libvirt/images/kc-shared 192.168.122.20:/srv/kc-shared nfs4   rw,relatime,vers=4.2,…
+Active:         yes
+Autostart:      yes
+running (migrated)
+boot ID: c5d107c2-5e32-4dc9-9e0b-0155f2789c5e
+data.bin: OK</code></pre>
+<p><strong>Check.</strong> host-a was empty before its reboot, its boot ID changed, the share and kc-lab came back by themselves, and linux-01 runs on host-a again with the same boot ID as in 8.4 and <code>data.bin: OK</code>.</p>
+<p><strong>If it fails.</strong> host-a does not come back: read its console with <code>sudo virsh -c qemu:///system console host-a</code> (leave with <code>Ctrl+]</code>). The share is missing: check the <code>/etc/fstab</code> line in host-a. kc-lab is inactive: <code>virsh -c &quot;$A&quot; net-autostart kc-lab</code> was skipped. The drain stops at <code>test -z</code>: <code>virsh -c &quot;$A&quot; list --all</code> names a VM that was not running; move it as in 8.3.</p>
+<p><strong>Clean up.</strong> linux-01 runs on host-a.</p>
+<h2 id="s8-6" class="msec"><span class="sec-no">8.6</span> Move a running VM with its disk <a class="hlink" href="#s8-6" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-6" style="--hue:190">Day 7 lab</a></h2>
+<p><strong>Goal.</strong> Move the running linux-01 to a host that cannot see its disk, copying the disk during the migration.</p>
+<p><strong>Commands.</strong> Hosts without shared storage can still live-migrate: <code>--copy-storage-all</code> copies every writable disk to the destination while the guest runs, then moves the memory; the read-only seed stays on the share, which host-b also sees. First give linux-01 a disk that only host-a has: shut it down, copy the disk into host-a&#x27;s local directory, and point the definition at the copy with <code>sed</code>. Once it runs from the copy, the file on the share is stale; delete it:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+. ~/kvm-course/ch08/env
+virsh -c &quot;$A&quot; shutdown linux-01
+virsh -c &quot;$A&quot; await linux-01 --condition domain-inactive --timeout 120
+ssh -F ~/kvm-course/ssh/config host-a sudo cp /var/lib/libvirt/images/kc-shared/linux-01.qcow2 /var/lib/libvirt/images/kc-local/
+virsh -c &quot;$A&quot; dumpxml linux-01 --inactive | sed &#x27;s#kc-shared/linux-01.qcow2#kc-local/linux-01.qcow2#&#x27; &gt; ~/kvm-course/ch08/local.xml
+grep -F kc-local/linux-01.qcow2 ~/kvm-course/ch08/local.xml
+virsh -c &quot;$A&quot; define ~/kvm-course/ch08/local.xml
+virsh -c &quot;$A&quot; start linux-01
+bash ~/kvm-course/bin/check-guest.sh host-a
+ssh -F ~/kvm-course/ssh/config host-a sudo rm /var/lib/libvirt/images/kc-shared/linux-01.qcow2
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>The destination needs an empty disk image at the same path with the same virtual size. <code>domblkinfo</code> prints the size (<code>Capacity</code>, in bytes); <code>LC_ALL=C</code> keeps that label in English for <code>awk</code>:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+. ~/kvm-course/ch08/env
+size=$(LC_ALL=C virsh -c &quot;$A&quot; domblkinfo linux-01 vda | awk &#x27;/^Capacity:/ {print $2}&#x27;)
+echo &quot;Capacity: $size bytes&quot;
+ssh -F ~/kvm-course/ssh/config host-b sudo qemu-img create -f qcow2 /var/lib/libvirt/images/kc-local/linux-01.qcow2 &quot;$size&quot;
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Migrate in the background and look at the job while it runs: <code>domjobinfo</code> shows the disk copy (<code>File processed</code>); the memory follows once the disk is copied. <code>--bandwidth 50</code> caps the move at 50 MiB/s: time to look, and on a shared network, room for other traffic. The disk travels over its own unencrypted TCP connection, like the memory. Afterwards host-a still holds the old disk; delete that stale copy:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+. ~/kvm-course/ch08/env
+virsh -c &quot;$A&quot; migrate --live --copy-storage-all --bandwidth 50 --persistent --undefinesource linux-01 &quot;$B&quot; --migrateuri &quot;tcp://$(cat ~/kvm-course/host-b/ip)&quot; &amp;
+migration=$!
+sleep 5
+virsh -c &quot;$A&quot; domjobinfo linux-01
+wait &quot;$migration&quot;
+virsh -c &quot;$B&quot; domjobinfo linux-01 --completed
+bash ~/kvm-course/bin/check-guest.sh host-b
+ssh -F ~/kvm-course/ssh/config host-a sudo rm /var/lib/libvirt/images/kc-local/linux-01.qcow2
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; sizes, times and IDs differ on yours). The copy covered the 835 MiB of data the image holds, not its 20 GiB virtual size; the destination&#x27;s statistics count only the memory. At 50 MiB/s the move took about 27 seconds, but the guest paused for 65 ms:</p>
+<pre class="code code-text"><code class=" language-text">Job type:         Unbounded
+Operation:        Outgoing migration
+Time elapsed:     4848         ms
+File processed:   241.938 MiB
+File remaining:   593.500 MiB
+File total:       835.438 MiB
+Job type:         Completed
+Operation:        Incoming migration
+Time elapsed:     26826        ms
+Memory processed: 503.818 MiB
+Memory bandwidth: 51.133 MiB/s
+Total downtime:   65           ms
+running (migrated)
+boot ID: b9ce8fe4-d6df-4aeb-b51e-887c37af3832
+data.bin: OK</code></pre>
+<p><strong>Check.</strong> The running job showed disk progress; linux-01 runs on host-b with the boot ID it had after the restart in this section and <code>data.bin: OK</code>; no disk of linux-01 is left on host-a.</p>
+<p><strong>If it fails.</strong> <code>Cannot access storage file</code> or a size error on host-b: the empty image is missing, at another path, or of another size. <code>Migration without shared storage is unsafe</code>: <code>--copy-storage-all</code> is missing.</p>
+<p><strong>Clean up.</strong> linux-01 runs on host-b from host-b&#x27;s local disk.</p>
+<h2 id="s8-cleanup" class="msec">Clean up <a class="hlink" href="#s8-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-cleanup" style="--hue:190">Day 7 lab</a></h2>
+<p>linux-01 on your workstation is still shut off with its data; <a class="xref" href="../manual/ch09.html">chapter 9</a> starts it again. Removing the three lab guests also removes everything inside them: the moved linux-01, the share and kc-lab. Then delete the chapter folder and this chapter&#x27;s two scripts:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+bash ~/kvm-course/bin/remove-guest.sh host-a
+bash ~/kvm-course/bin/remove-guest.sh host-b
+bash ~/kvm-course/bin/remove-guest.sh nfs-01
+rm -rf ~/kvm-course/ch08
+rm -f ~/kvm-course/bin/course-ssh.sh ~/kvm-course/bin/check-guest.sh
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>To remove the whole course instead, use <a class="xref" href="../manual/appendix-b.html">Appendix B</a>.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch07.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>7. Backups and restore</span></a><a class="pager-next" href="ch09.html"><span><small>Next</small>9. Incident response</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

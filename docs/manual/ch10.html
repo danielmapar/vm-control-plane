@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10. The libvirt API · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li class="here"><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-ch10">10. The libvirt API</h1>
+<p><strong>Goal.</strong> Control libvirt from short Python programs instead of virsh: connect, list domains, define a domain from XML and read it back, change its state, handle errors, receive events, and write one small tested automation script.</p>
+<p>virsh is itself a libvirt client: each command calls libvirt&#x27;s C library, which talks to the daemons from <a class="xref" href="../manual/ch02.html">chapter 2</a>. <code>python3-libvirt</code> is libvirt&#x27;s Python binding to the same API, mostly generated from the C functions: <code>conn.listAllDomains()</code> wraps <code>virConnectListAllDomains</code>. Python needs no compiler, and virt-install itself is written in Python on these bindings.</p>
+<p>Reading: <a href="https://libvirt.org/api.html" target="_blank" rel="noopener">libvirt API concepts</a>, <a href="https://libvirt.org/python.html" target="_blank" rel="noopener">Python API bindings</a> and the <a href="https://gitlab.com/libvirt/libvirt-python/-/tree/master/examples" target="_blank" rel="noopener">libvirt-python examples</a>. <code>pydoc3 libvirt.virDomain</code> lists a domain object&#x27;s methods.</p>
+<h2 id="s10-0" class="msec"><span class="sec-no">10.0</span> Starting point <a class="hlink" href="#s10-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch10-0" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Check that the binding is installed and create the working directory. The chapter defines its own small domain, <code>api-demo</code>.</p>
+<p><strong>Commands.</strong> virt-install depends on <code>python3-libvirt</code>, so <a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a> already installed it:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+if [ ! -f ~/kvm-course/.created-by-course ]; then echo &#x27;Set up the course first (chapter 0.3)&#x27;; exit 1; fi
+rpm -q python3-libvirt
+python3 -c &#x27;import libvirt; print(libvirt.getVersion())&#x27;
+mkdir -p ~/kvm-course/ch10
+)
+cd ~/kvm-course/ch10</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host:</p>
+<pre class="code code-text"><code class=" language-text">python3-libvirt-12.0.0-1.fc44.x86_64
+12000000</code></pre>
+<p>libvirt packs its version into one number, major × 1,000,000 + minor × 1,000 + release: 12000000 is libvirt 12.0.0.</p>
+<p>Run every script of this chapter from <code>~/kvm-course/ch10</code>.</p>
+<h2 id="s10-1" class="msec"><span class="sec-no">10.1</span> Connect read-only and list domains <a class="hlink" href="#s10-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch10-1" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Open a connection, list every domain with its state, and see that looking needs no sudo.</p>
+<p>A <strong>connection URI</strong> names the libvirt driver to talk to: <code>qemu:///system</code> is the system QEMU driver in <code>virtqemud</code>, which manages the course VMs (<a class="xref" href="../manual/ch02.html">chapter 2</a>). A connection is either <strong>read-only</strong> or <strong>read-write</strong>. Read-only connections use the daemon&#x27;s <code>-ro</code> socket, which any local user may use to look but never to change anything (<a class="xref" href="../manual/ch06.html">chapter 6</a>), so this script needs no sudo.</p>
+<p><strong>Commands.</strong> <code>listAllDomains()</code> returns one domain object for each domain, running or not. <code>state()</code> returns two numbers: the state and the reason for it. The <code>STATES</code> list turns the state number into the word virsh prints.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; list.py &lt;&lt;&#x27;EOF&#x27;
+import libvirt
+
+# List index = libvirt&#x27;s state number: libvirt.VIR_DOMAIN_RUNNING is 1, and so on.
+STATES = [&#x27;no state&#x27;, &#x27;running&#x27;, &#x27;idle&#x27;, &#x27;paused&#x27;, &#x27;in shutdown&#x27;, &#x27;shut off&#x27;, &#x27;crashed&#x27;, &#x27;pmsuspended&#x27;]
+
+conn = libvirt.openReadOnly(&#x27;qemu:///system&#x27;)
+print(&#x27;connected to&#x27;, conn.getURI())
+for dom in conn.listAllDomains():
+    state, reason = dom.state()
+    print(f&#x27;{dom.name():20} {STATES[state]}&#x27;)
+conn.close()
+EOF
+python3 list.py
+virsh -r -c qemu:///system list --all</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>virsh -r</code> opens the same kind of read-only connection.</p>
+<p><strong>Expected output.</strong> Trimmed: an unrelated domain is left out, and your own domains and IDs differ.</p>
+<pre class="code code-text"><code class=" language-text">connected to qemu:///system
+linux-01             running
+ Id   Name                State
+------------------------------------
+ 3    linux-01            running</code></pre>
+<p><strong>Check.</strong> The script and virsh list the same domains with the same states.</p>
+<p><strong>If it fails.</strong> <code>No module named &#x27;libvirt&#x27;</code>: install <code>python3-libvirt</code>. A connection error naming <code>virtqemud-sock-ro</code>: check <code>systemctl status virtqemud-ro.socket</code>, the read-only socket&#x27;s unit.</p>
+<h2 id="s10-2" class="msec"><span class="sec-no">10.2</span> Define a domain and read its XML <a class="hlink" href="#s10-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch10-2" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Store a new domain definition through the API, then read back what libvirt stored.</p>
+<p><strong>Commands.</strong> <code>api-demo</code> is the smallest useful domain: 64 MiB of memory, one vCPU, and no disk, network or operating system. Started, its firmware finds nothing to boot and waits, which is all the lifecycle and event calls need. Write its XML:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; api-demo.xml &lt;&lt;&#x27;EOF&#x27;
+&lt;domain type=&#x27;kvm&#x27;&gt;
+  &lt;name&gt;api-demo&lt;/name&gt;
+  &lt;memory unit=&#x27;MiB&#x27;&gt;64&lt;/memory&gt;
+  &lt;vcpu&gt;1&lt;/vcpu&gt;
+  &lt;os&gt;
+    &lt;type arch=&#x27;x86_64&#x27; machine=&#x27;q35&#x27;&gt;hvm&lt;/type&gt;
+  &lt;/os&gt;
+&lt;/domain&gt;
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>libvirt.open()</code> opens a read-write connection, which the system daemon grants to root and the <code>libvirt</code> group (<a class="xref" href="../manual/ch00.html#s0-3">chapters 0.3</a> and 6.1); the course uses sudo, as with <code>sudo virsh</code>. <code>defineXML()</code> stores a persistent definition without starting it (<code>virsh define</code>), and <code>XMLDesc()</code> returns the stored XML (<code>virsh dumpxml</code>). Python&#x27;s ElementTree module parses it so the script can pick out fields.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; define.py &lt;&lt;&#x27;EOF&#x27;
+import xml.etree.ElementTree as ET
+import libvirt
+
+conn = libvirt.open(&#x27;qemu:///system&#x27;)
+with open(&#x27;api-demo.xml&#x27;) as f:
+    dom = conn.defineXML(f.read())
+print(&#x27;defined&#x27;, dom.name(), dom.UUIDString())
+
+stored = ET.fromstring(dom.XMLDesc())
+print(&#x27;machine:&#x27;, stored.find(&#x27;os/type&#x27;).get(&#x27;machine&#x27;))
+print(&#x27;emulator:&#x27;, stored.find(&#x27;devices/emulator&#x27;).text)
+print(&#x27;devices:&#x27;, &#x27; &#x27;.join(device.tag for device in stored.find(&#x27;devices&#x27;)))
+conn.close()
+EOF
+sudo python3 define.py
+python3 list.py</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Trimmed. The UUID differs on your machine.</p>
+<pre class="code code-text"><code class=" language-text">defined api-demo 25067963-ce43-49e9-a15b-6e9919d89148
+machine: pc-q35-10.2
+emulator: /usr/bin/qemu-system-x86_64
+devices: emulator controller controller controller controller controller controller input input audio watchdog memballoon
+connected to qemu:///system
+linux-01             running
+api-demo             shut off</code></pre>
+<p>libvirt filled in what the file left out: a random UUID, the exact machine type (<a class="xref" href="../manual/ch02.html">chapter 2</a>), the emulator path and default devices such as controllers and a memory balloon.</p>
+<p><strong>Check.</strong> <code>list.py</code> now shows <code>api-demo</code> as <code>shut off</code>.</p>
+<p><strong>If it fails.</strong> An authentication or permission error: you ran <code>define.py</code> without sudo. <code>already exists with uuid</code>: the name is taken (10.4 explains the check). If this chapter created it, run the Clean up and restart at 10.0; otherwise leave that domain alone.</p>
+<h2 id="s10-3" class="msec"><span class="sec-no">10.3</span> Start, pause and stop <a class="hlink" href="#s10-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch10-3" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Change a domain&#x27;s state with lifecycle calls and read the state after each call.</p>
+<p><strong>Commands.</strong> <code>lookupByName()</code> finds a domain by name. The lifecycle calls match virsh commands: <code>create()</code> starts a defined domain (<code>virsh start</code>), <code>suspend()</code> pauses its vCPUs and <code>resume()</code> lets them run again, and <code>destroy()</code> stops it at once, like pulling the power plug. That is safe here because <code>api-demo</code> has no operating system. For a real guest, <code>shutdown()</code> asks the guest to power off and returns before it has finished; 10.5 shows how to find out when it has.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; lifecycle.py &lt;&lt;&#x27;EOF&#x27;
+import sys
+import libvirt
+
+STATES = [&#x27;no state&#x27;, &#x27;running&#x27;, &#x27;idle&#x27;, &#x27;paused&#x27;, &#x27;in shutdown&#x27;, &#x27;shut off&#x27;, &#x27;crashed&#x27;, &#x27;pmsuspended&#x27;]
+
+conn = libvirt.open(&#x27;qemu:///system&#x27;)
+dom = conn.lookupByName(sys.argv[1])
+for step in (dom.create, dom.suspend, dom.resume, dom.destroy):
+    step()
+    state, reason = dom.state()
+    print(f&#x27;{step.__name__:8} -&gt; {STATES[state]}&#x27;)
+conn.close()
+EOF
+sudo python3 lifecycle.py api-demo</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong></p>
+<pre class="code code-text"><code class=" language-text">create   -&gt; running
+suspend  -&gt; paused
+resume   -&gt; running
+destroy  -&gt; shut off</code></pre>
+<p><strong>Check.</strong> Four lines, ending in <code>shut off</code>.</p>
+<p><strong>If it fails.</strong> <code>domain is already running</code>: an interrupted attempt left <code>api-demo</code> running. Stop it with <code>sudo virsh -c qemu:///system destroy api-demo</code> and run the script again.</p>
+<h2 id="s10-4" class="msec"><span class="sec-no">10.4</span> Handle libvirt errors <a class="hlink" href="#s10-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch10-4" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Recognize the errors a libvirt program meets most often, and tell them apart by their code.</p>
+<p><strong>Commands.</strong> Every failed call raises <code>libvirt.libvirtError</code>, whose <code>get_error_code()</code> returns a number with a named constant in the <code>libvirt</code> module. Compare codes, not messages, which can change between versions. libvirt also prints every error to stderr; <code>registerErrorHandler()</code> with a function that does nothing turns that off, so each error prints once.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; errors.py &lt;&lt;&#x27;EOF&#x27;
+import libvirt
+
+libvirt.registerErrorHandler(lambda userdata, err: None, None)
+
+
+def attempt(what, call):
+    try:
+        call()
+        print(f&#x27;{what}: ok&#x27;)
+    except libvirt.libvirtError as e:
+        print(f&#x27;{what}: error {e.get_error_code()}: {e.get_error_message()}&#x27;)
+
+
+ro = libvirt.openReadOnly(&#x27;qemu:///system&#x27;)
+rw = libvirt.open(&#x27;qemu:///system&#x27;)
+with open(&#x27;api-demo.xml&#x27;) as f:
+    xml = f.read()
+attempt(&#x27;define on a read-only connection&#x27;, lambda: ro.defineXML(xml))
+attempt(&#x27;define api-demo again&#x27;, lambda: rw.defineXML(xml))
+attempt(&#x27;look up a missing domain&#x27;, lambda: rw.lookupByName(&#x27;no-such-domain&#x27;))
+attempt(&#x27;destroy a stopped domain&#x27;, lambda: rw.lookupByName(&#x27;api-demo&#x27;).destroy())
+ro.close()
+rw.close()
+EOF
+sudo python3 errors.py</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> The UUID differs on your machine.</p>
+<pre class="code code-text"><code class=" language-text">define on a read-only connection: error 29: operation forbidden: read only access prevents virDomainDefineXML
+define api-demo again: error 9: operation failed: domain &#x27;api-demo&#x27; already exists with uuid 25067963-ce43-49e9-a15b-6e9919d89148
+look up a missing domain: error 42: Domain not found: no domain with matching name &#x27;no-such-domain&#x27;
+destroy a stopped domain: error 55: Requested operation is not valid: domain is not running</code></pre>
+<p>The codes and their constants:</p>
+<div class="table-wrap"><table><thead><tr><th>Code</th><th>Constant</th><th>Meaning in this run</th></tr></thead><tbody><tr><td>29</td><td><code>VIR_ERR_OPERATION_DENIED</code></td><td>A read-only connection refused a change.</td></tr><tr><td>9</td><td><code>VIR_ERR_OPERATION_FAILED</code></td><td>The name <code>api-demo</code> is already used by a domain with another UUID.</td></tr><tr><td>42</td><td><code>VIR_ERR_NO_DOMAIN</code></td><td>No domain has that name.</td></tr><tr><td>55</td><td><code>VIR_ERR_OPERATION_INVALID</code></td><td>The domain&#x27;s state does not allow the call.</td></tr></tbody></table></div>
+<p>The second error protects you. <code>api-demo.xml</code> has no <code>&lt;uuid&gt;</code>, so libvirt generates a new UUID for each define. It then refuses to reuse a name that already belongs to a domain with another UUID. XML that contains the existing UUID replaces the definition instead; that is how <code>virsh edit</code> saves your changes.</p>
+<p><strong>Check.</strong> Four errors with the codes 29, 9, 42 and 55.</p>
+<p><strong>If it fails.</strong> <code>ok</code> on the second line: <code>api-demo</code> did not exist, so this call defined it; run <code>sudo python3 errors.py</code> again.</p>
+<h2 id="s10-5" class="msec"><span class="sec-no">10.5</span> Watch domain events <a class="hlink" href="#s10-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch10-5" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Receive lifecycle events as they happen instead of polling the state.</p>
+<p><strong>Commands.</strong> libvirt sends an <strong>event</strong> to interested clients whenever a domain changes, whoever made the change. A program receives events in three steps, in this order:</p>
+<ol><li>Register libvirt&#x27;s default <strong>event loop</strong>, the code that waits for messages from the daemon, before opening a connection.</li><li>Register a <strong>callback</strong>, a function libvirt calls for each event of the chosen type.</li><li>Keep running the loop: each iteration waits for activity, then runs the callbacks.</li></ol>
+<p>An iteration blocks until something happens, so a one-second timer wakes the loop and the script stops on time. <code>virsh event --event lifecycle --loop</code> (<a class="xref" href="../manual/ch02.html#s2-4">chapter 2.4</a>) does the same job from the command line.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; events.py &lt;&lt;&#x27;EOF&#x27;
+import sys
+import time
+import libvirt
+
+# List index = libvirt&#x27;s event number: libvirt.VIR_DOMAIN_EVENT_STARTED is 2, and so on.
+EVENTS = [&#x27;defined&#x27;, &#x27;undefined&#x27;, &#x27;started&#x27;, &#x27;suspended&#x27;, &#x27;resumed&#x27;, &#x27;stopped&#x27;, &#x27;shutdown&#x27;, &#x27;pmsuspended&#x27;, &#x27;crashed&#x27;]
+
+
+def on_lifecycle(conn, dom, event, detail, opaque):
+    print(dom.name(), EVENTS[event], detail, flush=True)
+
+
+libvirt.virEventRegisterDefaultImpl()
+conn = libvirt.openReadOnly(&#x27;qemu:///system&#x27;)
+conn.domainEventRegisterAny(None, libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE, on_lifecycle, None)
+libvirt.virEventAddTimeout(1000, lambda timer, opaque: None, None)
+print(&#x27;watching&#x27;, flush=True)
+end = time.monotonic() + float(sys.argv[1])
+while time.monotonic() &lt; end:
+    libvirt.virEventRunDefaultImpl()
+conn.close()
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>None</code> as the first argument of <code>domainEventRegisterAny()</code> means all domains. The callback&#x27;s <code>detail</code> number gives the reason, for example that a stop was a destroy.</p>
+<p>Run the watcher in the background for 15 seconds, wait until it is watching, then run <code>lifecycle.py</code> again. <code>wait</code> returns when the watcher has finished:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">python3 events.py 15 &gt; events.log &amp;
+timeout 10 bash -c &#x27;until grep -q watching events.log; do sleep 0.5; done&#x27;
+sudo python3 lifecycle.py api-demo
+wait
+cat events.log
+grep -q &#x27;api-demo stopped 1&#x27; events.log</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host, after <code>lifecycle.py</code>&#x27;s four lines from 10.3:</p>
+<pre class="code code-text"><code class=" language-text">watching
+api-demo resumed 0
+api-demo started 0
+api-demo suspended 0
+api-demo resumed 0
+api-demo shutdown 2
+api-demo stopped 1</code></pre>
+<p>There are more events than calls. libvirt starts QEMU with its vCPUs paused and lets them run once the domain is ready, so <code>create()</code> gave <code>resumed</code>, then <code>started</code>. <code>destroy()</code> first asks QEMU to quit, so it gave <code>shutdown</code> (detail 2, <code>VIR_DOMAIN_EVENT_SHUTDOWN_HOST</code>), then <code>stopped</code> (detail 1, <code>VIR_DOMAIN_EVENT_STOPPED_DESTROYED</code>). Detail 0 is the ordinary reason: booted, paused, unpaused. Use events to learn <em>that</em> something changed, and <code>state()</code> to learn what it is now. A disconnected client misses events, so after reconnecting, list the domains again (10.1).</p>
+<p><strong>Check.</strong> A separate read-only program saw every change, including the destroy (<code>stopped 1</code>).</p>
+<p><strong>If it fails.</strong> Nothing after <code>watching</code>: read <code>lifecycle.py</code>&#x27;s output (10.3). If sudo asked for your password, the 15 seconds may have ended first; run the block again.</p>
+<h2 id="s10-6" class="msec"><span class="sec-no">10.6</span> A small automation script with a test <a class="hlink" href="#s10-6" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch10-6" style="--hue:8">Day 8 lab</a></h2>
+<p><strong>Goal.</strong> Write a script that is safe to run twice, and test it without a real VM.</p>
+<p><strong>Commands.</strong> Automation should be <strong>idempotent</strong>: running it twice has the same effect as running it once. <code>vmstate.py NAME running|shut-off</code> starts a stopped domain, resumes a paused one or stops an active one, and says what it did. <code>state()</code> tells running from paused; <code>isActive()</code> is true for both. Asked to run a domain in any other state (pmsuspended, for example), the script raises an error, because it does not handle that state. It uses <code>destroy()</code> because <code>api-demo</code> has no operating system; for a real guest, use <code>shutdown()</code> and wait for the <code>stopped</code> event (10.5). A missing domain is reported plainly; any other error stops the script with its full message.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; vmstate.py &lt;&lt;&#x27;EOF&#x27;
+&quot;&quot;&quot;Usage: vmstate.py NAME running|shut-off  (start or stop NAME only if needed)&quot;&quot;&quot;
+import sys
+import libvirt
+
+
+def ensure_state(dom, wanted):
+    &quot;&quot;&quot;Bring dom to the wanted state. Return &#x27;started&#x27;, &#x27;resumed&#x27;, &#x27;stopped&#x27; or &#x27;unchanged&#x27;.&quot;&quot;&quot;
+    if wanted == &#x27;shut-off&#x27;:
+        if not dom.isActive():
+            return &#x27;unchanged&#x27;
+        dom.destroy()
+        return &#x27;stopped&#x27;
+    state, reason = dom.state()
+    if state == libvirt.VIR_DOMAIN_SHUTOFF:
+        dom.create()
+        return &#x27;started&#x27;
+    if state == libvirt.VIR_DOMAIN_PAUSED:
+        dom.resume()
+        return &#x27;resumed&#x27;
+    if state != libvirt.VIR_DOMAIN_RUNNING:
+        raise RuntimeError(f&#x27;cannot run a domain in state {state}&#x27;)
+    return &#x27;unchanged&#x27;
+
+
+if __name__ == &#x27;__main__&#x27;:
+    if len(sys.argv) != 3 or sys.argv[2] not in (&#x27;running&#x27;, &#x27;shut-off&#x27;):
+        sys.exit(__doc__)
+    libvirt.registerErrorHandler(lambda userdata, err: None, None)
+    conn = libvirt.open(&#x27;qemu:///system&#x27;)
+    try:
+        dom = conn.lookupByName(sys.argv[1])
+    except libvirt.libvirtError as e:
+        if e.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
+            raise
+        sys.exit(f&#x27;no domain named {sys.argv[1]}&#x27;)
+    print(sys.argv[1], ensure_state(dom, sys.argv[2]))
+    conn.close()
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>The test uses <code>test:///default</code>, libvirt&#x27;s built-in <strong>test driver</strong>: a fake hypervisor inside your own process, with one running domain called <code>test</code>. It needs no daemon or sudo and changes nothing on the host. Python&#x27;s <code>unittest</code> module runs every method whose name starts with <code>test</code>.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; test_vmstate.py &lt;&lt;&#x27;EOF&#x27;
+import unittest
+import libvirt
+from vmstate import ensure_state
+
+
+class EnsureStateTest(unittest.TestCase):
+    def test_acts_only_when_needed(self):
+        conn = libvirt.open(&#x27;test:///default&#x27;)
+        dom = conn.lookupByName(&#x27;test&#x27;)
+        self.assertEqual(ensure_state(dom, &#x27;running&#x27;), &#x27;unchanged&#x27;)
+        dom.suspend()
+        self.assertEqual(ensure_state(dom, &#x27;running&#x27;), &#x27;resumed&#x27;)
+        self.assertEqual(dom.state()[0], libvirt.VIR_DOMAIN_RUNNING)
+        self.assertEqual(ensure_state(dom, &#x27;shut-off&#x27;), &#x27;stopped&#x27;)
+        self.assertFalse(dom.isActive())
+        self.assertEqual(ensure_state(dom, &#x27;shut-off&#x27;), &#x27;unchanged&#x27;)
+        self.assertEqual(ensure_state(dom, &#x27;running&#x27;), &#x27;started&#x27;)
+        self.assertTrue(dom.isActive())
+        conn.close()
+
+
+if __name__ == &#x27;__main__&#x27;:
+    unittest.main()
+EOF
+python3 -m unittest -v test_vmstate</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> Trimmed:</p>
+<pre class="code code-text"><code class=" language-text">test_acts_only_when_needed (test_vmstate.EnsureStateTest.test_acts_only_when_needed) ... ok
+Ran 1 test in 0.001s
+OK</code></pre>
+<p>Use the script on <code>api-demo</code>, twice for each state, then with a missing name:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo python3 vmstate.py api-demo running
+sudo python3 vmstate.py api-demo running
+sudo python3 vmstate.py api-demo shut-off
+sudo python3 vmstate.py api-demo shut-off
+if sudo python3 vmstate.py no-such-domain running; then echo &#x27;UNEXPECTED: accepted a missing domain&#x27;; false; else echo &#x27;expected: missing domain refused&#x27;; fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong></p>
+<pre class="code code-text"><code class=" language-text">api-demo started
+api-demo unchanged
+api-demo stopped
+api-demo unchanged
+no domain named no-such-domain
+expected: missing domain refused</code></pre>
+<p><strong>Check.</strong> The test passes, and each second run reports <code>unchanged</code>.</p>
+<p><strong>If it fails.</strong> <code>ModuleNotFoundError: No module named &#x27;vmstate&#x27;</code>: run the test from <code>~/kvm-course/ch10</code>, where <code>vmstate.py</code> is.</p>
+<p><strong>Chapter pass.</strong> Trace one call. <code>dom.create()</code> calls <code>virDomainCreate</code> in libvirt&#x27;s C library. The library sends it as a <em>remote procedure call</em> over the UNIX socket <code>/run/libvirt/virtqemud-sock</code> to <code>virtqemud</code>, and its QEMU driver starts a <code>qemu-system-x86_64</code> process. <code>sudo virsh start</code> takes exactly the same path.</p>
+<h2 id="s10-cleanup" class="msec">Clean up <a class="hlink" href="#s10-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch10-cleanup" style="--hue:8">Day 8 lab</a></h2>
+<p><a class="xref" href="../manual/ch11.html">Chapter 11</a> needs nothing from this chapter. <a class="xref" href="../manual/appendix-b.html">Appendix B</a> finds course guests by their disks in the course pool, and <code>api-demo</code> has no disk, so remove it here.</p>
+<p>Stop <code>api-demo</code> if it is still active (<code>virsh list --name</code> prints active domain names), then delete its definition:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">if sudo virsh -c qemu:///system list --name | grep -x api-demo &gt;/dev/null; then
+  sudo virsh -c qemu:///system destroy api-demo
+fi
+if sudo virsh -c qemu:///system dominfo api-demo &gt;/dev/null 2&gt;&amp;1; then
+  sudo virsh -c qemu:///system undefine api-demo
+fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Delete its QEMU log and the chapter&#x27;s scripts:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo rm -f /var/log/libvirt/qemu/api-demo.log
+cd ~
+rm -rf ~/kvm-course/ch10</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>To remove the whole course instead, use <a class="xref" href="../manual/appendix-b.html">Appendix B</a>.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch09.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>9. Incident response</span></a><a class="pager-next" href="ch11.html"><span><small>Next</small>11. The KVM API and a tiny VMM</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

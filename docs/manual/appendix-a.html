@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Appendix A. Preflight and checkpoint C1 · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li class="here"><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-appendix-a">Appendix A. Preflight and checkpoint C1</h1>
+<p>The preflight checks the host before you create a VM; checkpoint C1 checks the running linux-01 after <a class="xref" href="../manual/ch01.html">chapter 1</a>. Neither repairs the host: they never change networks or weaken security, and C1 only refreshes the course&#x27;s own SSH entries for linux-01. A CPU flag and <code>/dev/kvm</code> are necessary, but only the running QEMU process can show that a guest really uses KVM. Reading: <a href="https://www.libvirt.org/manpages/virsh.html" target="_blank" rel="noopener">virsh</a> and <a href="https://www.qemu.org/docs/master/interop/qemu-qmp-ref.html" target="_blank" rel="noopener">QEMU&#x27;s query-kvm</a>.</p>
+<h2 id="sA-1" class="msec"><span class="sec-no">A.1</span> Check the host <a class="hlink" href="#sA-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-appendix-a-1" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Refuse an incomplete host before creating a VM.</p>
+<p><strong>Commands.</strong> Run <a class="xref" href="../manual/ch00.html">chapter 0</a> first. Save the checks as a script and run it; it stops at the first failed check. 40 GiB of free space is enough to start, not for the whole course:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/preflight.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+export LC_ALL=C
+. /etc/os-release
+[ &quot;$ID&quot; = fedora ]
+[ &quot;$VERSION_ID&quot; = 44 ]
+[ &quot;$(uname -m)&quot; = x86_64 ]
+rpm -q qemu-kvm qemu-img libvirt-daemon-kvm libvirt-daemon-config-network libvirt-client virt-install \
+  cloud-utils-cloud-localds genisoimage guestfs-tools edk2-ovmf gnupg2-verify
+test -c /dev/kvm
+test -f /etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-primary
+getenforce | grep -x Enforcing
+sudo firewall-cmd --state
+systemctl is-active virtqemud.socket
+systemctl is-active virtnetworkd.socket
+systemctl is-active virtstoraged.socket
+sudo virsh -c qemu:///system net-info default | grep -E &#x27;^Active: +yes&#x27;
+sudo virsh -c qemu:///system net-dumpxml default | grep &quot;&lt;forward mode=&#x27;nat&#x27;&quot;
+avail=$(df -B1 --output=avail /var | tail -n 1)
+df -h /var
+[ $avail -ge $((40 * 1024 * 1024 * 1024)) ]
+free -h
+echo &#x27;Host preflight passed; C1 checks the guest.&#x27;
+EOF
+bash ~/kvm-course/bin/preflight.sh</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; the <code>df</code> and <code>free -h</code> tables are left out, and sizes differ):</p>
+<pre class="code code-text"><code class=" language-text">Enforcing
+running
+active
+active
+active
+Active:         yes
+  &lt;forward mode=&#x27;nat&#x27;&gt;
+Host preflight passed; C1 checks the guest.</code></pre>
+<p><strong>Check.</strong> The script ends with <code>Host preflight passed</code>. Read the free RAM in the <code>free -h</code> output too.</p>
+<p><strong>If it fails.</strong> The script stops at the failed check, often silently. <code>bash -x ~/kvm-course/bin/preflight.sh</code> prints each command before it runs; the last one printed failed. Missing package: <a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>. No <code>/dev/kvm</code>: <a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>. Inactive socket or network: <a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>–0.4; never edit or remove a network or VM that existed before the course.</p>
+<p><strong>Clean up.</strong> Keep the script; it changed no host configuration.</p>
+<h2 id="sA-2" class="msec"><span class="sec-no">A.2</span> Check the first VM <a class="hlink" href="#sA-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-appendix-a-2" style="--hue:205">Day 2 lab</a></h2>
+<p><strong>Goal.</strong> Confirm actual KVM use, an authenticated login, a clean cloud-init run and the grown Btrfs root.</p>
+<p><strong>Commands.</strong> Run this after <a class="xref" href="../manual/ch01.html#s1-7">chapter 1.7</a>; it repeats the checks of 1.5. <code>query-kvm</code> asks the running QEMU process whether it uses KVM. <code>trust.sh</code> trusts the guest&#x27;s key only if its fingerprint is in the console log and waits for cloud-init. <code>ssh … &#x27;bash -se&#x27; &lt;&lt;&#x27;GUEST&#x27;</code> runs the lines up to <code>GUEST</code> in a shell inside linux-01 (<code>-s</code> reads them from ssh&#x27;s input, <code>-e</code> stops at the first failure). <code>guest-ping</code> asks the guest agent inside linux-01 to answer. Because the two queries go to QEMU and to the agent directly, not through libvirt&#x27;s normal API, libvirt marks the domain <em>tainted</em> (<code>custom-monitor</code>, <code>custom-ga-command</code>): a note for bug reports, not damage.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/checkpoint-c1.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+export LC_ALL=C
+[ &quot;$(sudo virsh -c qemu:///system domstate linux-01)&quot; = running ]
+sudo virsh -c qemu:///system qemu-monitor-command linux-01 &#x27;{&quot;execute&quot;:&quot;query-kvm&quot;}&#x27; | grep -F &#x27;&quot;enabled&quot;:true,&quot;present&quot;:true&#x27;
+bash ~/kvm-course/bin/trust.sh linux-01
+ssh -F ~/kvm-course/ssh/config linux-01 &#x27;bash -se&#x27; &lt;&lt;&#x27;GUEST&#x27;
+set -euo pipefail
+[ &quot;$(hostname)&quot; = linux-01 ]
+[ &quot;$(findmnt -n -o FSTYPE /)&quot; = btrfs ]
+size=$(df -B1 --output=size / | tail -n 1)
+[ $size -ge $((17 * 1024 * 1024 * 1024)) ]
+df -h /
+systemctl is-active qemu-guest-agent.service
+systemctl is-active serial-getty@ttyS0.service
+getenforce | grep -x Enforcing
+GUEST
+sudo virsh -c qemu:///system qemu-agent-command linux-01 &#x27;{&quot;execute&quot;:&quot;guest-ping&quot;}&#x27;
+echo &#x27;C1 passed: KVM, verified SSH, cloud-init, Btrfs growth, SELinux and guest agent.&#x27;
+EOF
+bash ~/kvm-course/bin/checkpoint-c1.sh</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host this printed (excerpt; sizes, times and fingerprints differ: compare yours with your own console log, not with this one):</p>
+<pre class="code code-text"><code class=" language-text">{&quot;return&quot;:{&quot;enabled&quot;:true,&quot;present&quot;:true},&quot;id&quot;:&quot;libvirt-15&quot;}
+&lt;14&gt;Oct  2 06:31:15 cloud-init: 256 SHA256:NsAP285xpno0uEf2JyicHCPwnYZXQanIxEU8JD9Bxag root@linux-01 (ED25519)
+status: done
+linux-01
+/dev/vda3        20G  670M   19G   4% /
+active
+active
+Enforcing
+{&quot;return&quot;:{}}
+C1 passed: KVM, verified SSH, cloud-init, Btrfs growth, SELinux and guest agent.</code></pre>
+<p><strong>Check.</strong> The script ends with <code>C1 passed</code>. The root is Btrfs and at least 17 GiB, because on first boot the guest grew its root partition and file system to fill the 20-GiB disk.</p>
+<p><strong>If it fails.</strong> Run <code>bash -x ~/kvm-course/bin/checkpoint-c1.sh</code>; if the last command shown is <code>ssh</code>, the failed check is inside the guest. Fingerprint not in the console log: never bypass that check. cloud-init exit status 2 means degraded, not passed: read <code>/var/log/cloud-init.log</code> in the guest.</p>
+<p><strong>Clean up.</strong> Only the course&#x27;s own SSH entries for linux-01 were refreshed; keep linux-01.</p>
+<h2 id="sA-cleanup" class="msec">Clean up <a class="hlink" href="#sA-cleanup" aria-label="Link to this section">#</a></h2>
+<p>Keep both scripts while you study, and repeat C1 whenever you want to know that linux-01 is healthy. They check the local linux-01 only: after <a class="xref" href="../manual/ch08.html">chapter 8</a> migrates a guest, check it where it runs. <a class="xref" href="../manual/appendix-b.html#sB-2">Appendix B.2</a> removes the scripts with the rest of the course.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch14.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>14. Final integration and continued expertise</span></a><a class="pager-next" href="appendix-b.html"><span><small>Next</small>Appendix B. Remove the course completely</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>

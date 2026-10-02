@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1. The mental model and the first Linux VM · Master KVM in 10 Days</title>
+<meta name="description" content="An interactive 10-day course in Linux KVM, QEMU, libvirt and virsh on Fedora 44.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/app.css">
+<script>try{var t=localStorage.getItem('kvm10-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body class="kind-manual" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" href="../index.html" aria-label="Master KVM in 10 Days: home">
+    <span class="brand-mark" aria-hidden="true"><span>10</span></span>
+    <span class="brand-text">Master KVM <b>in 10 Days</b></span>
+  </a>
+  <nav class="topnav" aria-label="Main"><a href="../index.html" aria-label="Quest map"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.5 3 6v14.5l6-2.5 6 2.5 6-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/></svg><span>Quest map</span></a><a href="../glossary.html" aria-label="Glossary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Glossary</span></a><a href="../manual/index.html" aria-label="Manual" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h6.5A2.5 2.5 0 0 1 12 7v13.5a2 2 0 0 0-2-2H3z"/><path d="M21 4.5h-6.5A2.5 2.5 0 0 0 12 7v13.5a2 2 0 0 1 2-2h7z"/></svg><span>Manual</span></a></nav>
+  <div class="tools">
+    <button type="button" class="tool search-open" data-search-open aria-label="Search (press /)"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><span class="tool-label">Search</span><kbd>/</kbd></button>
+    <span class="chip xp-chip" title="Experience points" data-xp-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 17l-5.8 3.3 1.4-6.4-4.9-4.4 6.5-.7z"/></svg><b data-xp>0</b><span class="sr">XP</span><span class="chip-unit" aria-hidden="true">XP</span></span>
+    <span class="chip streak-chip" title="Day streak" data-streak-chip><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5c4 0 7-2.8 7-6.8 0-4.6-4.2-6.6-5-11.2-2.6 1.8-3.8 4.4-3.8 6.6-1-.8-1.9-2-2-3.6C6.4 8.4 5 11 5 14.7c0 4 3 6.8 7 6.8z"/></svg><b data-streak>0</b><span class="sr">day streak</span></span>
+    <button type="button" class="tool theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme"><svg class="icon i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg></button>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+<div class="manual-layout"><nav class="manual-toc" aria-label="Manual contents"><p class="eyebrow">Contents</p><ol><li><a href="front.html">/dev/kvm: from your first VM to virtualization engineering</a></li><li><a href="ch00.html">0. Linux prerequisites and a safe lab</a></li><li class="here"><a href="ch01.html">1. The mental model and the first Linux VM</a></li><li><a href="ch02.html">2. VM lifecycle, XML and libvirt daemons</a></li><li><a href="ch03.html">3. Networking</a></li><li><a href="ch04.html">4. Storage and backing chains</a></li><li><a href="ch05.html">5. Repeatable Linux images</a></li><li><a href="ch06.html">6. Security boundaries and recovery access</a></li><li><a href="ch07.html">7. Backups and restore</a></li><li><a href="ch08.html">8. Migration and host maintenance</a></li><li><a href="ch09.html">9. Incident response</a></li><li><a href="ch10.html">10. The libvirt API</a></li><li><a href="ch11.html">11. The KVM API and a tiny VMM</a></li><li><a href="ch12.html">12. QEMU, VirtIO and the I/O path</a></li><li><a href="ch13.html">13. Hardware virtualization, the KVM MMU and VFIO</a></li><li><a href="ch14.html">14. Final integration and continued expertise</a></li><li><a href="appendix-a.html">Appendix A. Preflight and checkpoint C1</a></li><li><a href="appendix-b.html">Appendix B. Remove the course completely</a></li><li><a href="validation.html">Validation status and course maintenance</a></li><li><a href="library.html">Where the LPIC-3 book fits</a></li></ol></nav><article class="manual prose"><h1 class="unit-title" id="u-ch01">1. The mental model and the first Linux VM</h1>
+<p><strong>Goal.</strong> Boot your first VM, <code>linux-01</code>, from a verified Fedora image, prove each layer on its own and save the steps as scripts.</p>
+<p>Four layers share the work (Figure 1). <strong>KVM</strong>, the kernel module behind <code>/dev/kvm</code>, runs guest instructions directly on the CPU. <strong>QEMU</strong> emulates the VM&#x27;s hardware (disks, network card), loads its firmware and asks KVM to run its CPUs; each running VM is one <code>qemu-system-x86_64</code> process. <strong>libvirt</strong> (<code>virtqemud</code>, <a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>) stores VM definitions and runs QEMU. <strong>virsh</strong> sends your requests to libvirt.</p>
+<p>Reading: <a href="https://fedoraproject.org/security/" target="_blank" rel="noopener">Fedora image verification</a>, <a href="https://docs.cloud-init.io/en/latest/reference/datasources/nocloud.html" target="_blank" rel="noopener">cloud-init NoCloud</a>, <a href="https://libvirt.org/formatdomain.html" target="_blank" rel="noopener">libvirt domain XML</a>.</p>
+<h2 id="s1-1" class="msec"><span class="sec-no">1.1</span> Verify the image <a class="hlink" href="#s1-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-ch01-1" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Prove that the image is the file Fedora published before QEMU ever opens it.</p>
+<p><strong>Commands.</strong> Download one exact build (44-1.7) of the image and its checksum list, so the image and the list always match:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">mkdir -p ~/kvm-course/downloads
+cd ~/kvm-course/downloads
+REL=https://download.fedoraproject.org/pub/fedora/linux/releases/44/Cloud/x86_64/images
+curl -fL --retry 3 --progress-bar -O &quot;$REL/Fedora-Cloud-Base-Generic-44-1.7.x86_64.qcow2&quot;
+curl -fsSL --retry 3 -O &quot;$REL/Fedora-Cloud-44-1.7-x86_64-CHECKSUM&quot;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Fedora signs the checksum list with its release key (package <code>fedora-gpg-keys</code>). <code>GNUPGHOME</code> keeps GnuPG away from your own keyring. Compare the key&#x27;s fingerprint, character by character, with the <a href="https://fedoraproject.org/security/" target="_blank" rel="noopener">Fedora security page</a>. <code>gpgv</code> checks the signature with only that key and writes the signed text to <code>CHECKSUM.verified</code>, against which <code>sha256sum</code> checks the image:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">export GNUPGHOME=~/kvm-course/gnupg
+mkdir -p -m 0700 &quot;$GNUPGHOME&quot;
+gpg --show-keys --with-fingerprint /etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-primary
+cd ~/kvm-course/downloads
+gpg --dearmor &lt; /etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-primary &gt; fedora-44.gpg
+if gpgv --keyring ./fedora-44.gpg --output CHECKSUM.verified Fedora-Cloud-44-1.7-x86_64-CHECKSUM; then
+  sha256sum -c --ignore-missing CHECKSUM.verified
+else
+  echo &#x27;STOP: the checksum file is not signed by the Fedora 44 key&#x27; &gt;&amp;2; false
+fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt); your fingerprint must be identical:</p>
+<pre class="code code-text"><code class=" language-text">pub   rsa4096 2025-01-14 [SCE]
+      36F6 12DC F27F 7D1A 48A8  35E4 DBFC F71C 6D9F 90A6
+uid                      Fedora (44) &lt;fedora-44-primary@fedoraproject.org&gt;
+gpgv: Good signature from &quot;Fedora (44) &lt;fedora-44-primary@fedoraproject.org&gt;&quot;
+Fedora-Cloud-Base-Generic-44-1.7.x86_64.qcow2: OK</code></pre>
+<p><strong>Check.</strong> The fingerprint matches the security page, <code>gpgv</code> prints <code>Good signature</code>, and <code>sha256sum</code> prints <code>OK</code>.</p>
+<p><strong>If it fails.</strong> No good signature: download the checksum file again. <code>FAILED</code>: delete and download the image again. Never continue past either error.</p>
+<p><strong>Clean up.</strong> Keep the downloads; 1.3 copies the image.</p>
+<h2 id="s1-2" class="msec"><span class="sec-no">1.2</span> Create the seed <a class="hlink" href="#s1-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-ch01-2" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Prepare the guest&#x27;s hostname and the key you will log in with.</p>
+<p><strong>Commands.</strong> Fedora Cloud images run <strong>cloud-init</strong> at first boot. Its <strong>NoCloud</strong> method reads settings from a small disk image, the <strong>seed</strong>: <code>user-data</code> says what to configure, and <code>meta-data</code> holds an instance ID (a new ID means a new machine).</p>
+<p>Make a course SSH key without a passphrase (<code>-N &#x27;&#x27;</code>, so scripts can use it) and a course SSH configuration:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">mkdir -p -m 0700 ~/kvm-course/ssh
+[ -e ~/kvm-course/ssh/id_ed25519 ] || ssh-keygen -q -t ed25519 -N &#x27;&#x27; -f ~/kvm-course/ssh/id_ed25519
+cat &gt; ~/kvm-course/ssh/config &lt;&lt;&#x27;EOF&#x27;
+Host *
+    User fedora
+    IdentityFile ~/kvm-course/ssh/id_ed25519
+    UserKnownHostsFile ~/kvm-course/ssh/known_hosts
+    IdentitiesOnly yes
+    IdentityAgent none
+    StrictHostKeyChecking yes
+    BatchMode yes
+    ConnectTimeout 8
+EOF
+touch ~/kvm-course/ssh/known_hosts</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>With <code>-F ~/kvm-course/ssh/config</code>, ssh uses the course configuration, key and known_hosts file, not those in <code>~/.ssh</code>. It refuses unknown host keys (1.5 adds the guest&#x27;s after checking it), never prompts for a password and allows eight seconds to set up the connection.</p>
+<p>Write the seed. Here <code>&lt;&lt;EOF</code> has no quotes, so the shell fills in your public key. On Fedora 44, name the guest with <code>hostname</code>, <code>fqdn</code> and <code>prefer_fqdn_over_hostname: false</code> (meta-data&#x27;s <code>local-hostname</code> left cloud-init &quot;degraded&quot;):</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">mkdir ~/kvm-course/linux-01
+cat &gt; ~/kvm-course/linux-01/user-data &lt;&lt;EOF
+#cloud-config
+hostname: linux-01
+fqdn: linux-01.lab.internal
+prefer_fqdn_over_hostname: false
+ssh_pwauth: false
+ssh_authorized_keys:
+  - $(cat ~/kvm-course/ssh/id_ed25519.pub)
+EOF
+printf &#x27;instance-id: linux-01-%s\n&#x27; &quot;$(cat /proc/sys/kernel/random/uuid)&quot; &gt; ~/kvm-course/linux-01/meta-data
+cloud-localds ~/kvm-course/linux-01/seed.iso ~/kvm-course/linux-01/user-data ~/kvm-course/linux-01/meta-data
+cat ~/kvm-course/linux-01/user-data ~/kvm-course/linux-01/meta-data</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host the end was (your key and ID differ):</p>
+<pre class="code code-text"><code class=" language-text">  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA… daniel@fedora
+instance-id: linux-01-c8eb0662-ac89-42e3-9121-35537c0eb9de</code></pre>
+<p><strong>Check.</strong> The seed holds your public key, password login is off, and the instance ID is new.</p>
+<p><strong>If it fails.</strong> <code>cloud-localds: command not found</code>: <a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>. YAML mistakes show up only inside the guest, in <code>/var/log/cloud-init.log</code>.</p>
+<p><strong>Clean up.</strong> Keep the key and the seed.</p>
+<h2 id="s1-3" class="msec"><span class="sec-no">1.3</span> Create the disk <a class="hlink" href="#s1-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-ch01-3" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Give linux-01 a 20-GiB disk that stores only its changes to the verified image.</p>
+<p><strong>Commands.</strong> A <strong>storage pool</strong> is storage that libvirt manages, here a directory. Define it yourself, or virt-install quietly creates and autostarts one. The block refuses an existing pool or directory; <code>.created-by-course</code> lets <a class="xref" href="../manual/appendix-b.html">Appendix B</a> delete this directory and nothing else; <code>pool-autostart</code> starts the pool at boot:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+P=/var/lib/libvirt/images/kvm-course
+if sudo virsh -c qemu:///system pool-info kvm-course &gt;/dev/null 2&gt;&amp;1; then
+  echo &#x27;STOP: pool kvm-course already exists&#x27; &gt;&amp;2; false
+fi
+sudo mkdir -m 0755 $P
+sudo touch $P/.created-by-course
+sudo virsh -c qemu:///system pool-define-as kvm-course dir --target $P
+sudo virsh -c qemu:///system pool-start kvm-course
+sudo virsh -c qemu:///system pool-autostart kvm-course
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Copy the image into the pool as a read-only <strong>base</strong>, and the seed beside it. Then create an <strong>overlay</strong>, a qcow2 file that stores only the guest&#x27;s writes and reads the rest from its <strong>backing file</strong>, the base. <code>-b</code> and <code>-F</code> name the backing file and its format (so QEMU never guesses); <code>-f</code> is the overlay&#x27;s format. 20G is the virtual size; space is used as the guest writes. <code>pool-refresh</code> makes libvirt list the new files:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">P=/var/lib/libvirt/images/kvm-course
+sudo install -m 0444 ~/kvm-course/downloads/Fedora-Cloud-Base-Generic-44-1.7.x86_64.qcow2 $P/base.qcow2
+sudo install -m 0644 ~/kvm-course/linux-01/seed.iso $P/linux-01-seed.iso
+sudo qemu-img create -f qcow2 -F qcow2 -b $P/base.qcow2 $P/linux-01.qcow2 20G
+sudo qemu-img info --backing-chain $P/linux-01.qcow2
+sudo virsh -c qemu:///system pool-refresh kvm-course</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt):</p>
+<pre class="code code-text"><code class=" language-text">image: /var/lib/libvirt/images/kvm-course/linux-01.qcow2
+virtual size: 20 GiB (21474836480 bytes)
+disk size: 196 KiB
+backing file: /var/lib/libvirt/images/kvm-course/base.qcow2
+backing file format: qcow2</code></pre>
+<p><strong>Check.</strong> The chain is linux-01.qcow2 → base.qcow2, and the overlay is tiny on disk.</p>
+<p><strong>If it fails.</strong> <code>File exists</code> or <code>STOP</code>: if the directory holds <code>.created-by-course</code>, run <a class="xref" href="../manual/appendix-b.html#sB-2">Appendix B.2</a> and restart at <a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>. Otherwise it is not the course&#x27;s: do not use the course on this host.</p>
+<p><strong>Clean up.</strong> Keep the three files; deleting the base breaks every overlay on it.</p>
+<h2 id="s1-4" class="msec"><span class="sec-no">1.4</span> Review and launch <a class="hlink" href="#s1-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-ch01-4" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Read the VM definition before libvirt saves and starts it.</p>
+<p><strong>Commands.</strong> libvirt calls a VM a <strong>domain</strong> and describes it in XML. <code>virt-install --print-xml</code> builds that XML and only prints it:</p>
+<ul><li><code>--virt-type kvm</code>: use KVM. <code>--machine pc-q35-10.2</code>: a PC with the Q35 chipset, as QEMU 10.2 models it. <code>--cpu host-passthrough</code>: give the guest your CPU&#x27;s features.</li><li><code>--import</code>: boot the existing disk. <code>--osinfo fedora43</code>: Fedora defaults (osinfo has no <code>fedora44</code> yet).</li><li><code>virtio</code>: devices designed for VMs. The seed is a CD-ROM; the network card joins the <code>default</code> NAT network (<a class="xref" href="../manual/ch00.html#s0-4">chapter 0.4</a>).</li><li><code>--graphics none</code>: no screen, only the serial console; <code>log.file</code> copies it to a file for 1.5. <code>--boot hd</code>: boot from the disk, with the default BIOS firmware (<a class="xref" href="../manual/ch02.html">chapter 2</a> tries UEFI).</li></ul>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">P=/var/lib/libvirt/images/kvm-course
+sudo virt-install --connect qemu:///system --virt-type kvm --name linux-01 \
+  --memory 2048 --vcpus 2 --import --osinfo fedora43 \
+  --machine pc-q35-10.2 --cpu host-passthrough \
+  --disk path=$P/linux-01.qcow2,bus=virtio,format=qcow2 \
+  --disk path=$P/linux-01-seed.iso,device=cdrom \
+  --network network=default,model=virtio --graphics none \
+  --serial pty,log.file=/var/log/libvirt/qemu/linux-01-console.log,log.append=on \
+  --boot hd --print-xml &gt; ~/kvm-course/linux-01/domain.xml
+grep -E &#x27;&lt;domain|&lt;source |&lt;model |&lt;log &#x27; ~/kvm-course/linux-01/domain.xml</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Find the disk, the seed and the network in the excerpt. Refuse an existing name; then <code>define --validate</code> checks the XML and saves it as a persistent domain, and <code>start</code> launches its QEMU process:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
+set -euo pipefail
+if sudo virsh -c qemu:///system dominfo linux-01 &gt;/dev/null 2&gt;&amp;1; then
+  echo &#x27;STOP: linux-01 already exists; do not start or replace it&#x27; &gt;&amp;2; false
+fi
+sudo virsh -c qemu:///system define --validate ~/kvm-course/linux-01/domain.xml
+sudo virsh -c qemu:///system start linux-01
+)</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt):</p>
+<pre class="code code-text"><code class=" language-text">&lt;domain type=&quot;kvm&quot;&gt;
+      &lt;source file=&quot;/var/lib/libvirt/images/kvm-course/linux-01.qcow2&quot;/&gt;
+      &lt;source network=&quot;default&quot;/&gt;
+Domain &#x27;linux-01&#x27; defined from /home/daniel/kvm-course/linux-01/domain.xml
+Domain &#x27;linux-01&#x27; started</code></pre>
+<p><strong>Check.</strong> The domain was defined from the file you read and started.</p>
+<p><strong>If it fails.</strong> <code>already exists</code>: if it is your earlier course guest, run <a class="xref" href="../manual/appendix-b.html#sB-2">Appendix B.2</a> and restart at <a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>; leave any other VM alone. Start errors are logged in <code>/var/log/libvirt/qemu/linux-01.log</code> (use <code>sudo</code>).</p>
+<p><strong>Clean up.</strong> Keep linux-01 running.</p>
+<h2 id="s1-5" class="msec"><span class="sec-no">1.5</span> Prove the boot <a class="hlink" href="#s1-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-01.html#lab-ch01-5" style="--hue:174">Day 1 lab</a></h2>
+<p><strong>Goal.</strong> Prove four things one at a time: QEMU uses KVM, the guest booted, cloud-init finished, and you log in to the right machine.</p>
+<p><strong>Commands.</strong> <code>dominfo</code> and <code>domiflist</code> show the domain&#x27;s state and network card. <strong>QMP</strong> is QEMU&#x27;s control protocol; virsh passes the read-only request <code>query-kvm</code> to this VM&#x27;s QEMU process:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system dominfo linux-01
+sudo virsh -c qemu:///system domiflist linux-01
+sudo virsh -c qemu:///system qemu-monitor-command linux-01 &#x27;{&quot;execute&quot;:&quot;query-kvm&quot;}&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Wait for a DHCP lease and save its address. <code>timeout</code> limits one command, so each wait loop runs inside <code>bash -c</code>. <code>awk</code> keeps the first IPv4 address without its <code>/24</code>:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">timeout 180 bash -c &#x27;until sudo virsh -c qemu:///system domifaddr linux-01 --source lease | grep ipv4 &gt;/dev/null; do sleep 2; done&#x27;
+sudo virsh -c qemu:///system domifaddr linux-01 --source lease |
+  awk &#x27;$3==&quot;ipv4&quot; &amp;&amp; !seen {sub(/\/.*/,&quot;&quot;,$4);print $4;seen=1}&#x27; &gt; ~/kvm-course/linux-01/ip</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>cloud-init prints the guest&#x27;s SSH host-key fingerprints on the serial console, which libvirt copies to the log; wait for them:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">timeout 240 bash -c &#x27;until sudo grep -q &quot;END SSH HOST KEY FINGERPRINTS&quot; /var/log/libvirt/qemu/linux-01-console.log; do sleep 2; done&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Ask that address for its key until sshd answers; an address alone proves nothing:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">IP=$(cat ~/kvm-course/linux-01/ip)
+timeout 120 bash -c &quot;until ssh-keyscan -t ed25519 $IP 2&gt;/dev/null | grep ed25519 &gt; ~/kvm-course/linux-01/scan; do sleep 2; done&quot;
+ssh-keygen -lf ~/kvm-course/linux-01/scan</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Only if a fingerprint was read (<code>SHA256:…</code>) and it is in the console log, store the key under the name <code>linux-01</code> and add a <code>Host linux-01</code> entry. <code>HostKeyAlias</code> makes ssh look the key up by name, because the address may later belong to another VM:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">FINGERPRINT=$(ssh-keygen -lf ~/kvm-course/linux-01/scan | awk &#x27;{print $2}&#x27;)
+if [[ $FINGERPRINT == SHA256:* ]] &amp;&amp; sudo grep -F &quot;$FINGERPRINT&quot; /var/log/libvirt/qemu/linux-01-console.log; then
+  awk &#x27;$2==&quot;ssh-ed25519&quot; {$1=&quot;linux-01&quot;; print}&#x27; ~/kvm-course/linux-01/scan &gt;&gt; ~/kvm-course/ssh/known_hosts
+  printf &#x27;Host linux-01\n    HostName %s\n    HostKeyAlias linux-01\n\n&#x27; &quot;$IP&quot; &gt;&gt; ~/kvm-course/ssh/config
+else
+  echo &#x27;STOP: the scanned key is not in the console log&#x27;; false
+fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Log in. <code>cloud-init status --wait</code> returns when cloud-init is done: exit status 0 means a clean run, 2 a degraded one. <code>set -e</code> stops the guest&#x27;s shell at the first failing check:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">timeout 240 ssh -F ~/kvm-course/ssh/config linux-01 &#x27;cloud-init status --wait&#x27;
+ssh -F ~/kvm-course/ssh/config linux-01 &#x27;set -e; hostname; findmnt -no SOURCE,FSTYPE /; df -h /; for unit in qemu-guest-agent serial-getty@ttyS0; do systemctl is-active &quot;$unit&quot;; done&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt; addresses, sizes and fingerprints differ):</p>
+<pre class="code code-text"><code class=" language-text">{&quot;return&quot;:{&quot;enabled&quot;:true,&quot;present&quot;:true},&quot;id&quot;:&quot;libvirt-15&quot;}
+&lt;14&gt;Oct  2 07:15:58 cloud-init: 256 SHA256:XPazzvehoG3rn5yreT2MYi4Osu3yHUQfQ07wX98+wbc root@linux-01 (ED25519)
+status: done
+linux-01
+/dev/vda3[/root] btrfs
+/dev/vda3        20G  670M   19G   4% /
+active</code></pre>
+<p><strong>Check.</strong> KVM is enabled and present; the fingerprints match; <code>status: done</code>; the hostname is right; the Btrfs root grew to almost 20 GiB; the guest agent and serial login run. This is checkpoint C1 (<a class="xref" href="../manual/appendix-a.html">Appendix A</a>).</p>
+<p><strong>If it fails.</strong> No lease: check <code>domiflist</code> and the <code>default</code> network (0.4). No fingerprints: read the console log for boot errors. Fingerprint not in the log: stop. Exit status 2: read <code>/var/log/cloud-init.log</code> in the guest.</p>
+<p><strong>Clean up.</strong> Keep linux-01 running.</p>
+<h2 id="s1-6" class="msec"><span class="sec-no">1.6</span> Run QEMU without libvirt <a class="hlink" href="#s1-6" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch01-6" style="--hue:205">Day 2 lab</a></h2>
+<p><strong>Goal.</strong> See that QEMU and KVM alone boot a guest; libvirt only manages them.</p>
+<p><strong>Commands.</strong> Use a new overlay, so this test never touches linux-01&#x27;s disk. The <strong>monitor</strong> is QEMU&#x27;s own text console; <code>-monitor stdio</code> connects it to your terminal, where <code>printf</code> types <code>info kvm</code> and <code>quit</code> after 45 seconds. <code>-nic none</code> means no network. Without KVM, <code>-accel kvm</code> refuses to start.</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">qemu-img create -f qcow2 -F qcow2 -b /var/lib/libvirt/images/kvm-course/base.qcow2 ~/kvm-course/raw.qcow2
+(sleep 45; printf &#x27;info kvm\nquit\n&#x27;) | timeout 90 qemu-system-x86_64 -accel kvm -machine q35 -cpu host -m 1024 \
+  -drive file=$HOME/kvm-course/raw.qcow2,format=qcow2,if=virtio -nic none \
+  -display none -serial file:$HOME/kvm-course/raw-console.log -monitor stdio
+grep -F &#x27;Linux version&#x27; ~/kvm-course/raw-console.log</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host (excerpt):</p>
+<pre class="code code-text"><code class=" language-text">kvm support: enabled
+[    0.000000] Linux version 6.19.10-300.fc44.x86_64 …</code></pre>
+<p><strong>Check.</strong> The monitor reports <code>kvm support: enabled</code>, and the guest kernel printed its version. You have seen every layer: virsh asked libvirt (1.4), libvirt started QEMU, QEMU used <code>/dev/kvm</code> (1.5), and here QEMU and KVM ran a guest without libvirt.</p>
+<p><strong>If it fails.</strong> <code>Could not access KVM kernel module</code>: check <code>/dev/kvm</code> (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>). No <code>Linux version</code>: read QEMU&#x27;s message and <code>~/kvm-course/raw-console.log</code>; if the boot was only slow, raise the 45 seconds (below the 90-second timeout).</p>
+<p><strong>Clean up.</strong> After checking, delete the overlay and the log:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">rm -f ~/kvm-course/raw.qcow2 ~/kvm-course/raw-console.log</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<h2 id="s1-7" class="msec"><span class="sec-no">1.7</span> Save the steps as scripts <a class="hlink" href="#s1-7" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch01-7" style="--hue:205">Day 2 lab</a></h2>
+<p><strong>Goal.</strong> Save 1.1–1.5 as scripts that build or rebuild a guest with one command.</p>
+<p><strong>Commands.</strong> Each script repeats what you typed, for any guest name, and stops at its first error (<code>set -euo pipefail</code>). Scripts that compare command output set <code>LC_ALL=C</code>, so its words stay English. First repeat 0.3&#x27;s check, so this also works after <a class="xref" href="../manual/appendix-b.html">Appendix B</a> removed the course:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">if [ -e ~/kvm-course ] &amp;&amp; [ ! -f ~/kvm-course/.created-by-course ]; then
+  echo &#x27;STOP: ~/kvm-course was not created by this course&#x27; &gt;&amp;2; false
+else
+  mkdir -p ~/kvm-course/bin
+  touch ~/kvm-course/.created-by-course
+fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>init.sh</code> repeats 0.3 and 1.1. Like 0.3, it installs only if dnf&#x27;s preview upgrades or removes nothing:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/init.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+export LC_ALL=C
+packages=&quot;qemu-kvm qemu-img libvirt-daemon-kvm libvirt-daemon-config-network libvirt-client virt-install
+  cloud-utils-cloud-localds genisoimage guestfs-tools edk2-ovmf gnupg2-verify&quot;
+if ! rpm -q $packages &gt;/dev/null; then
+  plan=$(sudo dnf install --assumeno $packages 2&gt;&amp;1 || true)
+  if grep -E &#x27;^ *(Upgrading|Downgrading|Removing|Replacing)&#x27; &lt;&lt;&lt; &quot;$plan&quot;; then
+    echo &#x27;STOP: dnf would change installed packages; update your system first (chapter 0.3)&#x27; &gt;&amp;2; exit 1
+  fi
+  sudo dnf install -y $packages
+  dnf history list | awk &#x27;NR==2 {print $1}&#x27; &gt;&gt; ~/kvm-course/dnf-transactions.txt
+fi
+sudo systemctl start virtqemud.socket virtnetworkd.socket virtstoraged.socket
+mkdir -p ~/kvm-course/downloads
+cd ~/kvm-course/downloads
+REL=https://download.fedoraproject.org/pub/fedora/linux/releases/44/Cloud/x86_64/images
+[ -f Fedora-Cloud-Base-Generic-44-1.7.x86_64.qcow2 ] || curl -fL --retry 3 --progress-bar -O &quot;$REL/Fedora-Cloud-Base-Generic-44-1.7.x86_64.qcow2&quot;
+[ -f Fedora-Cloud-44-1.7-x86_64-CHECKSUM ] || curl -fsSL --retry 3 -O &quot;$REL/Fedora-Cloud-44-1.7-x86_64-CHECKSUM&quot;
+export GNUPGHOME=~/kvm-course/gnupg
+mkdir -p -m 0700 &quot;$GNUPGHOME&quot;
+gpg --dearmor &lt; /etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-primary &gt; fedora-44.gpg
+gpgv --keyring ./fedora-44.gpg --output CHECKSUM.verified Fedora-Cloud-44-1.7-x86_64-CHECKSUM
+sha256sum -c --ignore-missing CHECKSUM.verified
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>seed.sh NAME</code> repeats 1.2: the SSH key and configuration if missing, then the seed. It and <code>remove-guest.sh</code> accept only simple lowercase names and refuse those of shared course files (<code>base</code>, <code>bin</code>, <code>chNN</code>, <code>downloads</code>, <code>gnupg</code>, <code>ssh</code>):</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/seed.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+name=${1:?usage: seed.sh NAME}
+[[ $name =~ ^[a-z][a-z0-9-]*$ ]] || { echo &quot;STOP: $name is not a simple lowercase name&quot; &gt;&amp;2; exit 1; }
+case $name in base|bin|ch[0-9][0-9]|downloads|gnupg|ssh)
+  echo &quot;STOP: $name is reserved for course files&quot; &gt;&amp;2; exit 1 ;; esac
+mkdir -p -m 0700 ~/kvm-course/ssh
+[ -e ~/kvm-course/ssh/id_ed25519 ] || ssh-keygen -q -t ed25519 -N &#x27;&#x27; -f ~/kvm-course/ssh/id_ed25519
+[ -e ~/kvm-course/ssh/config ] || cat &gt; ~/kvm-course/ssh/config &lt;&lt;&#x27;CONFIG&#x27;
+Host *
+    User fedora
+    IdentityFile ~/kvm-course/ssh/id_ed25519
+    UserKnownHostsFile ~/kvm-course/ssh/known_hosts
+    IdentitiesOnly yes
+    IdentityAgent none
+    StrictHostKeyChecking yes
+    BatchMode yes
+    ConnectTimeout 8
+CONFIG
+touch ~/kvm-course/ssh/known_hosts
+mkdir ~/kvm-course/$name
+cd ~/kvm-course/$name
+cat &gt; user-data &lt;&lt;USERDATA
+#cloud-config
+hostname: $name
+fqdn: $name.lab.internal
+prefer_fqdn_over_hostname: false
+ssh_pwauth: false
+ssh_authorized_keys:
+  - $(cat ~/kvm-course/ssh/id_ed25519.pub)
+USERDATA
+printf &#x27;instance-id: %s-%s\n&#x27; &quot;$name&quot; &quot;$(cat /proc/sys/kernel/random/uuid)&quot; &gt; meta-data
+cloud-localds seed.iso user-data meta-data
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>disk.sh NAME</code> repeats 1.3: the pool and base if missing, then the overlay. It refuses a <code>kvm-course</code> pool that is not the course&#x27;s, and an existing disk:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/disk.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+name=${1:?usage: disk.sh NAME}
+P=/var/lib/libvirt/images/kvm-course
+if sudo virsh -c qemu:///system pool-info kvm-course &gt;/dev/null 2&gt;&amp;1; then
+  if ! sudo test -f $P/.created-by-course || ! sudo virsh -c qemu:///system pool-dumpxml kvm-course | grep -F &quot;&lt;path&gt;$P&lt;/path&gt;&quot; &gt;/dev/null; then
+    echo &quot;STOP: pool kvm-course is not the course pool (see 1.3)&quot; &gt;&amp;2; exit 1
+  fi
+else
+  sudo mkdir -m 0755 $P
+  sudo touch $P/.created-by-course
+  sudo virsh -c qemu:///system pool-define-as kvm-course dir --target $P
+  sudo virsh -c qemu:///system pool-start kvm-course
+  sudo virsh -c qemu:///system pool-autostart kvm-course
+fi
+sudo test -e $P/base.qcow2 ||
+  sudo install -m 0444 ~/kvm-course/downloads/Fedora-Cloud-Base-Generic-44-1.7.x86_64.qcow2 $P/base.qcow2
+if sudo test -e $P/$name.qcow2; then echo &quot;STOP: $P/$name.qcow2 already exists&quot; &gt;&amp;2; exit 1; fi
+sudo install -m 0644 ~/kvm-course/$name/seed.iso $P/$name-seed.iso
+sudo qemu-img create -f qcow2 -F qcow2 -b $P/base.qcow2 $P/$name.qcow2 20G
+sudo virsh -c qemu:///system pool-refresh kvm-course
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>launch.sh NAME</code> repeats 1.4. <code>MEMORY_MIB</code> (default 2048), <code>VCPUS</code> (2) and <code>FIRMWARE=uefi</code> change the defaults:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/launch.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+name=${1:?usage: launch.sh NAME}
+P=/var/lib/libvirt/images/kvm-course
+log=/var/log/libvirt/qemu/$name-console.log
+if sudo test -e $log; then echo &quot;STOP: old console log $log (remove-guest.sh deletes it)&quot; &gt;&amp;2; exit 1; fi
+if [ &quot;${FIRMWARE:-bios}&quot; = uefi ]; then boot=uefi; else boot=hd; fi
+sudo virt-install --connect qemu:///system --virt-type kvm --name $name \
+  --memory ${MEMORY_MIB:-2048} --vcpus ${VCPUS:-2} --import --osinfo fedora43 \
+  --machine pc-q35-10.2 --cpu host-passthrough \
+  --disk path=$P/$name.qcow2,bus=virtio,format=qcow2 \
+  --disk path=$P/$name-seed.iso,device=cdrom \
+  --network network=default,model=virtio --graphics none \
+  --serial pty,log.file=$log,log.append=on \
+  --boot $boot --print-xml &gt; ~/kvm-course/$name/domain.xml
+sudo virsh -c qemu:///system define --validate ~/kvm-course/$name/domain.xml
+sudo virsh -c qemu:///system start $name
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>trust.sh NAME</code> repeats 1.5, replacing older SSH entries for NAME; <code>ssh -n</code> keeps ssh from reading its caller&#x27;s input:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/trust.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+name=${1:?usage: trust.sh NAME}
+D=~/kvm-course
+log=/var/log/libvirt/qemu/$name-console.log
+timeout 180 bash -c &quot;until sudo virsh -c qemu:///system domifaddr $name --source lease | grep ipv4 &gt;/dev/null; do sleep 2; done&quot;
+sudo virsh -c qemu:///system domifaddr $name --source lease |
+  awk &#x27;$3==&quot;ipv4&quot; &amp;&amp; !seen {sub(/\/.*/,&quot;&quot;,$4);print $4;seen=1}&#x27; &gt; $D/$name/ip
+ip=$(cat $D/$name/ip)
+timeout 240 bash -c &quot;until sudo grep -q &#x27;END SSH HOST KEY FINGERPRINTS&#x27; $log; do sleep 2; done&quot;
+timeout 120 bash -c &quot;until ssh-keyscan -t ed25519 $ip 2&gt;/dev/null | grep ed25519 &gt; $D/$name/scan; do sleep 2; done&quot;
+fingerprint=$(ssh-keygen -lf $D/$name/scan | awk &#x27;{print $2}&#x27;)
+if ! sudo grep -F &quot;$fingerprint&quot; $log; then
+  echo &quot;STOP: the key at $ip is not in the console log of $name&quot; &gt;&amp;2; exit 1
+fi
+ssh-keygen -R $name -f $D/ssh/known_hosts &gt;/dev/null 2&gt;&amp;1 || true
+awk -v n=$name &#x27;$2==&quot;ssh-ed25519&quot; {$1=n; print}&#x27; $D/$name/scan &gt;&gt; $D/ssh/known_hosts
+sed -i &quot;/^Host $name\$/,/^\$/d&quot; $D/ssh/config
+printf &#x27;Host %s\n    HostName %s\n    HostKeyAlias %s\n\n&#x27; $name $ip $name &gt;&gt; $D/ssh/config
+timeout 240 ssh -n -F $D/ssh/config $name &#x27;cloud-init status --wait&#x27;
+ssh -n -F $D/ssh/config $name hostname
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>new-guest.sh NAME</code> runs them in order. An existing course guest is only started if needed and checked again; a domain with no disk in the course pool is refused:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/new-guest.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+name=${1:?usage: new-guest.sh NAME}
+export LC_ALL=C
+B=~/kvm-course/bin
+if sudo virsh -c qemu:///system dominfo $name &gt;/dev/null 2&gt;&amp;1; then
+  if ! sudo virsh -c qemu:///system domblklist $name | grep -F &#x27; /var/lib/libvirt/images/kvm-course/&#x27; &gt;/dev/null; then
+    echo &quot;STOP: $name exists and is not a course guest&quot; &gt;&amp;2; exit 1
+  fi
+  if [ &quot;$(sudo virsh -c qemu:///system domstate $name)&quot; = &quot;shut off&quot; ]; then
+    sudo virsh -c qemu:///system start $name
+  fi
+else
+  bash $B/init.sh
+  bash $B/seed.sh $name
+  bash $B/disk.sh $name
+  bash $B/launch.sh $name
+fi
+bash $B/trust.sh $name
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>stop-guest.sh NAME</code> shuts a guest down and waits up to two minutes:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/stop-guest.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+name=${1:?usage: stop-guest.sh NAME}
+export LC_ALL=C
+if [ &quot;$(sudo virsh -c qemu:///system domstate $name)&quot; != &quot;shut off&quot; ]; then
+  sudo virsh -c qemu:///system shutdown $name
+fi
+timeout 120 bash -c &quot;until sudo virsh -c qemu:///system domstate $name | grep -x &#x27;shut off&#x27; &gt;/dev/null; do sleep 1; done&quot; ||
+  { echo &quot;STOP: $name is still running after 120 seconds&quot; &gt;&amp;2; exit 1; }
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><code>remove-guest.sh NAME</code> deletes a course guest with its UEFI variables, TPM state, saved-state and snapshot records, disk, seed, logs, files and <code>Host</code> entry; missing parts are skipped. It checks the name first, like <code>seed.sh</code>:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/remove-guest.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+set -euo pipefail
+name=${1:?usage: remove-guest.sh NAME}
+[[ $name =~ ^[a-z][a-z0-9-]*$ ]] || { echo &quot;STOP: $name is not a simple lowercase name&quot; &gt;&amp;2; exit 1; }
+case $name in base|bin|ch[0-9][0-9]|downloads|gnupg|ssh)
+  echo &quot;STOP: $name is reserved for course files&quot; &gt;&amp;2; exit 1 ;; esac
+export LC_ALL=C
+P=/var/lib/libvirt/images/kvm-course
+if sudo virsh -c qemu:///system dominfo $name &gt;/dev/null 2&gt;&amp;1; then
+  if ! sudo virsh -c qemu:///system domblklist $name | grep -F &quot; $P/&quot; &gt;/dev/null; then
+    echo &quot;STOP: $name has no disk in $P, so it is not a course guest&quot; &gt;&amp;2; exit 1
+  fi
+  if [ &quot;$(sudo virsh -c qemu:///system domstate $name)&quot; != &quot;shut off&quot; ]; then
+    sudo virsh -c qemu:///system destroy $name
+  fi
+  sudo virsh -c qemu:///system undefine $name --nvram --tpm --managed-save --snapshots-metadata --checkpoints-metadata
+fi
+sudo rm -f $P/$name.qcow2 $P/$name-seed.iso /var/log/libvirt/qemu/$name.log \
+  /var/log/libvirt/qemu/$name-console.log /var/log/swtpm/libvirt/qemu/$name-swtpm.log
+sudo virsh -c qemu:///system pool-refresh kvm-course &gt;/dev/null 2&gt;&amp;1 || true
+rm -rf ~/kvm-course/$name
+[ ! -f ~/kvm-course/ssh/config ] || sed -i &quot;/^Host $name\$/,/^\$/d&quot; ~/kvm-course/ssh/config
+EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p>Try <code>new-guest.sh</code> on linux-01: it finds the running guest and runs only <code>trust.sh</code>. Then see <code>remove-guest.sh</code> refuse a reserved name:</p>
+<div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">bash ~/kvm-course/bin/new-guest.sh linux-01
+if bash ~/kvm-course/bin/remove-guest.sh base; then echo &#x27;UNEXPECTED: base accepted&#x27; &gt;&amp;2; false; else echo &#x27;expected: base refused&#x27;; fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
+<p><strong>Expected output.</strong> On the validation host the end was:</p>
+<pre class="code code-text"><code class=" language-text">status: done
+linux-01
+STOP: base is reserved for course files
+expected: base refused</code></pre>
+<p><strong>Check.</strong> The fingerprint check passed again, cloud-init reports <code>done</code>, and <code>base.qcow2</code> was not touched. <a class="xref" href="../manual/ch02.html">Chapter 2</a> uses <code>stop-guest.sh</code> and <code>remove-guest.sh</code>.</p>
+<p><strong>If it fails.</strong> The last lines show the failing command or a <code>STOP:</code> line. Fix the cause, run <code>remove-guest.sh NAME</code>, then <code>new-guest.sh NAME</code> again. <code>bash -x SCRIPT</code> shows each command.</p>
+<p><strong>Clean up.</strong> Keep the scripts; later chapters use them.</p>
+<h2 id="s1-cleanup" class="msec">Clean up <a class="hlink" href="#s1-cleanup" aria-label="Link to this section">#</a></h2>
+<p>Keep linux-01 and the scripts for <a class="xref" href="../manual/ch02.html">chapter 2</a>. To remove the whole course instead, run <a class="xref" href="../manual/appendix-b.html#sB-2">Appendix B.2</a>.</p><nav class="pager" aria-label="Manual"><a class="pager-prev" href="ch00.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"/></svg><span><small>Previous</small>0. Linux prerequisites and a safe lab</span></a><a class="pager-next" href="ch02.html"><span><small>Next</small>2. VM lifecycle, XML and libvirt daemons</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></nav></article></div>
+</main>
+<footer class="footer">
+  <div class="footer-inner">
+    <p><b>Master KVM in 10 Days</b> is built from the validated Fedora 44 manual <a href="../manual/index.html">"/dev/kvm: from your first VM to virtualization engineering"</a>. Lab commands are copied from the manual byte for byte; the simulated terminal only replays the manual's recorded output.</p>
+    <p class="footer-tools"><span data-storage-note></span>
+      <button type="button" class="linkish" data-export>Export progress</button>
+      <button type="button" class="linkish" data-import>Import progress</button>
+      <button type="button" class="linkish danger" data-reset>Reset progress</button></p>
+  </div>
+</footer>
+<div class="search-layer" data-search-layer hidden>
+  <div class="search-box" role="dialog" aria-modal="true" aria-label="Search the course">
+    <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg><input type="search" data-search-input placeholder="Search days, glossary and manual…" aria-label="Search" autocomplete="off"><button type="button" class="tool" data-search-close aria-label="Close search"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="search-results" data-search-results role="listbox" aria-label="Results"></div>
+    <p class="search-hint"><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close</p>
+  </div>
+</div>
+<div class="toast-zone" aria-live="polite" data-toasts></div>
+<script type="application/json" id="page-data">{"kind":"manual"}</script>
+<script src="../assets/app.js" defer></script>
+</body>
+</html>
