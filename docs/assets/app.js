@@ -1012,6 +1012,7 @@
     }
     grid();
     cb.addEventListener("change", function () {
+      if (busy) return;
       disk.textContent = cb.checked ? "Disks are not shared: --copy-storage-all copies the disk first" : "Shared disk on nfs-01 (NFS): both hosts open the same file";
       show(cb.checked ? P.storage : P.disk, !cb.checked && P.shared ? "<p>" + esc(P.shared.text) + "</p>" + citeHTML(P.shared.cites) : "");
     });
@@ -1020,7 +1021,11 @@
     play.addEventListener("click", function () {
       if (busy) return; busy = true; dgAward(el); grid();
       var S1 = $$("i", sg), D1 = $$("i", dg);
-      var copied = {}, fast = hb.checked;
+      /* the options are fixed for the whole run; the controls stay disabled until it ends */
+      var copied = {}, fast = hb.checked, copyStorage = cb.checked;
+      play.disabled = true; cb.disabled = true; hb.disabled = true;
+      disk.textContent = copyStorage ? "Disks are not shared: --copy-storage-all copies the disk first" : "Shared disk on nfs-01 (NFS): both hosts open the same file";
+      function unlock() { busy = false; play.disabled = false; cb.disabled = false; hb.disabled = false; }
       ss.textContent = "running"; ss.className = "mig-state run"; ds.textContent = "receiving"; ds.className = "mig-state";
       pipeEl.classList.add("active");
       function round(r, pages, next) {
@@ -1046,15 +1051,15 @@
       }
       function finish() {
         ss.textContent = "paused"; ss.className = "mig-state pause"; rr.textContent = "last pages + device state";
-        show(P.pause, cb.checked ? "" : partHTML(P.lock));
+        show(P.pause, copyStorage ? "" : partHTML(P.lock));
         setTimeout(function () {
           for (var i = 0; i < N; i++) { D1[i].className = "c"; S1[i].className = ""; }
           ss.textContent = "gone (Stopped Migrated)"; ss.className = "mig-state"; ds.textContent = "running (migrated)"; ds.className = "mig-state run";
-          if (cb.checked) disk.textContent = "The source still holds the old disk, now stale: delete it";
+          if (copyStorage) disk.textContent = "The source still holds the old disk, now stale: delete it";
           rr.textContent = "done"; pipeEl.classList.remove("active");
           status.textContent = "Switched over: the guest runs on the destination.";
-          show(P.events, partHTML(P.after) + (cb.checked ? partHTML(P.stale) : "") + partHTML(P.stream));
-          busy = false;
+          show(P.events, partHTML(P.after) + (copyStorage ? partHTML(P.stale) : "") + partHTML(P.stream));
+          unlock();
         }, 1300);
       }
       function abort() {
@@ -1063,7 +1068,7 @@
         ss.textContent = "running"; ss.className = "mig-state run"; ds.textContent = "cancelled"; ds.className = "mig-state";
         status.textContent = "Not converging here: the pages left do not fit the 300 ms pause, and a busy guest may never finish (it can also still converge). virsh -c \"$B\" domjobabort linux-01, sent to the source from a second terminal (after . ~/kvm-course/ch08/env), cancels the move, and the guest keeps running there. (Not validated in the manual: idle linux-01 always converges.)";
         show(P.converge || P.recopy);
-        busy = false;
+        unlock();
       }
       function check(r, left) {
         var ms = left.length * MS;
@@ -1078,7 +1083,7 @@
         var all = []; for (var i = 0; i < N; i++) all.push(i);
         round(1, all, function (d) { check(1, d); });
       }
-      if (cb.checked) { rr.textContent = "copying disk"; status.textContent = "Copying the disk first (--copy-storage-all)."; show(P.storage); setTimeout(begin, 2200); }
+      if (copyStorage) { rr.textContent = "copying disk"; status.textContent = "Copying the disk first (--copy-storage-all)."; show(P.storage); setTimeout(begin, 2200); }
       else begin();
     });
     show(P.copy, "<p>Press <b>Migrate</b>. Then tick <b>Busy guest</b> and press it again.</p>");
@@ -1156,6 +1161,296 @@
     });
     resetB.addEventListener("click", reset);
     reset();
+    /* What if: change the IN answer and RBX, predict exit 2's character, compare with the real 11.4 line. */
+    var real = { e1: out[0] || "", e2: out[1] || "", e3: out[2] || "" };
+    var wi = h("div", { class: "kr-whatif" });
+    wi.innerHTML = "<h4>What if? Change the VMM's numbers</h4>" +
+      '<p class="fine">In tiny-vmm.c the VMM answers the IN with 2 (<code>*data = 2</code>, and its printf says "answers 2"), and sets RBX to 3. Change them, predict, then compare with the real line from 11.4.</p>' +
+      '<div class="kr-inputs"><label>IN answer <input type="number" min="0" max="9" value="2" data-wi="in"></label>' +
+      '<label>RBX <input type="number" min="0" max="9" value="3" data-wi="rbx"></label>' +
+      '<label>Your prediction for exit 2\'s character <input type="text" maxlength="1" size="2" data-wi="guess" aria-describedby="kr-wi-help"></label>' +
+      '<button type="button" class="btn small" data-wi="go">Check</button></div>' +
+      '<p class="fine" id="kr-wi-help">One character: what does <code>out dx, al</code> write after <code>in</code>, <code>add al, bl</code> and <code>add al, \'0\'</code>?</p>' +
+      '<div class="kr-out kr-wi-out" aria-live="polite"></div><div class="kr-out kr-wi-rec"></div>';
+    side.appendChild(wi);
+    function clamp(v) { v = parseInt(v, 10); return isNaN(v) ? 0 : Math.max(0, Math.min(9, v)); }
+    $$("input", wi).forEach(function (inp) {
+      inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); $('[data-wi="go"]', wi).click(); } });
+    });
+    $('[data-wi="go"]', wi).addEventListener("click", function () {
+      dgAward(el);
+      var a = clamp($('[data-wi="in"]', wi).value), b = clamp($('[data-wi="rbx"]', wi).value);
+      $('[data-wi="in"]', wi).value = a; $('[data-wi="rbx"]', wi).value = b;
+      var code = (0x30 + a + b) & 0xff, ch = String.fromCharCode(code);
+      var guess = $('[data-wi="guess"]', wi).value;
+      var ok = guess === ch;
+      if (ok) award(dkey + "-kr-wi-" + a + "-" + b, 2, null);
+      $(".kr-wi-out", wi).textContent =
+        (guess ? (ok ? "Prediction right. " : "Prediction '" + guess + "' is not it. ") : "") +
+        "Schematic: al = " + a + " + " + b + " = " + (a + b) + "; add al, '0' gives 0x" + code.toString(16) + " = '" + ch + "'" +
+        (a + b > 9 ? " (above 9 it is no longer a decimal digit)" : "") +
+        ". out dx, al writes that character, and the store to 0x5000 carries the same byte.";
+      $(".kr-wi-rec", wi).textContent = "Recorded in 11.4 with IN 2 and RBX 3 (unchanged):\n" + out.join("\n");
+      var add = "";
+      ["whatif-in", "whatif-rbx", "whatif-digit"].forEach(function (k) { if (P[k]) add += "<p>" + esc(P[k].text) + "</p>" + citeHTML(P[k].cites); });
+      show(null, add);
+    });
+  };
+
+  /* Day 6: block grid for full + checkpoint, guest writes, incremental, restore (7.4, 7.5). Schematic: 12 blocks. */
+  DIAGRAMS.incgrid = function (el, spec) {
+    var P = {}; (spec.parts || []).forEach(function (p) { P[p.name] = p; });
+    var N = 12, CHANGED = [2, 5, 9];   /* the blocks that "replace a.bin, delete b.bin, add d.bin" change (schematic) */
+    el.appendChild(h("p", { class: "dg-help" }, "A schematic disk of 12 blocks. Work through chapter 7.4 and 7.5 in order. Letters show which version of a block each file holds."));
+    var st;
+    function reset() { st = { disk: [], bitmap: null, full: null, inc: null, restored: null, lost: false, otherFull: null, stopped: false, needFull: false }; for (var i = 0; i < N; i++) st.disk.push("A"); }
+    reset();
+    var rows = h("div", { class: "ig-rows" });
+    var tools = h("div", { class: "chain-ops", role: "group", "aria-label": "Backup steps" });
+    var B = {};
+    [["full", "1. Full backup + checkpoint (7.4)"], ["writes", "2. Guest writes: a.bin, b.bin, d.bin"], ["inc", "3. Incremental backup (7.5)"],
+      ["loss", "4. Lose the data (rm -r data)"], ["restore", "5. Stop, rebase -u onto its full, convert"], ["wrong", "5'. Rebase onto a different full instead"],
+      ["next", "6. Next backup: incremental again?"], ["reset", "Reset"]].forEach(function (o) {
+      var b = h("button", { type: "button", class: "btn ghost small" }, esc(o[1]));
+      b.addEventListener("click", function () { act(o[0]); });
+      B[o[0]] = b; tools.appendChild(b);
+    });
+    var predict = h("label", { class: "tick tick-small lc-predict" }, '<input type="checkbox"><span class="tick-box">' + icon("check") + "</span><span>Predict first</span>");
+    var ask = h("div", { class: "lc-ask", hidden: "" });
+    el.appendChild(rows); el.appendChild(tools); el.appendChild(predict); el.appendChild(ask);
+    var show = infoBox(el);
+    var pon = false, agen = 0;
+    $("input", predict).addEventListener("change", function (e) { pon = e.target.checked; agen++; ask.hidden = true; });
+    function row(label, blocks, note) {
+      var cells = "";
+      for (var i = 0; i < N; i++) {
+        var v = blocks ? blocks[i] : null;
+        cells += '<i class="ig-b ' + (v === null || v === undefined ? "ig-empty" : v === "dirty" ? "ig-dirty" : "ig-" + v) + '" aria-hidden="true">' + (v && v !== "dirty" ? v : "") + "</i>";
+      }
+      return '<div class="ig-row"><span class="ig-label">' + esc(label) + '</span><span class="ig-cells">' + cells + '</span><span class="sr">' + esc(summary(blocks)) + "</span>" + (note ? '<span class="ig-note">' + note + "</span>" : "") + "</div>";
+    }
+    function summary(blocks) {
+      if (!blocks) return "no file yet.";
+      var names = { A: "version A", B: "version B", C: "version C (from the other full)", x: "data lost", dirty: "changed since the checkpoint" };
+      var groups = {}, empty = 0;
+      blocks.forEach(function (v, i) { if (v === null || v === undefined) { empty++; return; } (groups[v] = groups[v] || []).push(i + 1); });
+      var parts = Object.keys(groups).map(function (k) {
+        var g = groups[k];
+        return (g.length === N ? "all " + N + " blocks" : (g.length === 1 ? "block " : "blocks ") + g.join(", ")) + ": " + (names[k] || k);
+      });
+      if (empty === N) return "empty.";
+      return parts.join("; ") + (empty && empty < N ? "; others empty." : ".");
+    }
+    function draw() {
+      var html = row("linux-01 disk", st.disk, st.stopped ? "guest stopped" : "guest running");
+      html += row("bitmap (checkpoint full)", st.bitmap, st.bitmap ? "" : (st.needFull ? "none: the restored disk has no bitmap" : "none yet"));
+      html += row("full backup file", st.full, "");
+      html += row("incremental file", st.inc, st.inc ? "only the changed blocks" : "");
+      if (st.restored) html += row("restored disk", st.restored.blocks, st.restored.ok ? '<b class="ig-ok">matches the newest data</b>' : '<b class="ig-bad">wrong disk, and no error was printed</b>');
+      rows.innerHTML = html;
+      rows.setAttribute("aria-label", "Disk, bitmap and backup files");
+      B.writes.disabled = !st.full || st.inc !== null || st.stopped;
+      B.full.disabled = (!!st.full && !st.needFull) || st.stopped && !st.needFull;
+      B.inc.disabled = !st.bitmap || st.inc !== null || !st.full || st.disk.indexOf("B") < 0;
+      B.loss.disabled = !st.inc || st.lost;
+      B.restore.disabled = !st.lost || !!st.restored;
+      B.wrong.disabled = !st.lost || !!st.restored;
+      B.next.disabled = !st.restored;
+    }
+    function predictThen(q, opts, right, go) {
+      if (!pon) return go();
+      var g = ++agen;
+      ask.hidden = false;
+      ask.innerHTML = "<p><b>" + esc(q) + "</b></p><p>" + opts.map(function (o, i) { return '<button type="button" class="btn ghost small" data-i="' + i + '">' + esc(o) + "</button>"; }).join(" ") + "</p>";
+      $$("button[data-i]", ask).forEach(function (b) {
+        b.addEventListener("click", function () {
+          if (g !== agen) { ask.hidden = true; return; }
+          var ok = +b.getAttribute("data-i") === right;
+          ask.innerHTML = "<p>" + (ok ? icon("check") + " <b>Right.</b>" : "<b>Not quite:</b> see what happens.") + "</p>";
+          if (ok) award(dkey + "-ig-" + q.length, 2, null);
+          go();
+        });
+      });
+      $("button[data-i]", ask).focus();
+    }
+    function act(o) {
+      dgAward(el);
+      if (o !== "inc" && o !== "wrong") { agen++; ask.hidden = true; }
+      if (o === "reset") { reset(); draw(); show(null, "<p>Back to the start: one disk, no backups.</p>"); return; }
+      if (o === "full") {
+        if (st.needFull) { st.stopped = false; st.disk = st.restored.blocks.slice(); }
+        st.full = st.disk.slice(); st.bitmap = []; for (var i = 0; i < N; i++) st.bitmap.push(null);
+        st.inc = null; st.lost = false; st.restored = null; st.needFull = false;
+        draw(); show(P.full); return;
+      }
+      if (o === "writes") {
+        CHANGED.forEach(function (i) { st.disk[i] = "B"; st.bitmap[i] = "dirty"; });
+        draw(); show(P.writes); return;
+      }
+      if (o === "inc") {
+        predictThen("How many of the 12 blocks will the incremental copy?", ["All 12", "Only the 3 changed blocks", "None: it only records the checkpoint"], 1, function () {
+          st.inc = []; for (var i = 0; i < N; i++) st.inc.push(st.bitmap[i] === "dirty" ? st.disk[i] : null);
+          draw(); show(P.incremental);
+        });
+        return;
+      }
+      if (o === "loss") { st.lost = true; CHANGED.concat([0, 7]).forEach(function (i) { st.disk[i] = "x"; }); draw(); show(null, "<p>The data is gone from the disk. Restore it from the two backup files.</p>"); return; }
+      if (o === "restore") {
+        st.stopped = true;
+        var out = []; for (var i = 0; i < N; i++) out.push(st.inc[i] || st.full[i]);
+        st.restored = { blocks: out, ok: true }; st.bitmap = null; st.needFull = true; st.disk = out.slice();
+        draw(); show(P.rebase, partHTML(P.stopped) + partHTML(P.restored)); return;
+      }
+      if (o === "wrong") {
+        predictThen("You rebase the incremental onto a different full backup. Does qemu-img report an error?", ["Yes: it refuses the wrong full", "No: it gives a wrong disk without any error"], 1, function () {
+          st.stopped = true;
+          var other = []; for (var i = 0; i < N; i++) other.push(i % 4 === 1 ? "C" : "A");
+          var out = []; for (var j = 0; j < N; j++) out.push(st.inc[j] || other[j]);
+          st.restored = { blocks: out, ok: false }; st.bitmap = null; st.needFull = true; st.disk = out.slice();
+          draw(); show(P.wrongfull, "<p>The blocks the incremental did not copy come from the other full (C), so the disk is wrong. Checking the data inside the guest (sha256sum -c, 7.5) is what proves a restore.</p>");
+        });
+        return;
+      }
+      if (o === "next") { draw(); show(P.restored, "<p>So an incremental from the checkpoint is no longer possible: take a full backup (step 1) to start again.</p>"); B.full.disabled = false; return; }
+    }
+    function partHTML(p) { return p ? "<p>" + esc(p.text) + "</p>" + citeHTML(p.cites) : ""; }
+    draw();
+    show(null, "<p>Start with <b>1. Full backup + checkpoint</b>. Tick <b>Predict first</b> to guess before the incremental and the wrong-full restore.</p>");
+  };
+
+  /* Day 3: fault injector over the 3.2–3.4 labs. Every output line is the manual's own. */
+  DIAGRAMS.faults = function (el, spec) {
+    var P = {}; (spec.parts || []).forEach(function (p) { P[p.name] = p; });
+    var O = spec.out || {};
+    el.appendChild(h("p", { class: "dg-help" }, "profile-probe has two cards: its first card on a libvirt network, and the data card kc-pp on the bridge kc-br (linux-01's kc-l01 is in VLAN 10). Change one thing, then read the symptoms and the one command per layer."));
+    var st = { net: "default", vlan: 10, link: "up" }, mystery = null;
+    var ctl = h("div", { class: "flt-ctl" });
+    function group(label, key, vals) {
+      var g = h("div", { class: "flt-group", role: "radiogroup", "aria-label": label }, '<span class="flt-label">' + esc(label) + "</span>");
+      vals.forEach(function (v) {
+        var b = h("button", { type: "button", class: "btn ghost small", role: "radio", "data-k": key, "data-v": String(v[0]) }, esc(v[1]));
+        b.addEventListener("click", function () { if (mystery) return; set(key, v[0]); });
+        g.appendChild(b);
+      });
+      /* ARIA radio pattern: one Tab stop per group, arrow keys move the selection */
+      g.addEventListener("keydown", function (e) {
+        if (mystery || ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].indexOf(e.key) < 0) return;
+        e.preventDefault();
+        var i = 0; vals.forEach(function (v, j) { if (String(st[key]) === String(v[0])) i = j; });
+        var d = (e.key === "ArrowLeft" || e.key === "ArrowUp") ? -1 : 1;
+        var nv = vals[(i + d + vals.length) % vals.length][0];
+        set(key, nv);
+        var nb = $('button[data-v="' + String(nv) + '"]', g); if (nb) nb.focus();
+      });
+      ctl.appendChild(g);
+    }
+    group("First card's network", "net", [["default", "default"], ["isolated", "kc-isolated"]]);
+    group("kc-pp VLAN", "vlan", [[10, "VLAN 10"], [20, "VLAN 20"]]);
+    group("kc-pp link", "link", [["up", "link up"], ["down", "link down"]]);
+    var game = h("div", { class: "flow-tools" });
+    var mbtn = h("button", { type: "button", class: "btn small" }, "Mystery fault: diagnose it");
+    var rbtn = h("button", { type: "button", class: "btn ghost small" }, icon("reset") + " Reset");
+    game.appendChild(mbtn); game.appendChild(rbtn);
+    var sym = h("div", { class: "flt-out", "aria-live": "polite" });
+    var layers = h("div", { class: "flt-out" });
+    var ask = h("div", { class: "lc-ask", hidden: "" });
+    el.appendChild(ctl); el.appendChild(game); el.appendChild(sym); el.appendChild(ask); el.appendChild(layers);
+    var show = infoBox(el);
+    function line(key) { return O[key] ? esc(O[key].line) : ""; }
+    function src(key) { return O[key] ? ' <span class="cite">(' + esc(O[key].cite.label) + ", recorded excerpt)</span>" : ""; }
+    function block(title, cmd, body) { return '<div class="flt-block"><p class="flt-t">' + title + '</p><pre class="code code-text"><code>' + esc("$ " + cmd) + "\n" + body + "</code></pre></div>"; }
+    function plain(title, body) { return '<div class="flt-block"><p class="flt-t">' + title + '</p><pre class="code code-text"><code>' + body + "</code></pre></div>"; }
+    /* per-layer evidence, used after a diagnosis and by the Inspect actions */
+    function cableEv() {
+      return block("Virtual cable" + (st.link === "down" ? src("link_down") : ""), "sudo virsh -c qemu:///system domif-getlink profile-probe kc-pp",
+          st.link === "down" ? line("link_down") : "(link up: the manual records this command's output only for a downed link, in 3.4)") +
+        (st.link === "down" ? block("…and the guest's own view of its data card" + src("nocarrier"), "ip -br link   # in profile-probe", line("nocarrier")) : "");
+    }
+    function vlanEv() { return block("Bridge port" + src(st.vlan === 20 ? "vlan20" : "vlan10"), "bridge vlan show dev kc-pp", line(st.vlan === 20 ? "vlan20" : "vlan10")); }
+    function routeEv() {
+      return block("Route out" + (st.net === "isolated" ? src("route_iso") : ""), "ip route   # in profile-probe",
+        st.net === "isolated" ? line("route_iso") + "\n# no default line" : "# on default the route list has a default line (3.1 shows linux-01's)");
+    }
+    function draw(hideLayers) {
+      $$("button[data-k]", ctl).forEach(function (b) {
+        var on = String(st[b.getAttribute("data-k")]) === b.getAttribute("data-v");
+        b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false"); b.disabled = !!mystery;
+        b.tabIndex = on ? 0 : -1;
+      });
+      /* while a mystery is unanswered the configuration is hidden, visually and from the accessibility tree */
+      ctl.hidden = !!mystery;
+      var curlKey = st.net === "isolated" ? "curl_fail" : "curl_ok";
+      var m = !!hideLayers, html = "<h4>Symptoms</h4>";
+      if (st.vlan === 20) {
+        html += block("linux-01 pings profile-probe's data address" + (m ? "" : src("ping_vlan_fail")), "ping -c 2 -W 2 172.30.77.2",
+          m ? "# no reply (the recorded lines are shown after you answer)" : line("ping_vlan_fail"));
+      } else if (st.link === "down") {
+        /* 3.4 prints only its lab script's echo for this case, not a ping transcript */
+        html += m ? block("linux-01 pings profile-probe's data address", "ping -c 2 -W 2 172.30.77.2", "# no reply (the recorded lines are shown after you answer)")
+          : plain("3.4 lab script result after ping exits 1" + src("noreply_link"), esc("if ssh … 'ping -c 2 -W 2 172.30.77.2'; then …; elif [ $? -eq 1 ]; then echo 'expected: no reply'; …") + "\n" + line("noreply_link"));
+      } else {
+        html += block("linux-01 pings profile-probe's data address" + (m ? "" : src("ping_ok")), "ping -c 2 -W 2 172.30.77.2", line("ping_ok"));
+      }
+      html += block("profile-probe reaches the Internet by address" + (m ? "" : src(curlKey)), "curl -sS --max-time " + (m ? "…" : (st.net === "isolated" ? "5" : "10")) + " -I http://1.1.1.1", line(curlKey));
+      if (st.net === "isolated" && !m) html += block("profile-probe pings its gateway on kc-isolated" + src("gw_ping_iso"), "ping -c 2 -W 2 192.168.250.1", line("gw_ping_iso"));
+      sym.innerHTML = html;
+      if (hideLayers) { layers.innerHTML = '<div data-inspected></div>'; return; }
+      layers.innerHTML = "<h4>One command per layer (3.4)</h4>" + cableEv() + vlanEv() + routeEv();
+    }
+    function set(key, v) {
+      dgAward(el);
+      st[key] = v; draw();
+      show(key === "net" ? (v === "isolated" ? P.isolated : P["default"]) : key === "vlan" ? (v === 20 ? P.vlan : P.table) : (v === "down" ? P.link : P.table));
+    }
+    mbtn.addEventListener("click", function () {
+      dgAward(el);
+      var faults = [["vlan", 20, "Bridge port"], ["link", "down", "Virtual cable"], ["net", "isolated", "Route out"]];
+      var f = faults[Math.floor(Math.random() * faults.length)];
+      st = { net: "default", vlan: 10, link: "up" }; st[f[0]] = f[1]; mystery = f;
+      var inspected = {};
+      draw(true);
+      ask.hidden = false;
+      ask.innerHTML = "<p><b>A fault was injected.</b> Inspect a layer, then name it.</p>" +
+        '<p class="flt-inspect"><button type="button" class="btn ghost small" data-i="cable">Inspect cable (domif-getlink)</button> ' +
+        '<button type="button" class="btn ghost small" data-i="vlan">Inspect VLAN (bridge vlan show)</button> ' +
+        '<button type="button" class="btn ghost small" data-i="route">Inspect route (ip route)</button></p>' +
+        "<p>Which layer is broken? " + ["Virtual cable", "Bridge port", "Route out"].map(function (n) { return '<button type="button" class="btn ghost small" data-l="' + n + '">' + n + "</button>"; }).join(" ") + "</p>" +
+        '<p class="flt-msg" aria-live="polite"></p>';
+      $$("button[data-i]", ask).forEach(function (b) {
+        b.addEventListener("click", function () {
+          if (!mystery) return;
+          var box = $("[data-inspected]", layers), k = b.getAttribute("data-i");
+          inspected[k] = true;
+          if (box && !box.querySelector('[data-ev="' + k + '"]')) {
+            var wrap2 = h("div", { "data-ev": k }, k === "cable" ? cableEv() : k === "vlan" ? vlanEv() : routeEv());
+            box.appendChild(wrap2);
+          }
+          b.disabled = true;
+        });
+      });
+      $$("button[data-l]", ask).forEach(function (b) {
+        b.addEventListener("click", function () {
+          if (!mystery) return;
+          /* "no reply" alone fits a pulled cable and a wrong VLAN equally: never grade it without evidence */
+          var ambiguous = mystery[0] !== "net";
+          if (ambiguous && !inspected.cable && !inspected.vlan) {
+            $(".flt-msg", ask).innerHTML = "<b>Not yet:</b> \"no reply\" fits both a pulled cable and a wrong VLAN. Inspect cable or VLAN to distinguish these causes, then decide.";
+            return;
+          }
+          var ok = b.getAttribute("data-l") === mystery[2];
+          ask.innerHTML = "<p>" + (ok ? icon("check") + " <b>Right: " + esc(mystery[2]) + ".</b>" : "<b>Not that one:</b> it was the " + esc(mystery[2].toLowerCase()) + ".") + " All per-layer commands are below.</p>";
+          if (ok) award(dkey + "-flt-" + mystery[2], 5, "fault found");
+          var m = mystery; mystery = null; draw();
+          show(m[0] === "vlan" ? P.vlan : m[0] === "link" ? P.link : P.isolated, partHTML(P.table));
+        });
+      });
+      $("button[data-i]", ask).focus();
+      show(null, "<p>The symptoms are real lines from 3.2–3.4. Inspect the layer you would check first.</p>");
+    });
+    rbtn.addEventListener("click", function () { mystery = null; ask.hidden = true; ask.innerHTML = ""; st = { net: "default", vlan: 10, link: "up" }; draw(); show(P.table); });
+    function partHTML(p) { return p ? "<p>" + esc(p.text) + "</p>" + citeHTML(p.cites) : ""; }
+    draw();
+    show(P.table, "<p>Change one toggle, or press <b>Mystery fault</b>.</p>");
   };
 
   DIAGRAMS.smoke = function (el, spec) {
