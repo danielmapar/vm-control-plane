@@ -163,7 +163,7 @@ cat &gt; ~/kvm-course/ch08/linux-01.xml &lt;&lt;EOF
 &lt;/domain&gt;
 EOF
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Define, start and autostart kc-lab on both hosts; autostart brings it back after a reboot. <code>hypervisor-cpu-compare --error</code> takes the <code>&lt;cpu&gt;</code> element from linux-01&#x27;s definition and fails unless the host can provide that CPU:</p>
+<p>Define, start and autostart kc-lab on both hosts. Autostart lets libvirt&#x27;s network daemon start kc-lab automatically when it first starts after a reboot. <code>hypervisor-cpu-compare --error</code> takes the <code>&lt;cpu&gt;</code> element from linux-01&#x27;s definition and fails unless the host can provide that CPU:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 . ~/kvm-course/ch08/env
@@ -289,7 +289,7 @@ data.bin: OK</code></pre>
 <p><strong>If it fails.</strong> <code>Migration without shared storage is unsafe</code>: the disk is not on an NFS mount on the source (<code>findmnt /var/lib/libvirt/images/kc-shared</code> there). <code>Connection refused</code> or a timeout: check the address after <code>tcp://</code>. Never add <code>--unsafe</code>.</p>
 <p><strong>Clean up.</strong> linux-01 runs on host-a.</p>
 <h2 id="s8-5" class="msec"><span class="sec-no">8.5</span> Drain a host for maintenance <a class="hlink" href="#s8-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-5" style="--hue:190">Day 7 lab</a></h2>
-<p><strong>Goal.</strong> Empty host-a, reboot it as the maintenance step, check that it comes back ready by itself, and move linux-01 back.</p>
+<p><strong>Goal.</strong> Empty host-a, reboot it as the maintenance step, check its storage and network, and move linux-01 back.</p>
 <p><strong>Commands.</strong> <strong>Draining</strong> a host means moving every VM off it before maintenance such as installing updates and rebooting. Here the maintenance is a reboot of the nested host-a; never reboot your workstation. Migrate each running VM to host-b; an empty <code>list --all</code> then means host-a is drained:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
@@ -312,7 +312,7 @@ after=$(ssh -F ~/kvm-course/ssh/config host-a cat /proc/sys/kernel/random/boot_i
 echo &quot;host-a boot ID before: $before, after: $after&quot;
 test &quot;$before&quot; != &quot;$after&quot;
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>A host is back in service when its storage and networks return without help. Check the mount from <code>/etc/fstab</code> and the autostarted network, then move linux-01 back:</p>
+<p>After the reboot, check the mount from <code>/etc/fstab</code> and kc-lab before moving linux-01 back. <code>net-info</code> can start libvirt&#x27;s network daemon through its socket; the daemon then starts kc-lab because you enabled autostart:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 . ~/kvm-course/ch08/env
@@ -330,7 +330,7 @@ Autostart:      yes
 running (migrated)
 boot ID: c5d107c2-5e32-4dc9-9e0b-0155f2789c5e
 data.bin: OK</code></pre>
-<p><strong>Check.</strong> host-a was empty before its reboot, its boot ID changed, the share and kc-lab came back by themselves, and linux-01 runs on host-a again with the same boot ID as in 8.4 and <code>data.bin: OK</code>.</p>
+<p><strong>Check.</strong> host-a was empty before its reboot, its boot ID changed, the share is mounted, kc-lab is active with autostart enabled, and linux-01 runs on host-a again with the same boot ID as in 8.4 and <code>data.bin: OK</code>.</p>
 <p><strong>If it fails.</strong> host-a does not come back: read its console with <code>sudo virsh -c qemu:///system console host-a</code> (leave with <code>Ctrl+]</code>). The share is missing: check the <code>/etc/fstab</code> line in host-a. kc-lab is inactive: <code>virsh -c &quot;$A&quot; net-autostart kc-lab</code> was skipped. The drain stops at <code>test -z</code>: <code>virsh -c &quot;$A&quot; list --all</code> names a VM that was not running; move it as in 8.3.</p>
 <p><strong>Clean up.</strong> linux-01 runs on host-a.</p>
 <h2 id="s8-6" class="msec"><span class="sec-no">8.6</span> Move a running VM with its disk <a class="hlink" href="#s8-6" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-6" style="--hue:190">Day 7 lab</a></h2>
@@ -387,7 +387,7 @@ running (migrated)
 boot ID: b9ce8fe4-d6df-4aeb-b51e-887c37af3832
 data.bin: OK</code></pre>
 <p><strong>Check.</strong> The running job showed disk progress; linux-01 runs on host-b with the boot ID it had after the restart in this section and <code>data.bin: OK</code>; no disk of linux-01 is left on host-a.</p>
-<p><strong>If it fails.</strong> <code>Cannot access storage file</code> or a size error on host-b: the empty image is missing, at another path, or of another size. <code>Migration without shared storage is unsafe</code>: <code>--copy-storage-all</code> is missing.</p>
+<p><strong>If it fails.</strong> <code>no storage pool with matching target path</code> or a size error on host-b: the empty image is missing, at another path, or of another size. <code>Migration without shared storage is unsafe</code>: <code>--copy-storage-all</code> is missing.</p>
 <p><strong>Clean up.</strong> linux-01 runs on host-b from host-b&#x27;s local disk.</p>
 <h2 id="s8-cleanup" class="msec">Clean up <a class="hlink" href="#s8-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-cleanup" style="--hue:190">Day 7 lab</a></h2>
 <p>linux-01 on your workstation is still shut off with its data; <a class="xref" href="../manual/ch09.html">chapter 9</a> starts it again. Removing the three lab guests also removes everything inside them: the moved linux-01, the share and kc-lab. Then delete the chapter folder and this chapter&#x27;s two scripts:</p>

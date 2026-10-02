@@ -54,7 +54,7 @@
 <p>Each chapter&#x27;s Clean up removes its temporary changes and says what to keep. <strong><a class="xref" href="../manual/appendix-b.html">Appendix B</a> removes the entire course</strong>, including disks and the packages it installed; save what you want first.</p>
 <h3 id="s-setup-4-work-one-checkpoint-at-a-time" class="msec">Setup 4. Work one checkpoint at a time <a class="hlink" href="#s-setup-4-work-one-checkpoint-at-a-time" aria-label="Link to this section">#</a></h3>
 <ol><li>Read the goal and the concept explanation.</li><li>Type the commands for the smallest example.</li><li>Compare the output with the expected output before adding complexity.</li><li>Change or break one thing, test one diagnosis, and restore the working state.</li><li>Save useful commands and observations, then continue.</li></ol>
-<p>Commands run on the host unless sent into a guest. Management commands use <code>sudo virsh -c qemu:///system COMMAND</code>. Blocks that must stop at their first failure start with <code>( set -euo pipefail</code> or are saved as scripts with that line, so the failure stops them without closing your terminal. To see where a script fails silently, run it with <code>bash -x SCRIPT</code>. Placeholders are in CAPITALS and introduced before use; most addresses and UUIDs are derived from the running lab.</p>
+<p>Run the blocks in <strong>bash</strong>, Fedora&#x27;s default shell (type <code>bash</code> first if your terminal runs zsh or fish), and run a chapter&#x27;s blocks in order in one terminal: some reuse variables that an earlier block set. Commands run on the host unless sent into a guest. Management commands use <code>sudo virsh -c qemu:///system COMMAND</code>. Blocks that must stop at their first failure start with <code>( set -euo pipefail</code> or are saved as scripts with that line, so the failure stops them without closing your terminal. To see where a script fails silently, run it with <code>bash -x SCRIPT</code>. Placeholders are in CAPITALS and introduced before use; most addresses and UUIDs are derived from the running lab.</p>
 <p>If a check fails, compare versions, permissions and logs before changing one thing. Never weaken host protections to force a pass, or change an unrelated VM, pool or network to match a lab.</p>
 <h3 id="s-setup-5-set-your-own-pace" class="msec">Setup 5. Set your own pace <a class="hlink" href="#s-setup-5-set-your-own-pace" aria-label="Link to this section">#</a></h3>
 <p>Use <a class="xref" href="../manual/ch00.html">chapters 0</a>–2 to estimate your pace. Skip a refresher once you can pass its check, but never skip the result a chapter asks you to demonstrate.</p>
@@ -705,11 +705,11 @@ Domain &#x27;profile-probe&#x27; defined from /home/daniel/kvm-course/ch02/probe
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">P=/var/lib/libvirt/images/kvm-course
 sudo qemu-img create -f qcow2 $P/hotplug.qcow2 1G
 sudo virsh -c qemu:///system attach-disk profile-probe $P/hotplug.qcow2 vdb --targetbus virtio --subdriver qcow2 --live --print-xml</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>libvirt reports state changes as <strong>events</strong>. Record them in the background (<code>&amp;</code>). <code>sudo true</code> asks for your password now, because the background <code>sudo -n</code> never asks; <code>$!</code> is the listener&#x27;s process ID; <code>timeout 600</code> ends it if you forget:</p>
+<p>libvirt reports state changes as <strong>events</strong>. Record them in the background (<code>&amp;</code>). <code>sudo true</code> asks for your password now, because the background <code>sudo -n</code> never asks; <code>$!</code> is the listener&#x27;s process ID; <code>timeout 1h</code> ends it if you forget:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo true
-timeout 600 sudo -n virsh -c qemu:///system event profile-probe --event lifecycle --loop &gt; ~/kvm-course/ch02/events.txt &amp;
+timeout 1h sudo -n virsh -c qemu:///system event profile-probe --event lifecycle --loop &gt; ~/kvm-course/ch02/events.txt &amp;
 EVENTS=$!</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Attach with <code>--live</code> only: the disk is in the running VM but not in the saved definition (<code>--inactive</code>). Then restart the VM. A booting guest may ignore a shutdown request, so <code>trust.sh</code> first waits until it answers. Each block stops at its first failure:</p>
+<p>Attach with <code>--live</code> only: the disk is in the running VM but not in the saved definition (<code>--inactive</code>). Then shut the VM down and start it again. A booting guest may ignore a shutdown request, so <code>trust.sh</code> first waits until it answers. Each block stops at its first failure:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
@@ -726,7 +726,7 @@ else
   echo &#x27;expected: the live-only disk is gone after the restart&#x27;
 fi
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Attach with <code>--live --config</code>, restart, and see that the disk stays. Then detach it from both:</p>
+<p>Attach with <code>--live --config</code>, restart, and see that the disk stays. Then, once the guest answers (unplugging needs its help), detach it from both:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
@@ -735,6 +735,7 @@ bash ~/kvm-course/bin/trust.sh profile-probe
 bash ~/kvm-course/bin/stop-guest.sh profile-probe
 sudo virsh -c qemu:///system start profile-probe
 sudo virsh -c qemu:///system domblklist profile-probe | grep -w vdb
+bash ~/kvm-course/bin/trust.sh profile-probe
 sudo virsh -c qemu:///system detach-disk profile-probe vdb --live --config
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
 <p>Stop the listener and read what it saw:</p>
@@ -751,7 +752,7 @@ event &#x27;lifecycle&#x27; for domain &#x27;profile-probe&#x27;: Started Booted
 event &#x27;lifecycle&#x27; for domain &#x27;profile-probe&#x27;: Defined Updated</code></pre>
 <p><strong>Check.</strong> The <code>--live</code> disk vanished at the restart and the <code>--live --config</code> disk survived it. Each restart shows up as events: libvirt starts QEMU with its vCPUs paused and lets them run (<code>Resumed Unpaused</code>) before <code>Started Booted</code>. <code>Defined Updated</code> is a <code>--config</code> change.</p>
 <p><strong>If it fails.</strong> <code>No more available PCI slots</code>: Q35 needs a free PCIe root port per hotplugged device. No events: the listener could not use <code>sudo -n</code>; run <code>sudo true</code> and restart it.</p>
-<p><strong>Clean up.</strong> The disk is detached; the chapter Clean up deletes its file.</p>
+<p><strong>Clean up.</strong> The detach request was sent. Live unplug can finish after the command reports success; the chapter Clean up stops profile-probe before deleting the disk file.</p>
 <h2 id="s2-5" class="msec"><span class="sec-no">2.5</span> Compare connections <a class="hlink" href="#s2-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-5" style="--hue:205">Day 2 lab</a></h2>
 <p><strong>Goal.</strong> See that libvirt&#x27;s system and session connections are separate managers with separate VM lists.</p>
 <p><strong>Commands.</strong> A connection <strong>URI</strong> names the libvirt instance virsh talks to. <code>qemu:///system</code> is the host-wide instance: root&#x27;s <code>virtqemud</code>, started by its systemd socket (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>). <code>qemu:///session</code> is your user&#x27;s own instance: libvirt starts a second <code>virtqemud</code> running as you, which keeps its own VM definitions under <code>~/.config/libvirt</code>. Compare their lists and processes:</p>
@@ -768,7 +769,7 @@ root     /usr/bin/virtqemud --timeout 120
 daniel   /usr/bin/virtqemud --timeout=120</code></pre>
 <p><strong>Check.</strong> The system list shows linux-01 and profile-probe. The session list does not (it is empty unless you made per-user VMs; a session VM with the same name would be a different VM). One <code>virtqemud</code> runs as root and one as you.</p>
 <p><strong>If it fails.</strong> A session error such as <code>Failed to connect socket</code>: run it again and read the message. Never add yourself to the <code>libvirt</code> group to make the system connection work without <code>sudo</code> (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>).</p>
-<p><strong>Clean up.</strong> No VM was created; with <code>--timeout=120</code>, the session daemon exits after two minutes without clients or running VMs. Your first session connection creates two small directories, <code>~/.config/libvirt</code> and <code>~/.cache/libvirt</code>. <a class="xref" href="../manual/appendix-b.html">Appendix B</a> leaves them, because they may predate the course; if you had neither before and keep no session VMs, you may delete them.</p>
+<p><strong>Clean up.</strong> With <code>--timeout=120</code>, the session daemon exits after two minutes without clients or running VMs. Your first session connection creates two small directories, <code>~/.config/libvirt</code> and <code>~/.cache/libvirt</code>. <a class="xref" href="../manual/appendix-b.html">Appendix B</a> leaves them, because they may predate the course; if you had neither before and keep no session VMs, you may delete them.</p>
 <p><strong>Chapter pass.</strong> From your own output, explain which XML the next start uses, why the transient VM vanished, why the <code>--live</code> disk was lost, and which daemon owns linux-01. Section 10.3 makes lifecycle calls through libvirt&#x27;s Python API.</p>
 <h2 id="s2-cleanup" class="msec">Clean up <a class="hlink" href="#s2-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-cleanup" style="--hue:205">Day 2 lab</a></h2>
 <p>Keep linux-01 for <a class="xref" href="../manual/ch03.html">chapter 3</a>. Remove profile-probe, the hotplug disk and this chapter&#x27;s files:</p>
@@ -795,7 +796,7 @@ bash ~/kvm-course/bin/new-guest.sh linux-01</code></pre><button type="button" cl
 <pre class="code code-text"><code class=" language-text">status: done
 linux-01</code></pre>
 <p><strong>Check.</strong> The last lines are <code>status: done</code> and <code>linux-01</code>.</p>
-<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; rename it. Otherwise read the <code>STOP:</code> line or the cloud-init or SSH message it printed.</p>
+<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; leave it alone and do not run the course on this host (<a class="xref" href="../manual/ch01.html#s1-4">chapter 1.4</a>). Otherwise read the <code>STOP:</code> line or the cloud-init or SSH message it printed.</p>
 <p><strong>Clean up.</strong> Keep linux-01.</p>
 <h2 id="s3-1" class="msec"><span class="sec-no">3.1</span> Trace NAT <a class="hlink" href="#s3-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-03.html#lab-ch03-1" style="--hue:262">Day 3 lab</a></h2>
 <p><strong>Goal.</strong> See each hop between linux-01 and the Internet, and test the gateway, the route out and DNS one at a time.</p>
@@ -1036,7 +1037,7 @@ bash ~/kvm-course/bin/new-guest.sh linux-01</code></pre><button type="button" cl
 <pre class="code code-text"><code class=" language-text">status: done
 linux-01</code></pre>
 <p><strong>Check.</strong> The last lines are <code>status: done</code> and <code>linux-01</code>.</p>
-<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; rename it. Otherwise read the <code>STOP:</code> line or the cloud-init or SSH message it printed.</p>
+<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; leave it alone and do not run the course on this host (<a class="xref" href="../manual/ch01.html#s1-4">chapter 1.4</a>). Otherwise read the <code>STOP:</code> line or the cloud-init or SSH message it printed.</p>
 <p><strong>Clean up.</strong> Keep linux-01.</p>
 <h2 id="s4-1" class="msec"><span class="sec-no">4.1</span> Map the chain <a class="hlink" href="#s4-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-1" style="--hue:28">Day 4 lab</a></h2>
 <p><strong>Goal.</strong> Read a disk&#x27;s chain and tell its three sizes apart.</p>
@@ -1099,7 +1100,7 @@ sudo sha256sum -c ~/kvm-course/ch04/private-base.sha256</code></pre><button type
 <p><strong>Clean up.</strong> Keep clone-01 for 4.3–4.5.</p>
 <h2 id="s4-3" class="msec"><span class="sec-no">4.3</span> Flatten a copy <a class="hlink" href="#s4-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-3" style="--hue:28">Day 4 lab</a></h2>
 <p><strong>Goal.</strong> Show that an overlay cannot start without its base, while a flattened copy can.</p>
-<p><strong>Commands.</strong> <code>qemu-img convert</code> reads the whole chain and writes one standalone file. Stop clone-01 and flatten its disk into <code>restore-01.qcow2</code>. A qcow2 file stores only the parts of the disk that hold data, so the copy needs room for the guest&#x27;s data, not for its 20-GiB virtual size; here it took 759 MiB:</p>
+<p><strong>Commands.</strong> <code>qemu-img convert</code> reads the whole chain and writes one standalone file. Stop clone-01 and flatten its disk into <code>restore-01.qcow2</code>. The copy keeps the disk&#x27;s current data from the whole chain, which can include blocks left by deleted files. QEMU can omit zero-filled regions, but qcow2 metadata also takes space. This copy took 759 MiB; a fuller disk can require its entire 20-GiB virtual size plus metadata:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
@@ -1249,7 +1250,7 @@ bash ~/kvm-course/bin/new-guest.sh linux-01</code></pre><button type="button" cl
 <pre class="code code-text"><code class=" language-text">status: done
 linux-01</code></pre>
 <p><strong>Check.</strong> The last lines are <code>status: done</code> and <code>linux-01</code>.</p>
-<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; rename it. Otherwise read the message it printed.</p>
+<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; leave it alone and do not run the course on this host (<a class="xref" href="../manual/ch01.html#s1-4">chapter 1.4</a>). Otherwise read the message it printed.</p>
 <p><strong>Clean up.</strong> Keep linux-01.</p>
 <h2 id="s5-1" class="msec"><span class="sec-no">5.1</span> Customize an image offline <a class="hlink" href="#s5-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch05-1" style="--hue:330">Day 5 lab</a></h2>
 <p><strong>Goal.</strong> Change a copy of the verified Fedora image without booting it, and write down what went in.</p>
@@ -1454,16 +1455,16 @@ rm -f ~/kvm-course/bin/guestfs.sh
 <p>Read libvirt&#x27;s <a href="https://libvirt.org/drvqemu.html" target="_blank" rel="noopener">QEMU driver</a>, <a href="https://libvirt.org/acl.html" target="_blank" rel="noopener">ACL</a> and <a href="https://libvirt.org/formatdomain.html#security-label" target="_blank" rel="noopener">label</a> pages. Keep SELinux enforcing.</p>
 <h2 id="s6-0" class="msec"><span class="sec-no">6.0</span> Starting point <a class="hlink" href="#s6-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch06-0" style="--hue:330">Day 5 lab</a></h2>
 <p><strong>Goal.</strong> Start linux-01.</p>
-<p><strong>Commands.</strong> If you removed the course, save the 1.7 scripts again first. <code>LC_ALL=C</code> keeps command output in English for the later checks. <code>new-guest.sh</code> starts linux-01, or builds it:</p>
+<p><strong>Commands.</strong> If you removed the course, save the 1.7 scripts again first. <code>LC_ALL=C</code> keeps output in English for later checks. <code>new-guest.sh</code> starts linux-01, or builds it:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">export LC_ALL=C
 bash ~/kvm-course/bin/new-guest.sh linux-01
 mkdir -p ~/kvm-course/ch06</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
 <p><strong>Expected output.</strong> The last lines are <code>status: done</code> and <code>linux-01</code>.</p>
-<p><strong>If it fails.</strong> <code>No such file</code>: save the 1.7 scripts. <code>STOP: linux-01 exists and is not a course guest</code>: rename your own VM of that name.</p>
+<p><strong>If it fails.</strong> <code>No such file</code>: save the 1.7 scripts. <code>STOP: linux-01 exists and is not a course guest</code>: that VM is yours; leave it alone and do not run the course on this host (<a class="xref" href="../manual/ch01.html#s1-4">chapter 1.4</a>).</p>
 <p><strong>Clean up.</strong> Keep linux-01 running.</p>
 <h2 id="s6-1" class="msec"><span class="sec-no">6.1</span> Map authority <a class="hlink" href="#s6-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch06-1" style="--hue:330">Day 5 lab</a></h2>
 <p><strong>Goal.</strong> Find who controls linux-01&#x27;s socket, QEMU process, disk, console and guest users.</p>
-<p><strong>Commands.</strong> <strong>Discretionary access control (DAC)</strong> means Unix owners and modes; <strong>SELinux</strong> adds rules that even root obeys. <strong>sVirt</strong> gives each course QEMU process the type <code>svirt_t</code> and its writable disk <code>svirt_image_t</code>, with matching <strong>MCS (Multi-Category Security) categories</strong>, such as <code>c18,c616</code>. With Fedora&#x27;s default <code>qemu:///system</code> configuration these processes run as <code>qemu</code>; their distinct categories separate the guests&#x27; private disks:</p>
+<p><strong>Commands.</strong> <strong>Discretionary access control (DAC)</strong> means Unix owners and modes; <strong>SELinux</strong> adds rules that even root obeys. <strong>sVirt</strong> gives each course QEMU process the type <code>svirt_t</code> and its writable disk <code>svirt_image_t</code>, with matching <strong>MCS (Multi-Category Security) categories</strong>, such as <code>c18,c616</code>. By Fedora&#x27;s default these processes run as <code>qemu</code>; their distinct categories separate the guests&#x27; private disks:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system dominfo linux-01 | grep &#x27;^Security label&#x27;
 pid=$(sudo cat /run/libvirt/qemu/linux-01.pid)
 ps -p &quot;$pid&quot; -o user,label,comm
@@ -1472,11 +1473,11 @@ sudo ls -lZ /var/lib/libvirt/images/kvm-course/linux-01.qcow2</code></pre><butto
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system dumpxml linux-01 &gt; ~/kvm-course/ch06/linux-01.xml
 grep -E &quot;&lt;interface |&lt;serial |&lt;log |&lt;channel &quot; ~/kvm-course/ch06/linux-01.xml
 if grep &#x27;&lt;graphics&#x27; ~/kvm-course/ch06/linux-01.xml; then echo &#x27;UNEXPECTED: linux-01 has a screen&#x27;; false; fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Every local user may connect to both libvirt sockets; <strong>polkit</strong>, the system&#x27;s authorization service, decides what they may do. The <code>-ro</code> socket only reads; read-write use needs the polkit action <code>org.libvirt.unix.manage</code>. Root has it, and Fedora&#x27;s rule <code>/usr/share/polkit-1/rules.d/50-libvirt.rules</code> gives it to every member of the <code>libvirt</code> group without a password: that membership is effectively root. In the guest, <code>fedora</code> is in <strong>wheel</strong>, Fedora&#x27;s administrator group, with passwordless sudo from cloud-init:</p>
+<p>Every local user may connect to both libvirt sockets; <strong>polkit</strong>, the authorization service, decides what they may do. The <code>-ro</code> socket only reads; read-write use needs the polkit action <code>org.libvirt.unix.manage</code>. Root has it, and Fedora&#x27;s rule <code>/usr/share/polkit-1/rules.d/50-libvirt.rules</code> gives it to every member of the <code>libvirt</code> group without a password: that membership is effectively root. In the guest, <code>fedora</code> is in <strong>wheel</strong>, Fedora&#x27;s administrator group, with passwordless sudo from cloud-init:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ls -lZ /run/libvirt/virtqemud-sock /run/libvirt/virtqemud-sock-ro
 getent group libvirt
 ssh -F ~/kvm-course/ssh/config linux-01 &#x27;set -e; id; getenforce&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p><strong>Expected output.</strong> Trimmed; categories and the group number differ. The course adds no one to the <code>libvirt</code> group (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>), so after the last colon you see only accounts that were already members, such as the validation account <code>daniel</code>, or nothing:</p>
+<p><strong>Expected output.</strong> Trimmed; categories and the group number differ. The course adds no one to the <code>libvirt</code> group (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>): after the last colon you see only existing members, such as the validation account <code>daniel</code>, or nothing:</p>
 <pre class="code code-text"><code class=" language-text">Security label: system_u:system_r:svirt_t:s0:c18,c616 (enforcing)
 qemu     system_u:system_r:svirt_t:s0:c18,c616 qemu-system-x86
 -rw-r--r--. 1 qemu qemu system_u:object_r:svirt_image_t:s0:c18,c616 … /var/lib/libvirt/images/kvm-course/linux-01.qcow2
@@ -1488,10 +1489,10 @@ Enforcing</code></pre>
 <p><strong>Clean up.</strong> Nothing changed.</p>
 <h2 id="s6-2" class="msec"><span class="sec-no">6.2</span> Recover through the serial console <a class="hlink" href="#s6-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch06-2" style="--hue:330">Day 5 lab</a></h2>
 <p><strong>Goal.</strong> Log in on the serial console with a password and administer a guest whose network is down.</p>
-<p><strong>Commands.</strong> On the disposable profile-probe, create the account <code>recovery</code>: <code>-m</code> makes its home, <code>-G wheel</code> allows sudo with its own password. <code>ssh_pwauth: false</code> (<a class="xref" href="../manual/ch01.html">chapter 1</a>) keeps SSH password login off; setting this password enables console login without enabling SSH password login:</p>
+<p><strong>Commands.</strong> Create <code>recovery</code> on disposable profile-probe: <code>-m</code> makes its home; <code>-G wheel</code> allows sudo with its own password. <code>ssh_pwauth: false</code> (<a class="xref" href="../manual/ch01.html">chapter 1</a>) keeps SSH password login off while you enable console login:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">bash ~/kvm-course/bin/new-guest.sh profile-probe
 ssh -F ~/kvm-course/ssh/config profile-probe &#x27;set -e; sudo useradd -m -G wheel recovery; id recovery&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Set a temporary password of your own. <code>ssh -t</code> gives <code>passwd</code> a terminal; it asks twice and shows nothing as you type. Type:</p>
+<p>Set a temporary password of your own. <code>ssh -t</code> gives <code>passwd</code> a terminal; it asks twice and echoes nothing. Type:</p>
 <pre class="code code-console"><code class=" language-console">$ ssh -t -F ~/kvm-course/ssh/config profile-probe &#x27;sudo passwd recovery&#x27;</code></pre>
 <p>Unplug the virtual cable with <code>domif-setlink … down</code> (<a class="xref" href="../manual/ch03.html#s3-4">chapter 3.4</a>); SSH must fail:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">MAC=$(sudo virsh -c qemu:///system domiflist profile-probe | awk &#x27;$3==&quot;default&quot; {print $5}&#x27;)
@@ -1501,7 +1502,7 @@ if ssh -F ~/kvm-course/ssh/config -o ConnectTimeout=3 profile-probe true; then
 else
   echo &#x27;expected: SSH fails while the link is down&#x27;
 fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>The console needs no network. Log in as <code>recovery</code>, prove administrator rights with <code>sudo -v</code>, and look at the card with <code>ip -br link</code>. <code>exit</code> logs out; <code>Ctrl+]</code> leaves the console. Type:</p>
+<p>The console needs no network. Log in as <code>recovery</code>, prove admin rights with <code>sudo -v</code>, and look at the card with <code>ip -br link</code>. <code>exit</code> logs out; <code>Ctrl+]</code> leaves the console. Type:</p>
 <pre class="code code-console"><code class=" language-console">$ sudo virsh -c qemu:///system console profile-probe
 (press Enter)
 profile-probe login: recovery
@@ -1532,13 +1533,13 @@ active</code></pre>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
-if sudo test -e $P/denied.img; then echo &#x27;STOP: denied.img is left from an earlier try; run the chapter Clean up first&#x27;; false; fi
+if sudo test -e $P/denied.img; then echo &#x27;STOP: denied.img is left from an earlier try; see If it fails&#x27;; false; fi
 sudo qemu-img create -f raw $P/denied.img 16M
 sudo chmod 0644 $P/denied.img
 sudo chcon -t user_home_t $P/denied.img
 sudo ls -lZ $P/denied.img
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>libvirt normally relabels a disk when it attaches it. <code>relabel=&#x27;no&#x27;</code> in the source keeps the wrong label:</p>
+<p>libvirt normally relabels a disk at attach. <code>relabel=&#x27;no&#x27;</code> in the source keeps the wrong label:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/ch06/denied.xml &lt;&lt;&#x27;XML&#x27;
 &lt;disk type=&#x27;file&#x27; device=&#x27;disk&#x27;&gt;
   &lt;driver name=&#x27;qemu&#x27; type=&#x27;raw&#x27;/&gt;
@@ -1549,7 +1550,7 @@ sudo ls -lZ $P/denied.img
   &lt;readonly/&gt;
 &lt;/disk&gt;
 XML</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>An <strong>AVC</strong> (Access Vector Cache) message records an SELinux decision. Attach the disk, then find the refusal for this QEMU process and file:</p>
+<p>An <strong>AVC</strong> (Access Vector Cache) message records an SELinux decision. Attach the disk, then find this QEMU process&#x27;s refusal for the file:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">pid=$(sudo cat /run/libvirt/qemu/profile-probe.pid)
 if sudo virsh -c qemu:///system attach-device profile-probe ~/kvm-course/ch06/denied.xml --live; then
   echo &#x27;UNEXPECTED: the wrongly labelled disk was attached&#x27;; false
@@ -1558,7 +1559,7 @@ else
 fi
 sudo ausearch -m AVC,USER_AVC -ts recent -p &quot;$pid&quot; -f denied.img | tee ~/kvm-course/ch06/denial.txt
 grep -E &#x27;denied.*scontext=[^ ]*:svirt_t:.*tcontext=[^ ]*:user_home_t:.*permissive=0&#x27; ~/kvm-course/ch06/denial.txt</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p><code>permissive=0</code> means SELinux enforced it. <code>restorecon</code> restores the default type; without <code>relabel=&#x27;no&#x27;</code>, libvirt labels the disk at attach:</p>
+<p><code>permissive=0</code> means SELinux enforced it. <code>restorecon</code> restores the default type; without <code>relabel=&#x27;no&#x27;</code>, libvirt labels the disk at attach, and a read-only disk gets the shared type <code>virt_content_t</code> instead of the VM&#x27;s categories. Delete the file only once <code>domblklist</code> drops <code>vdc</code>; the guest finishes an unplug later:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
@@ -1567,21 +1568,21 @@ sudo restorecon -v $P/denied.img
 sudo virsh -c qemu:///system attach-device profile-probe ~/kvm-course/ch06/fixed.xml --live
 sudo ls -lZ $P/denied.img
 sudo virsh -c qemu:///system detach-disk profile-probe vdc --live
+timeout 60 bash -ec &#x27;while :; do disks=$(sudo virsh -c qemu:///system domblklist profile-probe); grep -qw vdc &lt;&lt;&lt; &quot;$disks&quot; || break; sleep 1; done&#x27;
 sudo rm $P/denied.img
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Read-only disks get the shared type <code>virt_content_t</code>, writable ones the VM&#x27;s categories.</p>
 <p><strong>Expected output.</strong> Trimmed; numbers differ:</p>
 <pre class="code code-text"><code class=" language-text">expected: QEMU could not open the disk
 type=AVC … avc:  denied  { read } for  pid=93212 comm=&quot;qemu-system-x86&quot; name=&quot;denied.img&quot; … scontext=system_u:system_r:svirt_t:s0:c875,c967 tcontext=unconfined_u:object_r:user_home_t:s0 tclass=file permissive=0
 Relabeled … from unconfined_u:object_r:user_home_t:s0 to unconfined_u:object_r:virt_image_t:s0
 Device attached successfully
 -rw-r--r--. 1 qemu qemu system_u:object_r:virt_content_t:s0 … denied.img</code></pre>
-<p><strong>Check.</strong> The AVC names <code>svirt_t</code>, <code>user_home_t</code> and <code>permissive=0</code>; after the label repair the same disk attaches, and SELinux stayed enforcing.</p>
-<p><strong>If it fails.</strong> No AVC: check the path and mode, and that <code>auditd</code> runs; some denials are never logged, so a missing AVC does not prove that SELinux allowed the access. Attached at once: check <code>relabel=&#x27;no&#x27;</code> and <code>getenforce</code>.</p>
+<p><strong>Check.</strong> The AVC names <code>svirt_t</code>, <code>user_home_t</code> and <code>permissive=0</code>; after the label repair the disk attaches, with SELinux enforcing.</p>
+<p><strong>If it fails.</strong> Leftover <code>denied.img</code>: if <code>domblklist profile-probe</code> lists <code>vdc</code>, run the repair block&#x27;s detach and wait lines; stop if either fails. Once a successful listing has no <code>vdc</code>, run <code>sudo rm -f /var/lib/libvirt/images/kvm-course/denied.img</code> and retry. No AVC: check path, mode and <code>auditd</code>; no AVC does not prove access was allowed. Attached at once: check <code>relabel=&#x27;no&#x27;</code> and <code>getenforce</code>.</p>
 <p><strong>Clean up.</strong> The test disk is gone.</p>
 <h2 id="s6-4" class="msec"><span class="sec-no">6.4</span> Limit libvirt access <a class="hlink" href="#s6-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch06-4" style="--hue:145">Day 6 lab</a></h2>
 <p><strong>Goal.</strong> Compare a socket-wide grant with per-VM access control.</p>
-<p><strong>Commands.</strong> Work inside host-b, a disposable nested host (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>), so no rule touches your workstation. Install libvirt there (<code>install_weak_deps=False</code> skips optional packages; the download is still about 200 MiB), define two paused 128 MiB guests without disks, and add the user <code>kc-reader</code>, which cannot log in; <code>runuser</code> runs commands as it:</p>
+<p><strong>Commands.</strong> Work in host-b, a disposable nested host (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>), so no rule touches your workstation. Install libvirt there (<code>install_weak_deps=False</code> skips optional packages; still a 200 MiB download), define two paused 128 MiB guests without disks, and add the user <code>kc-reader</code>, which cannot log in; <code>runuser</code> runs commands as it:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">bash ~/kvm-course/bin/new-guest.sh host-b
 ssh -F ~/kvm-course/ssh/config host-b &#x27;bash -se&#x27; &lt;&lt;&#x27;GUEST&#x27;
 set -e
@@ -1619,7 +1620,7 @@ sleep 2
 sudo runuser -u kc-reader -- virsh -c qemu:///system destroy acl-b
 sudo virsh -c qemu:///system start acl-b --paused
 GUEST</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>The <strong>access control driver</strong> checks each API call against polkit actions <code>org.libvirt.api.*</code>. Turn it on and add rule 48, which polkit reads before rule 49 because rule files run in name order. It handles only kc-reader&#x27;s API calls: it refuses drivers other than QEMU, allows connecting and reading every VM, allows start and stop only for acl-a&#x27;s UUID, and refuses everything else. Rule 49 still lets kc-reader open the socket. Unquoted <code>RULE</code> lets the shell fill in <code>$uuid</code>; the pauses let polkit load rules:</p>
+<p>The <strong>access control driver</strong> checks each API call against polkit actions <code>org.libvirt.api.*</code>. Turn it on and add rule 48; polkit reads rule files in name order, so 48 comes before 49. For kc-reader&#x27;s API calls on the QEMU driver, it allows connecting, reading every VM, and start and stop for acl-a&#x27;s UUID alone; it refuses everything else. Rule 49 still lets kc-reader open the socket. Unquoted <code>RULE</code> lets the shell fill in <code>$uuid</code>; pauses let polkit load rules:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config host-b &#x27;bash -se&#x27; &lt;&lt;&#x27;GUEST&#x27;
 set -e
 printf &#x27;\naccess_drivers = [ &quot;polkit&quot; ]\n&#x27; | sudo tee -a /etc/libvirt/virtqemud.conf &gt;/dev/null
@@ -1654,14 +1655,14 @@ error: access denied: &#x27;QEMU&#x27; denied access
 Domain &#x27;acl-a&#x27; destroyed
 Domain &#x27;acl-a&#x27; started</code></pre>
 <p><strong>Check.</strong> No grant: refused. Socket grant: any VM. Access control: acl-b readable but not stoppable; acl-a still controlled.</p>
-<p><strong>If it fails.</strong> <code>journalctl -u polkit</code> in host-b shows rule errors. acl-a or acl-b does not start: check nesting (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>). Never add grants on your workstation.</p>
-<p><strong>Clean up.</strong> The chapter Clean up deletes host-b with its packages, rules and user.</p>
+<p><strong>If it fails.</strong> <code>journalctl -u polkit</code> in host-b shows rule errors. acl-a or acl-b does not start: check nesting (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>). To repeat 6.4, first run <code>bash ~/kvm-course/bin/remove-guest.sh host-b</code>, then start again from its first block. Never add grants on your workstation.</p>
+<p><strong>Clean up.</strong> The chapter Clean up deletes host-b and all it holds.</p>
 <h2 id="s6-5" class="msec"><span class="sec-no">6.5</span> Audit secret paths <a class="hlink" href="#s6-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch06-5" style="--hue:145">Day 6 lab</a></h2>
 <p><strong>Goal.</strong> Find who can read the course&#x27;s credentials and what the guest agent may do, printing no secret.</p>
-<p><strong>Commands.</strong> Only you may read the private SSH key. The seed is an unencrypted ISO, so modes decide who reads its user-data; <code>namei -l</code> shows each directory&#x27;s mode on a path. The guest agent runs requests as root in the guest; <code>guest-exec</code> runs any command:</p>
+<p><strong>Commands.</strong> Only you may read the private SSH key. The seed ISO is unencrypted, so modes decide who reads its user-data; <code>namei -l</code> shows each directory&#x27;s mode on a path. The guest agent runs requests as root; <code>guest-exec</code> runs any command:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">stat -c &#x27;%a %U:%G %n&#x27; ~/kvm-course/ssh ~/kvm-course/ssh/id_ed25519
-test &quot;$(stat -c %a ~/kvm-course/ssh)&quot; = 700
-test &quot;$(stat -c %a ~/kvm-course/ssh/id_ed25519)&quot; = 600
+if [ &quot;$(stat -c %a ~/kvm-course/ssh)&quot; != 700 ]; then echo &#x27;UNEXPECTED: ssh dir not 700&#x27;; false; fi
+if [ &quot;$(stat -c %a ~/kvm-course/ssh/id_ed25519)&quot; != 600 ]; then echo &#x27;UNEXPECTED: private key not 600&#x27;; false; fi
 namei -l ~/kvm-course/linux-01/user-data
 sudo namei -l /var/lib/libvirt/images/kvm-course/linux-01-seed.iso
 sudo virsh -c qemu:///system qemu-agent-command linux-01 &#x27;{&quot;execute&quot;:&quot;guest-info&quot;}&#x27; |
@@ -1677,7 +1678,7 @@ drwxr-xr-x root root kvm-course
 -rw-r--r-- qemu qemu linux-01-seed.iso
 {&quot;enabled&quot;:true,&quot;name&quot;:&quot;guest-exec&quot;,&quot;success-response&quot;:true}
 {&quot;enabled&quot;:true,&quot;name&quot;:&quot;guest-exec-status&quot;,&quot;success-response&quot;:true}</code></pre>
-<p><strong>Check.</strong> The key is <code>600</code> in a <code>700</code> directory and your home (<code>drwx------</code>) hides user-data, but every local user can read the seed ISO: never put passwords or private keys in user-data. With <code>guest-exec</code> enabled, permission to issue guest-agent commands gives root command execution inside this guest.</p>
+<p><strong>Check.</strong> The key is <code>600</code> in a <code>700</code> directory and your home (<code>drwx------</code>) hides user-data, but every local user can read the seed ISO: never put passwords or private keys in user-data. With <code>guest-exec</code> enabled, permission to send guest-agent commands means root inside this guest.</p>
 <p><strong>If it fails.</strong> Wrong modes: fix them with <code>chmod</code>. No agent answer: check the channel (6.1) and <code>qemu-guest-agent</code>. <code>guest-exec</code> disabled in <code>/etc/sysconfig/qemu-ga</code> is safer, not an error.</p>
 <p><strong>Clean up.</strong> Nothing changed.</p>
 <h2 id="s6-cleanup" class="msec">Clean up <a class="hlink" href="#s6-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch06-cleanup" style="--hue:145">Day 6 lab</a></h2>
@@ -1703,7 +1704,7 @@ mkdir -p ~/kvm-course/ch07</code></pre><button type="button" class="copy" data-c
 <p><strong>Expected output.</strong> The last lines are cloud-init&#x27;s state and the guest&#x27;s hostname:</p>
 <pre class="code code-text"><code class=" language-text">status: done
 linux-01</code></pre>
-<p><strong>If it fails.</strong> <code>No such file</code>: save the 1.7 scripts. <code>STOP: linux-01 exists and is not a course guest</code>: rename your own VM called linux-01.</p>
+<p><strong>If it fails.</strong> <code>No such file</code>: save the 1.7 scripts. <code>STOP: linux-01 exists and is not a course guest</code>: a VM of yours is called linux-01; leave it alone and do not run the course on this host (<a class="xref" href="../manual/ch01.html#s1-4">chapter 1.4</a>).</p>
 <p><strong>Clean up.</strong> Keep linux-01 running.</p>
 <h2 id="s7-1" class="msec"><span class="sec-no">7.1</span> Write data to check later <a class="hlink" href="#s7-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-1" style="--hue:145">Day 6 lab</a></h2>
 <p><strong>Goal.</strong> Put files with known contents in the guest and record their checksums outside it.</p>
@@ -1807,12 +1808,13 @@ trap &#x27;sudo virsh -c qemu:///system domfsthaw linux-01&#x27; EXIT
 sudo virsh -c qemu:///system backup-begin linux-01 ~/kvm-course/ch07/full.xml --checkpointxml ~/kvm-course/ch07/checkpoint.xml
 )
 sudo virsh -c qemu:///system qemu-agent-command linux-01 &#x27;{&quot;execute&quot;:&quot;guest-fsfreeze-status&quot;}&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p><code>Backup started</code> means only that the job began. <code>domjobinfo</code> shows <code>Job type: None</code> once no job runs; <code>--completed</code> then tells how the last job ended, and <code>--anystats</code> includes failed jobs. <code>tee</code> saves the result for inspection. Continue only if this block succeeds:</p>
+<p><code>Backup started</code> means only that the job began. <code>domjobinfo</code> shows <code>Job type: None</code> once no job runs. Then <code>--completed</code> shows how the last job ended, <code>--anystats</code> adds the details of a failed job, and <code>--keep-completed</code> keeps that result so you can ask again. <code>tee</code> saves it for inspection, and <code>sha256sum</code> records the backup&#x27;s checksum for the restore. Continue only if this block succeeds:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 timeout 300 bash -c &#x27;until sudo virsh -c qemu:///system domjobinfo linux-01 | grep -q &quot;Job type: *None&quot;; do sleep 2; done&#x27;
-sudo virsh -c qemu:///system domjobinfo linux-01 --completed --anystats | tee ~/kvm-course/ch07/job.txt
+sudo virsh -c qemu:///system domjobinfo linux-01 --completed --keep-completed --anystats | tee ~/kvm-course/ch07/job.txt
 grep &#x27;Job type: *Completed&#x27; ~/kvm-course/ch07/job.txt
+sudo sha256sum /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2 &gt; ~/kvm-course/ch07/full.sha256
 sudo virsh -c qemu:///system checkpoint-list linux-01
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
 <p><strong>Expected output.</strong> Trimmed; the time differs. The job counts the disk&#x27;s whole virtual size (20 GiB), but unused parts take no space in the file:</p>
@@ -1847,7 +1849,7 @@ ssh -F ~/kvm-course/ssh/config linux-01 &#x27;sha256sum data/*&#x27; &gt; ~/kvm-
   &lt;/disks&gt;
 &lt;/domainbackup&gt;
 EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Take it the same way as the full one, wait for successful completion, and compare the sizes of the two backups. Continue to the loss-and-restore drill only if both subshells succeed:</p>
+<p>Take it the same way as the full one, wait for successful completion, record its checksum, and compare the sizes of the two backups. Continue to the loss-and-restore drill only if both subshells succeed:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 sudo virsh -c qemu:///system domfsfreeze linux-01
@@ -1857,16 +1859,18 @@ sudo virsh -c qemu:///system backup-begin linux-01 ~/kvm-course/ch07/inc.xml
 (
 set -euo pipefail
 timeout 300 bash -c &#x27;until sudo virsh -c qemu:///system domjobinfo linux-01 | grep -q &quot;Job type: *None&quot;; do sleep 2; done&#x27;
-sudo virsh -c qemu:///system domjobinfo linux-01 --completed --anystats | tee ~/kvm-course/ch07/job.txt
+sudo virsh -c qemu:///system domjobinfo linux-01 --completed --keep-completed --anystats | tee ~/kvm-course/ch07/job.txt
 grep &#x27;Job type: *Completed&#x27; ~/kvm-course/ch07/job.txt
+sudo sha256sum /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2 &gt; ~/kvm-course/ch07/inc.sha256
 sudo du -h /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2 /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Simulate the loss again, then restore. The incremental file is not a disk on its own. <code>qemu-img rebase -u</code> writes the full backup&#x27;s path into its header as its backing file (<code>-u</code> changes only the header and copies no data), so the two files read as one chain, and <code>convert</code> flattens that chain into linux-01&#x27;s disk. The restored disk carries no bitmap, so the checkpoint no longer matches it: <code>checkpoint-delete --metadata</code> drops libvirt&#x27;s record, and the next backup must again be a full one.</p>
+<p>Simulate the loss again, then restore. First check both backups against their recorded checksums (never restore a damaged backup, 7.3). The incremental file is not a disk on its own. <code>qemu-img rebase -u</code> writes the full backup&#x27;s path into its header as its backing file (<code>-u</code> changes only the header and copies no data), so the two files read as one chain, and <code>convert</code> flattens that chain into linux-01&#x27;s disk. The restored disk carries no bitmap, so the checkpoint no longer matches it: <code>checkpoint-delete --metadata</code> drops libvirt&#x27;s record, and the next backup must again be a full one.</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config linux-01 &#x27;rm -r data&#x27;
 (
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
 bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo sha256sum -c ~/kvm-course/ch07/full.sha256 ~/kvm-course/ch07/inc.sha256
 sudo qemu-img rebase -u -F qcow2 -b $P/linux-01-full.qcow2 $P/linux-01-inc.qcow2
 sudo qemu-img info --backing-chain $P/linux-01-inc.qcow2 | grep -E &#x27;^(image|backing file):&#x27;
 sudo qemu-img convert -O qcow2 $P/linux-01-inc.qcow2 $P/linux-01.qcow2
@@ -1879,6 +1883,8 @@ bash ~/kvm-course/bin/new-guest.sh linux-01
 <pre class="code code-text"><code class=" language-text">File processed:   16.062 MiB
 780M	/var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
 17M	/var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
+/var/lib/libvirt/images/kvm-course/linux-01-full.qcow2: OK
+/var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2: OK
 image: /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
 backing file: /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
 image: /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
@@ -1887,8 +1893,8 @@ data/a.bin: OK
 data/c.bin: OK
 data/d.bin: OK
 expected: b.bin stays deleted</code></pre>
-<p><strong>Check.</strong> The incremental file is a small fraction of the full one. The restored guest holds the newest <code>a.bin</code>, <code>c.bin</code> and <code>d.bin</code>, and <code>b.bin</code> stays deleted.</p>
-<p><strong>If it fails.</strong> An incremental is usable only on top of the exact full it followed: rebased onto another full, it gives a wrong disk without any error, so keep each incremental with its full. <code>backup-begin</code> fails with a checkpoint or bitmap error, such as <code>missing or broken bitmap</code>: the record of changed blocks is gone, so take a new full backup with a new checkpoint (7.4).</p>
+<p><strong>Check.</strong> Both backups print <code>OK</code> before the restore, and the incremental file is a small fraction of the full one. The restored guest holds the newest <code>a.bin</code>, <code>c.bin</code> and <code>d.bin</code>, and <code>b.bin</code> stays deleted.</p>
+<p><strong>If it fails.</strong> <code>FAILED</code> for a backup on the first run: it changed after you recorded it; do not restore it. If the restore block stopped after its <code>rebase</code> line, do not run the whole block again: <code>rebase -u</code> changed the incremental&#x27;s header and checksum. Fix the cause, set <code>P=/var/lib/libvirt/images/kvm-course</code>, then rerun the remaining commands one at a time, starting with the failed command and ending with <code>new-guest.sh</code>. Stop if any command fails. An incremental is usable only on top of the exact full it followed: rebased onto another full, it gives a wrong disk without any error, so keep each incremental with its full. <code>backup-begin</code> fails with a checkpoint or bitmap error, such as <code>missing or broken bitmap</code>: the record of changed blocks is gone, so take a new full backup with a new checkpoint (7.4).</p>
 <p><strong>Clean up.</strong> Nothing more; the chapter Clean up removes the backups.</p>
 <h2 id="s7-cleanup" class="msec">Clean up <a class="hlink" href="#s7-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-cleanup" style="--hue:145">Day 6 lab</a></h2>
 <p><a class="xref" href="../manual/ch08.html">Chapter 8</a> builds a fresh linux-01 in its 8.0. Remove this one, whose disk is now a restored standalone image, then the three backups and this chapter&#x27;s files:</p>
@@ -2038,7 +2044,7 @@ cat &gt; ~/kvm-course/ch08/linux-01.xml &lt;&lt;EOF
 &lt;/domain&gt;
 EOF
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Define, start and autostart kc-lab on both hosts; autostart brings it back after a reboot. <code>hypervisor-cpu-compare --error</code> takes the <code>&lt;cpu&gt;</code> element from linux-01&#x27;s definition and fails unless the host can provide that CPU:</p>
+<p>Define, start and autostart kc-lab on both hosts. Autostart lets libvirt&#x27;s network daemon start kc-lab automatically when it first starts after a reboot. <code>hypervisor-cpu-compare --error</code> takes the <code>&lt;cpu&gt;</code> element from linux-01&#x27;s definition and fails unless the host can provide that CPU:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 . ~/kvm-course/ch08/env
@@ -2164,7 +2170,7 @@ data.bin: OK</code></pre>
 <p><strong>If it fails.</strong> <code>Migration without shared storage is unsafe</code>: the disk is not on an NFS mount on the source (<code>findmnt /var/lib/libvirt/images/kc-shared</code> there). <code>Connection refused</code> or a timeout: check the address after <code>tcp://</code>. Never add <code>--unsafe</code>.</p>
 <p><strong>Clean up.</strong> linux-01 runs on host-a.</p>
 <h2 id="s8-5" class="msec"><span class="sec-no">8.5</span> Drain a host for maintenance <a class="hlink" href="#s8-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-5" style="--hue:190">Day 7 lab</a></h2>
-<p><strong>Goal.</strong> Empty host-a, reboot it as the maintenance step, check that it comes back ready by itself, and move linux-01 back.</p>
+<p><strong>Goal.</strong> Empty host-a, reboot it as the maintenance step, check its storage and network, and move linux-01 back.</p>
 <p><strong>Commands.</strong> <strong>Draining</strong> a host means moving every VM off it before maintenance such as installing updates and rebooting. Here the maintenance is a reboot of the nested host-a; never reboot your workstation. Migrate each running VM to host-b; an empty <code>list --all</code> then means host-a is drained:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
@@ -2187,7 +2193,7 @@ after=$(ssh -F ~/kvm-course/ssh/config host-a cat /proc/sys/kernel/random/boot_i
 echo &quot;host-a boot ID before: $before, after: $after&quot;
 test &quot;$before&quot; != &quot;$after&quot;
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>A host is back in service when its storage and networks return without help. Check the mount from <code>/etc/fstab</code> and the autostarted network, then move linux-01 back:</p>
+<p>After the reboot, check the mount from <code>/etc/fstab</code> and kc-lab before moving linux-01 back. <code>net-info</code> can start libvirt&#x27;s network daemon through its socket; the daemon then starts kc-lab because you enabled autostart:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 . ~/kvm-course/ch08/env
@@ -2205,7 +2211,7 @@ Autostart:      yes
 running (migrated)
 boot ID: c5d107c2-5e32-4dc9-9e0b-0155f2789c5e
 data.bin: OK</code></pre>
-<p><strong>Check.</strong> host-a was empty before its reboot, its boot ID changed, the share and kc-lab came back by themselves, and linux-01 runs on host-a again with the same boot ID as in 8.4 and <code>data.bin: OK</code>.</p>
+<p><strong>Check.</strong> host-a was empty before its reboot, its boot ID changed, the share is mounted, kc-lab is active with autostart enabled, and linux-01 runs on host-a again with the same boot ID as in 8.4 and <code>data.bin: OK</code>.</p>
 <p><strong>If it fails.</strong> host-a does not come back: read its console with <code>sudo virsh -c qemu:///system console host-a</code> (leave with <code>Ctrl+]</code>). The share is missing: check the <code>/etc/fstab</code> line in host-a. kc-lab is inactive: <code>virsh -c &quot;$A&quot; net-autostart kc-lab</code> was skipped. The drain stops at <code>test -z</code>: <code>virsh -c &quot;$A&quot; list --all</code> names a VM that was not running; move it as in 8.3.</p>
 <p><strong>Clean up.</strong> linux-01 runs on host-a.</p>
 <h2 id="s8-6" class="msec"><span class="sec-no">8.6</span> Move a running VM with its disk <a class="hlink" href="#s8-6" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-6" style="--hue:190">Day 7 lab</a></h2>
@@ -2262,7 +2268,7 @@ running (migrated)
 boot ID: b9ce8fe4-d6df-4aeb-b51e-887c37af3832
 data.bin: OK</code></pre>
 <p><strong>Check.</strong> The running job showed disk progress; linux-01 runs on host-b with the boot ID it had after the restart in this section and <code>data.bin: OK</code>; no disk of linux-01 is left on host-a.</p>
-<p><strong>If it fails.</strong> <code>Cannot access storage file</code> or a size error on host-b: the empty image is missing, at another path, or of another size. <code>Migration without shared storage is unsafe</code>: <code>--copy-storage-all</code> is missing.</p>
+<p><strong>If it fails.</strong> <code>no storage pool with matching target path</code> or a size error on host-b: the empty image is missing, at another path, or of another size. <code>Migration without shared storage is unsafe</code>: <code>--copy-storage-all</code> is missing.</p>
 <p><strong>Clean up.</strong> linux-01 runs on host-b from host-b&#x27;s local disk.</p>
 <h2 id="s8-cleanup" class="msec">Clean up <a class="hlink" href="#s8-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-07.html#lab-ch08-cleanup" style="--hue:190">Day 7 lab</a></h2>
 <p>linux-01 on your workstation is still shut off with its data; <a class="xref" href="../manual/ch09.html">chapter 9</a> starts it again. Removing the three lab guests also removes everything inside them: the moved linux-01, the share and kc-lab. Then delete the chapter folder and this chapter&#x27;s two scripts:</p>
@@ -2301,10 +2307,10 @@ sync&#x27;
 <p><strong>Clean up.</strong> Keep linux-01.</p>
 <h2 id="s9-1" class="msec"><span class="sec-no">9.1</span> Record the healthy state <a class="hlink" href="#s9-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-1" style="--hue:8">Day 8 lab</a></h2>
 <p><strong>Goal.</strong> Start a timeline, and know what &quot;healthy&quot; looks like before anything breaks.</p>
-<p><strong>Commands.</strong> Start the timeline: <code>virsh event</code> (<a class="xref" href="../manual/ch02.html#s2-4">chapter 2.4</a>) writes every lifecycle event of linux-01, with a timestamp, to a file in the background. 9.5 stops it (<code>timeout 1800</code> would after 30 minutes); <code>EVENTS=$!</code> saves its process ID. The <code>domstate</code> line lets <code>sudo</code> ask for your password now; the background <code>sudo -n</code> cannot ask:</p>
+<p><strong>Commands.</strong> Start the timeline: <code>virsh event</code> (<a class="xref" href="../manual/ch02.html#s2-4">chapter 2.4</a>) writes every lifecycle event of linux-01, with a timestamp, to a file in the background. 9.5 stops it (<code>timeout 4h</code> would after 4 hours); <code>EVENTS=$!</code> saves its process ID. The <code>domstate</code> line lets <code>sudo</code> ask for your password now; the background <code>sudo -n</code> cannot ask:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">mkdir -p ~/kvm-course/ch09
 sudo virsh -c qemu:///system domstate linux-01
-timeout 1800 sudo -n virsh -c qemu:///system event linux-01 --event lifecycle --loop --timestamp &gt; ~/kvm-course/ch09/events.txt &amp;
+timeout 4h sudo -n virsh -c qemu:///system event linux-01 --event lifecycle --loop --timestamp &gt; ~/kvm-course/ch09/events.txt &amp;
 EVENTS=$!</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
 <p>Every drill ends with the same checks; save them: libvirt&#x27;s state and reason (<code>domstate --reason</code>), then the guest&#x27;s boot ID (new at every boot) and data checksum:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/ch09/verify.sh &lt;&lt;&#x27;BASH&#x27;
@@ -2334,7 +2340,7 @@ No errors found</code></pre>
 <p><strong>Clean up.</strong> Keep the timeline running until 9.5.</p>
 <h2 id="s9-2" class="msec"><span class="sec-no">9.2</span> The guest stops answering <a class="hlink" href="#s9-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-2" style="--hue:8">Day 8 lab</a></h2>
 <p><strong>Goal.</strong> Find out why linux-01 stops answering while its QEMU process still runs, and bring it back without a reboot.</p>
-<p><strong>Commands.</strong> Inject the fault: <code>virsh suspend</code> pauses linux-01&#x27;s virtual CPUs, while QEMU keeps its memory. In real incidents a guest is paused by an operator or, after a disk error such as a full host filesystem, by QEMU itself (state <code>paused (ioerror)</code>, <strong>not validated here</strong>). The impact: SSH times out:</p>
+<p><strong>Commands.</strong> Inject the fault: <code>virsh suspend</code> pauses linux-01&#x27;s virtual CPUs, while QEMU keeps its memory. In real incidents a guest is paused by an operator or, after a disk error such as a full host filesystem, by QEMU itself (state <code>paused (I/O error)</code>, <strong>not validated here</strong>). The impact: SSH times out:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 sudo virsh -c qemu:///system suspend linux-01
@@ -2367,7 +2373,7 @@ running (unpaused)
 boot ID: 1a78630f-ae2c-42a0-8930-c1b2eb44fd9c
 data.bin: OK</code></pre>
 <p><strong>Check.</strong> The state was <code>paused (user)</code>, <code>cpu.time</code> hardly changed, and after <code>resume</code> the boot ID is unchanged and <code>data.bin: OK</code>.</p>
-<p><strong>If it fails.</strong> The reason is <code>ioerror</code>: <code>sudo virsh -c qemu:///system domblkerror linux-01</code> names the disk and the error; fix that (for example, free space) before you resume.</p>
+<p><strong>If it fails.</strong> The reason is <code>I/O error</code>: <code>sudo virsh -c qemu:///system domblkerror linux-01</code> names the disk and the error; fix that (for example, free space) before you resume.</p>
 <p><strong>Clean up.</strong> linux-01 runs again.</p>
 <h2 id="s9-3" class="msec"><span class="sec-no">9.3</span> The network is cut <a class="hlink" href="#s9-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-3" style="--hue:8">Day 8 lab</a></h2>
 <p><strong>Goal.</strong> Tell a network fault from a guest fault, and repair only the network.</p>
@@ -3552,7 +3558,7 @@ rm -rf ~/kvm-course/ch13
 <h2 id="s14-1" class="msec"><span class="sec-no">14.1</span> Write a smoke check <a class="hlink" href="#s14-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-10.html#lab-ch14-1" style="--hue:45">Day 10 lab</a></h2>
 <p><strong>Goal.</strong> Prove in seconds that every layer of a guest works, from the host&#x27;s KVM device to SSH inside the guest.</p>
 <p>A <strong>smoke check</strong> is a quick, representative health check to run after any change, not every chapter&#x27;s full test. <strong>Exercise:</strong> before you read the reference solution, write one check for each layer of <code>linux-01</code>, and note the chapter that taught you how to check it.</p>
-<p><strong>Reference solution.</strong> <code>smoke.sh NAME</code> runs eight checks, each one command or pipeline; with <code>pipefail</code>, a pipeline fails when any part fails. <code>-U</code> lets <code>qemu-img info</code> read a running guest&#x27;s locked disk (<a class="xref" href="../manual/ch04.html#s4-1">chapter 4.1</a>). <code>check</code> runs a check and prints <code>PASS</code>, or <code>FAIL</code> followed by the check&#x27;s last line of output, which usually names the error. The script exits non-zero if any check failed.</p>
+<p><strong>Reference solution.</strong> <code>smoke.sh NAME</code> runs eight checks, each one command or pipeline; with <code>pipefail</code>, a pipeline fails when any part fails. <code>-U</code> (force share) lets <code>qemu-img info</code> read a running guest&#x27;s disk despite the lock from <a class="xref" href="../manual/ch04.html#s4-1">chapter 4.1</a>; it only reads. <code>check</code> runs a check and prints <code>PASS</code>, or <code>FAIL</code> followed by the check&#x27;s last line of output, which usually names the error. The script exits non-zero if any check failed.</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/bin/smoke.sh &lt;&lt;&#x27;BASH&#x27;
 #!/usr/bin/env bash
 # Usage: smoke.sh NAME   One quick check for each layer of a course guest.
@@ -3862,7 +3868,7 @@ The course has been removed.
 <p>Status on <strong>2 October 2026</strong>:</p>
 <div class="table-wrap"><table><thead><tr><th>Part</th><th>Status and main limits</th></tr></thead><tbody><tr><td>Image provenance</td><td>The signed CHECKSUM file and the image digest were verified. Fedora 44 key: <code>36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6</code>.</td></tr><tr><td>Part I, <a class="xref" href="../manual/ch00.html">chapters 0</a>–5</td><td>Passed. Not validated here: the first install of the virtualization packages on a fresh host, autostart after a host reboot, and connecting guests to a physical network card.</td></tr><tr><td>Part II, <a class="xref" href="../manual/ch06.html">chapters 6</a>–9</td><td>Passed. Migration uses nested hosts on one workstation. Recovery after losing a physical host is not validated here.</td></tr><tr><td>Part III, <a class="xref" href="../manual/ch10.html">chapter 10</a></td><td>Passed.</td></tr><tr><td>Part IV, <a class="xref" href="../manual/ch11.html">chapters 11</a>–13</td><td>Passed. Intel VT-x was tested; AMD was not. Device assignment (VFIO) is explained with read-only checks only, because the course never takes a device from the workstation it runs on.</td></tr><tr><td>Part V, <a class="xref" href="../manual/ch14.html">chapter 14</a></td><td>Passed. Assessment by another person is not validated here.</td></tr><tr><td>Appendices A–B</td><td>Passed. <a class="xref" href="../manual/appendix-b.html">Appendix B</a> ran after every chapter&#x27;s validation run.</td></tr></tbody></table></div>
 <p>Nested hosts share the workstation&#x27;s CPU, power and storage. Their exercises (<a class="xref" href="../manual/ch06.html#s6-4">chapter 6.4</a>&#x27;s access control, <a class="xref" href="../manual/ch08.html">chapter 8</a>&#x27;s migration and disk locking) test mechanics; they do not prove recovery after losing a physical host. <a class="xref" href="../manual/ch07.html">Chapter 7</a> restores guests on the workstation and keeps its backups on the same disk, so a copy on other media is not validated. Restore and migration times are observations, not guarantees.</p>
-<p><strong>Known deviation.</strong> The desktop&#x27;s software updater sometimes starts the Passim caching service by itself. The before-and-after comparisons tolerate that service.</p>
+<p><strong>Known deviations.</strong> The desktop&#x27;s software updater sometimes starts the Passim caching service by itself; the before-and-after comparisons tolerate that service. They also ignore the workstation&#x27;s own Wi-Fi and docking-station state (the dock&#x27;s network card and display driver), which changed during validation and which no lab touches.</p>
 <p><strong>Keeping the course correct.</strong></p>
 <ul><li>For each chapter, keep four facts: the last execution date, the software and image versions, the observed result, and any deviation with its resolution.</li><li>After changing the kernel, QEMU, libvirt, the firmware or the image, repeat the affected chapters.</li><li>Run <a class="xref" href="../manual/appendix-a.html">Appendix A</a> before diagnosing a later lab.</li><li>Have a second reader repeat the early chapters without help, and fix every step that needed help.</li></ul>
 <hr class="unit-sep">

@@ -145,11 +145,11 @@ Domain &#x27;profile-probe&#x27; defined from /home/daniel/kvm-course/ch02/probe
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">P=/var/lib/libvirt/images/kvm-course
 sudo qemu-img create -f qcow2 $P/hotplug.qcow2 1G
 sudo virsh -c qemu:///system attach-disk profile-probe $P/hotplug.qcow2 vdb --targetbus virtio --subdriver qcow2 --live --print-xml</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>libvirt reports state changes as <strong>events</strong>. Record them in the background (<code>&amp;</code>). <code>sudo true</code> asks for your password now, because the background <code>sudo -n</code> never asks; <code>$!</code> is the listener&#x27;s process ID; <code>timeout 600</code> ends it if you forget:</p>
+<p>libvirt reports state changes as <strong>events</strong>. Record them in the background (<code>&amp;</code>). <code>sudo true</code> asks for your password now, because the background <code>sudo -n</code> never asks; <code>$!</code> is the listener&#x27;s process ID; <code>timeout 1h</code> ends it if you forget:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo true
-timeout 600 sudo -n virsh -c qemu:///system event profile-probe --event lifecycle --loop &gt; ~/kvm-course/ch02/events.txt &amp;
+timeout 1h sudo -n virsh -c qemu:///system event profile-probe --event lifecycle --loop &gt; ~/kvm-course/ch02/events.txt &amp;
 EVENTS=$!</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Attach with <code>--live</code> only: the disk is in the running VM but not in the saved definition (<code>--inactive</code>). Then restart the VM. A booting guest may ignore a shutdown request, so <code>trust.sh</code> first waits until it answers. Each block stops at its first failure:</p>
+<p>Attach with <code>--live</code> only: the disk is in the running VM but not in the saved definition (<code>--inactive</code>). Then shut the VM down and start it again. A booting guest may ignore a shutdown request, so <code>trust.sh</code> first waits until it answers. Each block stops at its first failure:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
@@ -166,7 +166,7 @@ else
   echo &#x27;expected: the live-only disk is gone after the restart&#x27;
 fi
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Attach with <code>--live --config</code>, restart, and see that the disk stays. Then detach it from both:</p>
+<p>Attach with <code>--live --config</code>, restart, and see that the disk stays. Then, once the guest answers (unplugging needs its help), detach it from both:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
@@ -175,6 +175,7 @@ bash ~/kvm-course/bin/trust.sh profile-probe
 bash ~/kvm-course/bin/stop-guest.sh profile-probe
 sudo virsh -c qemu:///system start profile-probe
 sudo virsh -c qemu:///system domblklist profile-probe | grep -w vdb
+bash ~/kvm-course/bin/trust.sh profile-probe
 sudo virsh -c qemu:///system detach-disk profile-probe vdb --live --config
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
 <p>Stop the listener and read what it saw:</p>
@@ -191,7 +192,7 @@ event &#x27;lifecycle&#x27; for domain &#x27;profile-probe&#x27;: Started Booted
 event &#x27;lifecycle&#x27; for domain &#x27;profile-probe&#x27;: Defined Updated</code></pre>
 <p><strong>Check.</strong> The <code>--live</code> disk vanished at the restart and the <code>--live --config</code> disk survived it. Each restart shows up as events: libvirt starts QEMU with its vCPUs paused and lets them run (<code>Resumed Unpaused</code>) before <code>Started Booted</code>. <code>Defined Updated</code> is a <code>--config</code> change.</p>
 <p><strong>If it fails.</strong> <code>No more available PCI slots</code>: Q35 needs a free PCIe root port per hotplugged device. No events: the listener could not use <code>sudo -n</code>; run <code>sudo true</code> and restart it.</p>
-<p><strong>Clean up.</strong> The disk is detached; the chapter Clean up deletes its file.</p>
+<p><strong>Clean up.</strong> The detach request was sent. Live unplug can finish after the command reports success; the chapter Clean up stops profile-probe before deleting the disk file.</p>
 <h2 id="s2-5" class="msec"><span class="sec-no">2.5</span> Compare connections <a class="hlink" href="#s2-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-5" style="--hue:205">Day 2 lab</a></h2>
 <p><strong>Goal.</strong> See that libvirt&#x27;s system and session connections are separate managers with separate VM lists.</p>
 <p><strong>Commands.</strong> A connection <strong>URI</strong> names the libvirt instance virsh talks to. <code>qemu:///system</code> is the host-wide instance: root&#x27;s <code>virtqemud</code>, started by its systemd socket (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>). <code>qemu:///session</code> is your user&#x27;s own instance: libvirt starts a second <code>virtqemud</code> running as you, which keeps its own VM definitions under <code>~/.config/libvirt</code>. Compare their lists and processes:</p>
@@ -208,7 +209,7 @@ root     /usr/bin/virtqemud --timeout 120
 daniel   /usr/bin/virtqemud --timeout=120</code></pre>
 <p><strong>Check.</strong> The system list shows linux-01 and profile-probe. The session list does not (it is empty unless you made per-user VMs; a session VM with the same name would be a different VM). One <code>virtqemud</code> runs as root and one as you.</p>
 <p><strong>If it fails.</strong> A session error such as <code>Failed to connect socket</code>: run it again and read the message. Never add yourself to the <code>libvirt</code> group to make the system connection work without <code>sudo</code> (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>).</p>
-<p><strong>Clean up.</strong> No VM was created; with <code>--timeout=120</code>, the session daemon exits after two minutes without clients or running VMs. Your first session connection creates two small directories, <code>~/.config/libvirt</code> and <code>~/.cache/libvirt</code>. <a class="xref" href="../manual/appendix-b.html">Appendix B</a> leaves them, because they may predate the course; if you had neither before and keep no session VMs, you may delete them.</p>
+<p><strong>Clean up.</strong> With <code>--timeout=120</code>, the session daemon exits after two minutes without clients or running VMs. Your first session connection creates two small directories, <code>~/.config/libvirt</code> and <code>~/.cache/libvirt</code>. <a class="xref" href="../manual/appendix-b.html">Appendix B</a> leaves them, because they may predate the course; if you had neither before and keep no session VMs, you may delete them.</p>
 <p><strong>Chapter pass.</strong> From your own output, explain which XML the next start uses, why the transient VM vanished, why the <code>--live</code> disk was lost, and which daemon owns linux-01. Section 10.3 makes lifecycle calls through libvirt&#x27;s Python API.</p>
 <h2 id="s2-cleanup" class="msec">Clean up <a class="hlink" href="#s2-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-02.html#lab-ch02-cleanup" style="--hue:205">Day 2 lab</a></h2>
 <p>Keep linux-01 for <a class="xref" href="../manual/ch03.html">chapter 3</a>. Remove profile-probe, the hotplug disk and this chapter&#x27;s files:</p>

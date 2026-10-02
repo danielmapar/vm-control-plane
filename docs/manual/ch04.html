@@ -39,7 +39,7 @@ bash ~/kvm-course/bin/new-guest.sh linux-01</code></pre><button type="button" cl
 <pre class="code code-text"><code class=" language-text">status: done
 linux-01</code></pre>
 <p><strong>Check.</strong> The last lines are <code>status: done</code> and <code>linux-01</code>.</p>
-<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; rename it. Otherwise read the <code>STOP:</code> line or the cloud-init or SSH message it printed.</p>
+<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; leave it alone and do not run the course on this host (<a class="xref" href="../manual/ch01.html#s1-4">chapter 1.4</a>). Otherwise read the <code>STOP:</code> line or the cloud-init or SSH message it printed.</p>
 <p><strong>Clean up.</strong> Keep linux-01.</p>
 <h2 id="s4-1" class="msec"><span class="sec-no">4.1</span> Map the chain <a class="hlink" href="#s4-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-1" style="--hue:28">Day 4 lab</a></h2>
 <p><strong>Goal.</strong> Read a disk&#x27;s chain and tell its three sizes apart.</p>
@@ -102,7 +102,7 @@ sudo sha256sum -c ~/kvm-course/ch04/private-base.sha256</code></pre><button type
 <p><strong>Clean up.</strong> Keep clone-01 for 4.3–4.5.</p>
 <h2 id="s4-3" class="msec"><span class="sec-no">4.3</span> Flatten a copy <a class="hlink" href="#s4-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-04.html#lab-ch04-3" style="--hue:28">Day 4 lab</a></h2>
 <p><strong>Goal.</strong> Show that an overlay cannot start without its base, while a flattened copy can.</p>
-<p><strong>Commands.</strong> <code>qemu-img convert</code> reads the whole chain and writes one standalone file. Stop clone-01 and flatten its disk into <code>restore-01.qcow2</code>. A qcow2 file stores only the parts of the disk that hold data, so the copy needs room for the guest&#x27;s data, not for its 20-GiB virtual size; here it took 759 MiB:</p>
+<p><strong>Commands.</strong> <code>qemu-img convert</code> reads the whole chain and writes one standalone file. Stop clone-01 and flatten its disk into <code>restore-01.qcow2</code>. The copy keeps the disk&#x27;s current data from the whole chain, which can include blocks left by deleted files. QEMU can omit zero-filled regions, but qcow2 metadata also takes space. This copy took 759 MiB; a fuller disk can require its entire 20-GiB virtual size plus metadata:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course

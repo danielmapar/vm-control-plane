@@ -39,7 +39,7 @@ bash ~/kvm-course/bin/new-guest.sh linux-01</code></pre><button type="button" cl
 <pre class="code code-text"><code class=" language-text">status: done
 linux-01</code></pre>
 <p><strong>Check.</strong> The last lines are <code>status: done</code> and <code>linux-01</code>.</p>
-<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; rename it. Otherwise read the <code>STOP:</code> line or the cloud-init or SSH message it printed.</p>
+<p><strong>If it fails.</strong> <code>No such file or directory</code>: save the 1.7 scripts. <code>exists and is not a course guest</code>: a VM of yours is called linux-01; leave it alone and do not run the course on this host (<a class="xref" href="../manual/ch01.html#s1-4">chapter 1.4</a>). Otherwise read the <code>STOP:</code> line or the cloud-init or SSH message it printed.</p>
 <p><strong>Clean up.</strong> Keep linux-01.</p>
 <h2 id="s3-1" class="msec"><span class="sec-no">3.1</span> Trace NAT <a class="hlink" href="#s3-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-03.html#lab-ch03-1" style="--hue:262">Day 3 lab</a></h2>
 <p><strong>Goal.</strong> See each hop between linux-01 and the Internet, and test the gateway, the route out and DNS one at a time.</p>

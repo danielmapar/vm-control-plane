@@ -37,7 +37,7 @@ mkdir -p ~/kvm-course/ch07</code></pre><button type="button" class="copy" data-c
 <p><strong>Expected output.</strong> The last lines are cloud-init&#x27;s state and the guest&#x27;s hostname:</p>
 <pre class="code code-text"><code class=" language-text">status: done
 linux-01</code></pre>
-<p><strong>If it fails.</strong> <code>No such file</code>: save the 1.7 scripts. <code>STOP: linux-01 exists and is not a course guest</code>: rename your own VM called linux-01.</p>
+<p><strong>If it fails.</strong> <code>No such file</code>: save the 1.7 scripts. <code>STOP: linux-01 exists and is not a course guest</code>: a VM of yours is called linux-01; leave it alone and do not run the course on this host (<a class="xref" href="../manual/ch01.html#s1-4">chapter 1.4</a>).</p>
 <p><strong>Clean up.</strong> Keep linux-01 running.</p>
 <h2 id="s7-1" class="msec"><span class="sec-no">7.1</span> Write data to check later <a class="hlink" href="#s7-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-1" style="--hue:145">Day 6 lab</a></h2>
 <p><strong>Goal.</strong> Put files with known contents in the guest and record their checksums outside it.</p>
@@ -141,12 +141,13 @@ trap &#x27;sudo virsh -c qemu:///system domfsthaw linux-01&#x27; EXIT
 sudo virsh -c qemu:///system backup-begin linux-01 ~/kvm-course/ch07/full.xml --checkpointxml ~/kvm-course/ch07/checkpoint.xml
 )
 sudo virsh -c qemu:///system qemu-agent-command linux-01 &#x27;{&quot;execute&quot;:&quot;guest-fsfreeze-status&quot;}&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p><code>Backup started</code> means only that the job began. <code>domjobinfo</code> shows <code>Job type: None</code> once no job runs; <code>--completed</code> then tells how the last job ended, and <code>--anystats</code> includes failed jobs. <code>tee</code> saves the result for inspection. Continue only if this block succeeds:</p>
+<p><code>Backup started</code> means only that the job began. <code>domjobinfo</code> shows <code>Job type: None</code> once no job runs. Then <code>--completed</code> shows how the last job ended, <code>--anystats</code> adds the details of a failed job, and <code>--keep-completed</code> keeps that result so you can ask again. <code>tee</code> saves it for inspection, and <code>sha256sum</code> records the backup&#x27;s checksum for the restore. Continue only if this block succeeds:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 timeout 300 bash -c &#x27;until sudo virsh -c qemu:///system domjobinfo linux-01 | grep -q &quot;Job type: *None&quot;; do sleep 2; done&#x27;
-sudo virsh -c qemu:///system domjobinfo linux-01 --completed --anystats | tee ~/kvm-course/ch07/job.txt
+sudo virsh -c qemu:///system domjobinfo linux-01 --completed --keep-completed --anystats | tee ~/kvm-course/ch07/job.txt
 grep &#x27;Job type: *Completed&#x27; ~/kvm-course/ch07/job.txt
+sudo sha256sum /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2 &gt; ~/kvm-course/ch07/full.sha256
 sudo virsh -c qemu:///system checkpoint-list linux-01
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
 <p><strong>Expected output.</strong> Trimmed; the time differs. The job counts the disk&#x27;s whole virtual size (20 GiB), but unused parts take no space in the file:</p>
@@ -181,7 +182,7 @@ ssh -F ~/kvm-course/ssh/config linux-01 &#x27;sha256sum data/*&#x27; &gt; ~/kvm-
   &lt;/disks&gt;
 &lt;/domainbackup&gt;
 EOF</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Take it the same way as the full one, wait for successful completion, and compare the sizes of the two backups. Continue to the loss-and-restore drill only if both subshells succeed:</p>
+<p>Take it the same way as the full one, wait for successful completion, record its checksum, and compare the sizes of the two backups. Continue to the loss-and-restore drill only if both subshells succeed:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 sudo virsh -c qemu:///system domfsfreeze linux-01
@@ -191,16 +192,18 @@ sudo virsh -c qemu:///system backup-begin linux-01 ~/kvm-course/ch07/inc.xml
 (
 set -euo pipefail
 timeout 300 bash -c &#x27;until sudo virsh -c qemu:///system domjobinfo linux-01 | grep -q &quot;Job type: *None&quot;; do sleep 2; done&#x27;
-sudo virsh -c qemu:///system domjobinfo linux-01 --completed --anystats | tee ~/kvm-course/ch07/job.txt
+sudo virsh -c qemu:///system domjobinfo linux-01 --completed --keep-completed --anystats | tee ~/kvm-course/ch07/job.txt
 grep &#x27;Job type: *Completed&#x27; ~/kvm-course/ch07/job.txt
+sudo sha256sum /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2 &gt; ~/kvm-course/ch07/inc.sha256
 sudo du -h /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2 /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Simulate the loss again, then restore. The incremental file is not a disk on its own. <code>qemu-img rebase -u</code> writes the full backup&#x27;s path into its header as its backing file (<code>-u</code> changes only the header and copies no data), so the two files read as one chain, and <code>convert</code> flattens that chain into linux-01&#x27;s disk. The restored disk carries no bitmap, so the checkpoint no longer matches it: <code>checkpoint-delete --metadata</code> drops libvirt&#x27;s record, and the next backup must again be a full one.</p>
+<p>Simulate the loss again, then restore. First check both backups against their recorded checksums (never restore a damaged backup, 7.3). The incremental file is not a disk on its own. <code>qemu-img rebase -u</code> writes the full backup&#x27;s path into its header as its backing file (<code>-u</code> changes only the header and copies no data), so the two files read as one chain, and <code>convert</code> flattens that chain into linux-01&#x27;s disk. The restored disk carries no bitmap, so the checkpoint no longer matches it: <code>checkpoint-delete --metadata</code> drops libvirt&#x27;s record, and the next backup must again be a full one.</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config linux-01 &#x27;rm -r data&#x27;
 (
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
 bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo sha256sum -c ~/kvm-course/ch07/full.sha256 ~/kvm-course/ch07/inc.sha256
 sudo qemu-img rebase -u -F qcow2 -b $P/linux-01-full.qcow2 $P/linux-01-inc.qcow2
 sudo qemu-img info --backing-chain $P/linux-01-inc.qcow2 | grep -E &#x27;^(image|backing file):&#x27;
 sudo qemu-img convert -O qcow2 $P/linux-01-inc.qcow2 $P/linux-01.qcow2
@@ -213,6 +216,8 @@ bash ~/kvm-course/bin/new-guest.sh linux-01
 <pre class="code code-text"><code class=" language-text">File processed:   16.062 MiB
 780M	/var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
 17M	/var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
+/var/lib/libvirt/images/kvm-course/linux-01-full.qcow2: OK
+/var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2: OK
 image: /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
 backing file: /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
 image: /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
@@ -221,8 +226,8 @@ data/a.bin: OK
 data/c.bin: OK
 data/d.bin: OK
 expected: b.bin stays deleted</code></pre>
-<p><strong>Check.</strong> The incremental file is a small fraction of the full one. The restored guest holds the newest <code>a.bin</code>, <code>c.bin</code> and <code>d.bin</code>, and <code>b.bin</code> stays deleted.</p>
-<p><strong>If it fails.</strong> An incremental is usable only on top of the exact full it followed: rebased onto another full, it gives a wrong disk without any error, so keep each incremental with its full. <code>backup-begin</code> fails with a checkpoint or bitmap error, such as <code>missing or broken bitmap</code>: the record of changed blocks is gone, so take a new full backup with a new checkpoint (7.4).</p>
+<p><strong>Check.</strong> Both backups print <code>OK</code> before the restore, and the incremental file is a small fraction of the full one. The restored guest holds the newest <code>a.bin</code>, <code>c.bin</code> and <code>d.bin</code>, and <code>b.bin</code> stays deleted.</p>
+<p><strong>If it fails.</strong> <code>FAILED</code> for a backup on the first run: it changed after you recorded it; do not restore it. If the restore block stopped after its <code>rebase</code> line, do not run the whole block again: <code>rebase -u</code> changed the incremental&#x27;s header and checksum. Fix the cause, set <code>P=/var/lib/libvirt/images/kvm-course</code>, then rerun the remaining commands one at a time, starting with the failed command and ending with <code>new-guest.sh</code>. Stop if any command fails. An incremental is usable only on top of the exact full it followed: rebased onto another full, it gives a wrong disk without any error, so keep each incremental with its full. <code>backup-begin</code> fails with a checkpoint or bitmap error, such as <code>missing or broken bitmap</code>: the record of changed blocks is gone, so take a new full backup with a new checkpoint (7.4).</p>
 <p><strong>Clean up.</strong> Nothing more; the chapter Clean up removes the backups.</p>
 <h2 id="s7-cleanup" class="msec">Clean up <a class="hlink" href="#s7-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch07-cleanup" style="--hue:145">Day 6 lab</a></h2>
 <p><a class="xref" href="../manual/ch08.html">Chapter 8</a> builds a fresh linux-01 in its 8.0. Remove this one, whose disk is now a restored standalone image, then the three backups and this chapter&#x27;s files:</p>

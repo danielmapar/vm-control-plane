@@ -221,9 +221,7 @@ pre.code code { background: none; border: 0; padding: 0; font: inherit; color: i
   position: relative; width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; font-weight: 800; font-size: 1.35rem; color: #fff;
   background: linear-gradient(140deg, hsl(var(--hue) 75% calc(var(--acc-l, 38%) + 6%)), hsl(calc(var(--hue) + 35) 75% var(--acc-l, 38%))); box-shadow: 0 6px 16px hsl(var(--hue) 70% 40% / .35);
 }
-.quest-lock { position: absolute; width: 20px; height: 20px; right: -6px; bottom: -6px; padding: 3px; border-radius: 50%; background: var(--card); color: var(--muted); border: 1px solid var(--line); display: none; }
-.quest.locked .quest-medal { background: linear-gradient(140deg, hsl(var(--hue) 15% 62%), hsl(var(--hue) 12% 52%)); box-shadow: none; }
-.quest.locked .quest-lock { display: block; }
+.quest.ahead .quest-medal { background: linear-gradient(140deg, hsl(var(--hue) 15% 62%), hsl(var(--hue) 12% 52%)); box-shadow: none; }
 .quest.done .quest-medal::after { content: "✓"; position: absolute; right: -7px; bottom: -7px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; background: var(--ok); color: #fff; border: 2px solid var(--card); }
 .quest.current .quest-card { border-color: hsl(var(--hue) 65% 55%); box-shadow: 0 0 0 4px hsl(var(--hue) 80% 60% / .18), var(--shadow); }
 .quest.current .quest-medal { animation: pulse 2.4s ease-in-out infinite; }
@@ -932,3 +930,16 @@ pre.code code { background: none; border: 0; padding: 0; font: inherit; color: i
 .flt-inspect { display: flex; flex-wrap: wrap; gap: 6px; }
 .flt-msg { margin: 6px 0 0; }
 .kr-wi-rec { margin-top: 6px; color: var(--code-ink); }
+
+/* fresh round: shell reminder, "Stopping here?" box, per-option feedback */
+.shell-note { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 4px 8px; align-items: start; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--line); font-size: .95em; }
+.shell-note > .icon { color: var(--accent); width: 18px; height: 18px; margin-top: 3px; }
+.shell-note .sn-text { min-width: 0; }
+.shell-note .cite-line { grid-column: 2; margin: 0; }
+.stopping-box { margin: 24px 0 4px; padding: 16px 18px; border-radius: 14px; background: var(--accent-soft); border: 1px dashed var(--accent); overflow-wrap: anywhere; }
+.stopping-box h3 { display: flex; gap: 8px; align-items: center; margin: 0 0 8px; font-size: 1.05rem; }
+.stopping-box h3 .icon { color: var(--accent); width: 20px; height: 20px; }
+.stopping-box p { margin: 0 0 8px; }
+.stopping-box p:last-child { margin-bottom: 0; }
+.stopping-box code { white-space: normal; overflow-wrap: anywhere; }
+.q-why { display: inline; }

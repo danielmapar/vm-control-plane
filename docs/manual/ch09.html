@@ -50,10 +50,10 @@ sync&#x27;
 <p><strong>Clean up.</strong> Keep linux-01.</p>
 <h2 id="s9-1" class="msec"><span class="sec-no">9.1</span> Record the healthy state <a class="hlink" href="#s9-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-1" style="--hue:8">Day 8 lab</a></h2>
 <p><strong>Goal.</strong> Start a timeline, and know what &quot;healthy&quot; looks like before anything breaks.</p>
-<p><strong>Commands.</strong> Start the timeline: <code>virsh event</code> (<a class="xref" href="../manual/ch02.html#s2-4">chapter 2.4</a>) writes every lifecycle event of linux-01, with a timestamp, to a file in the background. 9.5 stops it (<code>timeout 1800</code> would after 30 minutes); <code>EVENTS=$!</code> saves its process ID. The <code>domstate</code> line lets <code>sudo</code> ask for your password now; the background <code>sudo -n</code> cannot ask:</p>
+<p><strong>Commands.</strong> Start the timeline: <code>virsh event</code> (<a class="xref" href="../manual/ch02.html#s2-4">chapter 2.4</a>) writes every lifecycle event of linux-01, with a timestamp, to a file in the background. 9.5 stops it (<code>timeout 4h</code> would after 4 hours); <code>EVENTS=$!</code> saves its process ID. The <code>domstate</code> line lets <code>sudo</code> ask for your password now; the background <code>sudo -n</code> cannot ask:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">mkdir -p ~/kvm-course/ch09
 sudo virsh -c qemu:///system domstate linux-01
-timeout 1800 sudo -n virsh -c qemu:///system event linux-01 --event lifecycle --loop --timestamp &gt; ~/kvm-course/ch09/events.txt &amp;
+timeout 4h sudo -n virsh -c qemu:///system event linux-01 --event lifecycle --loop --timestamp &gt; ~/kvm-course/ch09/events.txt &amp;
 EVENTS=$!</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
 <p>Every drill ends with the same checks; save them: libvirt&#x27;s state and reason (<code>domstate --reason</code>), then the guest&#x27;s boot ID (new at every boot) and data checksum:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/ch09/verify.sh &lt;&lt;&#x27;BASH&#x27;
@@ -83,7 +83,7 @@ No errors found</code></pre>
 <p><strong>Clean up.</strong> Keep the timeline running until 9.5.</p>
 <h2 id="s9-2" class="msec"><span class="sec-no">9.2</span> The guest stops answering <a class="hlink" href="#s9-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-2" style="--hue:8">Day 8 lab</a></h2>
 <p><strong>Goal.</strong> Find out why linux-01 stops answering while its QEMU process still runs, and bring it back without a reboot.</p>
-<p><strong>Commands.</strong> Inject the fault: <code>virsh suspend</code> pauses linux-01&#x27;s virtual CPUs, while QEMU keeps its memory. In real incidents a guest is paused by an operator or, after a disk error such as a full host filesystem, by QEMU itself (state <code>paused (ioerror)</code>, <strong>not validated here</strong>). The impact: SSH times out:</p>
+<p><strong>Commands.</strong> Inject the fault: <code>virsh suspend</code> pauses linux-01&#x27;s virtual CPUs, while QEMU keeps its memory. In real incidents a guest is paused by an operator or, after a disk error such as a full host filesystem, by QEMU itself (state <code>paused (I/O error)</code>, <strong>not validated here</strong>). The impact: SSH times out:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 sudo virsh -c qemu:///system suspend linux-01
@@ -116,7 +116,7 @@ running (unpaused)
 boot ID: 1a78630f-ae2c-42a0-8930-c1b2eb44fd9c
 data.bin: OK</code></pre>
 <p><strong>Check.</strong> The state was <code>paused (user)</code>, <code>cpu.time</code> hardly changed, and after <code>resume</code> the boot ID is unchanged and <code>data.bin: OK</code>.</p>
-<p><strong>If it fails.</strong> The reason is <code>ioerror</code>: <code>sudo virsh -c qemu:///system domblkerror linux-01</code> names the disk and the error; fix that (for example, free space) before you resume.</p>
+<p><strong>If it fails.</strong> The reason is <code>I/O error</code>: <code>sudo virsh -c qemu:///system domblkerror linux-01</code> names the disk and the error; fix that (for example, free space) before you resume.</p>
 <p><strong>Clean up.</strong> linux-01 runs again.</p>
 <h2 id="s9-3" class="msec"><span class="sec-no">9.3</span> The network is cut <a class="hlink" href="#s9-3" aria-label="Link to this section">#</a><a class="to-day" href="../day-08.html#lab-ch09-3" style="--hue:8">Day 8 lab</a></h2>
 <p><strong>Goal.</strong> Tell a network fault from a guest fault, and repair only the network.</p>

@@ -68,7 +68,7 @@
   var storageOK = true;
   var S;
   function blank() {
-    return { v: 1, xp: 0, awards: {}, ticks: {}, prereq: {}, quiz: {}, term: {}, cards: {}, seen: {}, boss: {}, done: {}, streak: { n: 0, last: "" } };
+    return { v: 1, xp: 0, awards: {}, ticks: {}, prereq: {}, quiz: {}, term: {}, cards: {}, seen: {}, boss: {}, done: {}, mission: {}, streak: { n: 0, last: "" } };
   }
   function load() {
     try {
@@ -423,10 +423,11 @@
       if (!li) return;
       var bar = $("[data-quest-bar]", li); if (bar) bar.style.width = (done ? 100 : m.pct) + "%";
       var st = $("[data-quest-status]", li);
-      li.classList.remove("locked", "done", "current");
+      li.classList.remove("ahead", "done", "current");
+      /* Every day is open: the first unfinished day is "Up next", later unfinished days are previews (codex-site 10). */
       if (done) { li.classList.add("done"); st.textContent = "Complete"; li.classList.add("earned"); }
-      else if (!unlocked(d.n)) { li.classList.add("locked"); st.textContent = m.pct ? m.pct + "% (ahead)" : "Locked"; }
-      else { st.textContent = m.pct ? m.pct + "%" : "Ready"; }
+      else if (current !== null) { li.classList.add("ahead"); st.textContent = m.pct ? m.pct + "% (ahead)" : "Preview"; }
+      else { st.textContent = m.pct ? m.pct + "%" : "Up next"; }
       if (!done && current === null) current = d;
       var shelf = $('[data-shelf="' + d.n + '"]');
       if (shelf) { shelf.classList.toggle("earned", done); shelf.setAttribute("style", li.getAttribute("style") || ""); }
@@ -1494,7 +1495,31 @@
     s = s.replace(/;$/, "");
     return s;
   }
-  function loose(s) { return norm(s).replace(/["']/g, "").replace(/\s+/g, " "); }
+  /* A2: loose() compares the words bash would pass after quote removal, so quoting only matters where
+     bash would treat it differently: '{"execute":"query-kvm"}' never equals {execute:query-kvm}.
+     A quoted character outside the plain set is kept with a backslash; $ inside double quotes still expands. */
+  function loose(s) {
+    var t = norm(s), words = [], cur = null, q = null, PLAIN = /[A-Za-z0-9_@%+=:,.\/~-]/;
+    function add(ch, quoted) { if (cur === null) cur = ""; cur += (quoted && !PLAIN.test(ch)) ? "\\" + ch : ch; }
+    for (var i = 0; i < t.length; i++) {
+      var ch = t.charAt(i);
+      if (q === "'") { if (ch === "'") q = null; else add(ch, true); continue; }
+      if (q === '"') {
+        if (ch === '"') q = null;
+        else if (ch === "\\" && /[$`"\\]/.test(t.charAt(i + 1))) { add(t.charAt(++i), true); }
+        else add(ch, ch !== "$");
+        continue;
+      }
+      if (ch === "'" || ch === '"') { q = ch; if (cur === null) cur = ""; continue; }
+      if (ch === "\\" && i + 1 < t.length) { add(t.charAt(++i), true); continue; }
+      if (/\s/.test(ch)) { if (cur !== null) { words.push(cur); cur = null; } continue; }
+      add(ch, false);
+    }
+    if (cur !== null) words.push(cur);
+    return words.join(" ");
+  }
+  /* For "closest command" suggestions only: words without quotes. */
+  function fuzzy(s) { return norm(s).replace(/["']/g, "").replace(/\s+/g, " "); }
   function initTerminal() {
     var host = $("[data-terminal]");
     var items = PAGE.terminal || [];
@@ -1539,10 +1564,8 @@
     }
     mbtn.addEventListener("click", function () {
       var on = mbtn.getAttribute("aria-pressed") !== "true";
-      mbtn.setAttribute("aria-pressed", on ? "true" : "false");
-      mbtn.textContent = on ? "Show the commands again" : "Mission mode: hide the commands";
-      tryBox.hidden = on; missionBox.hidden = !on;
-      if (on) drawMissions();
+      setMission(on);
+      S.mission = S.mission || {}; S.mission[dkey] = on; save();   /* the learner's explicit choice wins */
     });
     var hist = [], hpos = 0;
     function print(html, cls) { screen.appendChild(h("div", { class: "ln " + (cls || "") }, html)); screen.scrollTop = screen.scrollHeight; }
@@ -1550,14 +1573,18 @@
       var n = items.filter(function (it) { return used[it.id]; }).length;
       $("[data-tp]", prog).textContent = n + " of " + items.length + " commands tried";
       $(".bar span", prog).style.width = (100 * n / items.length) + "%";
-      if (n === items.length) award(dkey + "-term-all", 25, "every simulated command tried");
+      if (n === items.length) {
+        if (!S.awards[dkey + "-term-all"] && !(S.mission && dkey in S.mission))
+          print("# Every command tried. Press <b>Mission mode</b> below the terminal to hide them and practise from memory.", "dim");
+        award(dkey + "-term-all", 25, "every simulated command tried");
+      }
     }
     print("# Simulated shell for Day " + DAY + ". It replays the output the manual recorded on its validation host.", "dim");
     print("# Type a command (or click one under Try:), then press Enter. Type <b>help</b> for the list, <b>hint</b> for a suggestion.", "dim");
     function suggest(cmd) {
-      var words = loose(cmd).split(" ").filter(function (w) { return w.length >= 3; }), best = null, bs = 0;
+      var words = fuzzy(cmd).split(" ").filter(function (w) { return w.length >= 3; }), best = null, bs = 0;
       items.forEach(function (it) {
-        var w2 = loose(it.cmd).split(" "), sc = 0;
+        var w2 = fuzzy(it.cmd).split(" "), sc = 0;
         words.forEach(function (w) { if (w2.indexOf(w) >= 0) sc++; });
         if (sc > bs) { bs = sc; best = it; }
       });
@@ -1610,6 +1637,10 @@
         it.out.forEach(function (l) { print(esc(l)); });
         print("# " + (it.excerpt ? "excerpt " : "") + 'recorded on the validation host, <span class="src"><a href="' + esc(ROOT + it.cite.href) + '">manual ' + esc(it.cite.label) + "</a></span>" +
           ". Your values (addresses, IDs, sizes, dates) will differ.", "dim");
+        if (it.result) {
+          print("# Result: " + esc(it.result.label) + ' (<span class="src"><a href="' + esc(ROOT + it.result.cite.href) + '">manual ' + esc(it.result.cite.label) + "</a></span>):", "dim");
+          it.result.lines.forEach(function (l) { print(esc(l)); });
+        }
         var typed = fromChip !== cmd;
         if (!used[it.id]) {
           used[it.id] = true; save();
@@ -1650,8 +1681,10 @@
       if (!window.getSelection || !String(window.getSelection())) input.focus();
     });
     progress();
-    /* G19: after Day 1's simulator has been used, later days start in mission mode (the toggle shows the commands). */
-    if (DAY > 1 && S.term.d1 && Object.keys(S.term.d1).length) setMission(true);
+    /* Mission mode never hides a command on first exposure (codex-site 6): it starts on only when the learner
+       chose it for this day, or by default once every command of this day has been tried. */
+    var choice = S.mission && dkey in S.mission ? S.mission[dkey] : null;
+    if (choice === true || (choice === null && items.every(function (it) { return used[it.id]; }))) setMission(true);
   }
 
   /* ============================================================ labs */
@@ -1762,10 +1795,13 @@
       var el = $(".qgroup-score", g); if (el) el.textContent = ok + " of " + ids.length + " correct";
     });
   }
-  function renderMC(q, wrap, options, answerIdx, mono) {
+  /* whys: one sentence per option (same order as options), "" for the right one; shown when that option is picked. */
+  function renderMC(q, wrap, options, answerIdx, mono, whys) {
+    whys = whys || [];
     if (!mono) {
       var idx = shuffle(options.map(function (o, i) { return i; }));
       options = idx.map(function (i) { return options[i]; });
+      whys = idx.map(function (i) { return whys[i] || ""; });
       answerIdx = idx.indexOf(answerIdx);
     }
     var box = h("div", { class: "q-opts", role: "group", "aria-label": "Answers" });
@@ -1784,7 +1820,8 @@
         } else {
           wrongs++;
           b.classList.add("wrong"); b.disabled = true;
-          feedback(wrap, false, '<b class="verdict">Not quite.</b> Have another look' + (wrongs >= 2 ? ', or <button type="button" class="linkish" data-reveal>show the answer</button>.' : "."));
+          feedback(wrap, false, '<b class="verdict">Not quite.</b> ' + (whys[i] ? '<span class="q-why">' + whys[i] + "</span> " : "") +
+            "Have another look" + (wrongs >= 2 ? ', or <button type="button" class="linkish" data-reveal>show the answer</button>.' : "."));
           var rv = $("[data-reveal]", wrap);
           if (rv) rv.addEventListener("click", function () { btns[answerIdx].classList.add("right"); feedback(wrap, false, "The answer is highlighted; click it to continue. " + q.explain + " " + citeHTML(q.cites)); });
         }
@@ -1799,9 +1836,10 @@
   }
   function renderPredict(q, wrap) {
     wrap.appendChild(h("div", { class: "q-cmd" }, '<pre class="code code-bash"><code>' + esc("$ " + q.cmd) + "</code></pre>"));
-    var opts = shuffle([q.correct].concat(q.distractors));
-    var ans = opts.indexOf(q.correct);
-    renderMC(q, wrap, opts.map(esc), ans, true);
+    var all = [q.correct].concat(q.distractors), whyAll = [""].concat(q.why || []);
+    var idx = shuffle(all.map(function (o, i) { return i; }));
+    renderMC(q, wrap, idx.map(function (i) { return esc(all[i]); }), idx.indexOf(0), true,
+      idx.map(function (i) { return whyAll[i] || ""; }));
   }
   function renderOrder(q, wrap) {
     var st = qState(q.id);
@@ -1893,6 +1931,51 @@
     });
     if (st.ok) { chk.disabled = true; wrap.classList.add("correct"); feedback(wrap, true, explainHTML(q)); }
   }
+  /* A6: build-the-command is graded as a set of options, each kept with its argument, not as fixed sequences.
+     For programs whose parsers accept options anywhere after the subcommand, an answer is right when it has the
+     same prefix (sudo, program, virsh's global -c before the subcommand, subcommand), the same positionals in the
+     same order, and the same option units in any order. Other commands (ip, pipelines, ...) keep their order. */
+  var BUILD_ARGOPTS = {
+    "qemu-img": ["-f", "-F", "-b", "-O", "-o"],
+    "virsh": ["--checkpointxml", "--timeout", "--condition", "--base"],
+    "virt-xml": ["--connect", "--edit", "--network"],
+    "ausearch": ["-m", "-ts", "-p", "-f", "-k"],
+    "gcc": ["-o"]
+  };
+  var BUILD_GLOBAL = { "virsh": ["-c", "--connect"] };
+  var BUILD_SUBCMD = { "qemu-img": true, "virsh": true };
+  function buildKey(tokens) {
+    var t = tokens.slice(), pre = [];
+    if (t[0] === "sudo") pre.push(t.shift());
+    var prog = t.shift();
+    pre.push(prog);
+    var args = BUILD_ARGOPTS[prog];
+    if (!args || t.indexOf("|") >= 0) return null;
+    var glob = BUILD_GLOBAL[prog] || [], g = [], units = [], pos = [];
+    if (BUILD_SUBCMD[prog]) {
+      while (t.length && /^-/.test(t[0])) {
+        var o = t.shift();
+        if (glob.indexOf(o) < 0 || !t.length) return "!";
+        g.push(o + " " + t.shift());
+      }
+      if (!t.length) return "!";
+      pre.push(g.sort().join(" "), t.shift());
+    }
+    for (var i = 0; i < t.length; i++) {
+      var x = t[i];
+      if (/^-./.test(x)) {
+        if (glob.indexOf(x) >= 0) return "!";
+        if (args.indexOf(x) >= 0) { if (i + 1 >= t.length) return "!"; units.push(x + " " + t[++i]); }
+        else units.push(x);
+      } else pos.push(x);
+    }
+    return JSON.stringify([pre, pos, units.sort()]);
+  }
+  function buildRight(q, got, answers) {
+    if (answers.some(function (a) { return got.length === a.length && got.every(function (t, i) { return t === a[i]; }); })) return true;
+    var ref = buildKey(q.tokens), mine = buildKey(got);
+    return !!ref && ref !== "!" && mine === ref;
+  }
   function renderBuild(q, wrap) {
     var st = qState(q.id);
     var lineEl = h("div", { class: "build-line", "aria-label": "Your command", role: "group" });
@@ -1947,7 +2030,7 @@
       if (st.ok) return;
       st.tries++; save();
       var got = picked.map(function (c) { return c.t; });
-      var right = answers.some(function (a) { return got.length === a.length && got.every(function (t, i) { return t === a[i]; }); });
+      var right = buildRight(q, got, answers);
       if (right) {
         var same = got.join(" ") === q.tokens.join(" ");
         lineEl.classList.add("right"); feedback(wrap, true, explainHTML(q) + (same ? "" : " Your order is valid too; the manual writes it like this:") +
@@ -1956,10 +2039,15 @@
         solved(q, wrap, st.tries === 1); draw(); lineEl.classList.add("right");
       } else {
         lineEl.classList.add("wrong");
-        var k = 0;
-        answers.forEach(function (a) { var j = 0; while (j < got.length && j < a.length && got[j] === a[j]) j++; if (j > k) k = j; });
-        var msg = got.length < q.tokens.length && k === got.length ? "So far so good, but the command is not finished." :
-          "The first " + k + " piece" + (k === 1 ? " is" : "s are") + " right in the manual's order; something after that is off. Not every piece is needed.";
+        var need = q.tokens.slice(), stray = 0;
+        got.forEach(function (t) { var j = need.indexOf(t); if (j >= 0) need.splice(j, 1); else stray++; });
+        var free = !!buildKey(q.tokens);
+        var msg = stray ? "At least one piece does not belong in this command; not every piece is needed." :
+          need.length ? "So far no wrong piece, but " + (need.length === 1 ? "one piece is" : need.length + " pieces are") + " still missing." :
+          free ? "All the right pieces, but not in a working order: sudo and the program come first" +
+            (BUILD_SUBCMD[q.tokens[q.tokens[0] === "sudo" ? 1 : 0]] ? ", then " + (q.tokens.indexOf("-c") >= 0 ? "-c and its URI, then " : "") + "the subcommand" : "") +
+            "; each option keeps its value right after it, and the names keep their order. Options themselves may go in any order." :
+          "All the right pieces, but this command needs them in one fixed order.";
         feedback(wrap, false, '<b class="verdict">Not yet.</b> ' + msg + (st.tries >= 3 ? ' <button type="button" class="linkish" data-reveal>Show the command</button>' : ""));
         var rv = $("[data-reveal]", wrap);
         if (rv) rv.addEventListener("click", function () {
@@ -1990,7 +2078,7 @@
         wrap.appendChild(h("div", { class: "q-type" }, esc(TYPE_LABEL[q.type] || q.type) + " · question " + (qi + 1) + " of " + g.questions.length +
           (practice[q.id] ? " · practice" : "")));
         wrap.appendChild(h("p", { class: "q-text" }, q.q));
-        if (q.type === "mc") renderMC(q, wrap, q.options, q.answer, false);
+        if (q.type === "mc") renderMC(q, wrap, q.options, q.answer, false, q.why);
         else if (q.type === "predict") renderPredict(q, wrap);
         else if (q.type === "order") renderOrder(q, wrap);
         else if (q.type === "build") renderBuild(q, wrap);
@@ -2236,5 +2324,7 @@
     }
     document.documentElement.setAttribute("data-js-ready", "1");
   }
+  /* Read-only hooks for the site's own self-check (check.py); they change nothing. */
+  window.kvm10Test = { loose: loose, buildKey: buildKey };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();

@@ -63,7 +63,7 @@ Each chapter's Clean up removes its temporary changes and says what to keep. **A
 4. Change or break one thing, test one diagnosis, and restore the working state.
 5. Save useful commands and observations, then continue.
 
-Commands run on the host unless sent into a guest. Management commands use `sudo virsh -c qemu:///system COMMAND`. Blocks that must stop at their first failure start with `( set -euo pipefail` or are saved as scripts with that line, so the failure stops them without closing your terminal. To see where a script fails silently, run it with `bash -x SCRIPT`. Placeholders are in CAPITALS and introduced before use; most addresses and UUIDs are derived from the running lab.
+Run the blocks in **bash**, Fedora's default shell (type `bash` first if your terminal runs zsh or fish), and run a chapter's blocks in order in one terminal: some reuse variables that an earlier block set. Commands run on the host unless sent into a guest. Management commands use `sudo virsh -c qemu:///system COMMAND`. Blocks that must stop at their first failure start with `( set -euo pipefail` or are saved as scripts with that line, so the failure stops them without closing your terminal. To see where a script fails silently, run it with `bash -x SCRIPT`. Placeholders are in CAPITALS and introduced before use; most addresses and UUIDs are derived from the running lab.
 
 If a check fails, compare versions, permissions and logs before changing one thing. Never weaken host protections to force a pass, or change an unrelated VM, pool or network to match a lab.
 

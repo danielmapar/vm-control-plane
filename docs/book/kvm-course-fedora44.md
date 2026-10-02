@@ -65,7 +65,7 @@ Each chapter's Clean up removes its temporary changes and says what to keep. **A
 4. Change or break one thing, test one diagnosis, and restore the working state.
 5. Save useful commands and observations, then continue.
 
-Commands run on the host unless sent into a guest. Management commands use `sudo virsh -c qemu:///system COMMAND`. Blocks that must stop at their first failure start with `( set -euo pipefail` or are saved as scripts with that line, so the failure stops them without closing your terminal. To see where a script fails silently, run it with `bash -x SCRIPT`. Placeholders are in CAPITALS and introduced before use; most addresses and UUIDs are derived from the running lab.
+Run the blocks in **bash**, Fedora's default shell (type `bash` first if your terminal runs zsh or fish), and run a chapter's blocks in order in one terminal: some reuse variables that an earlier block set. Commands run on the host unless sent into a guest. Management commands use `sudo virsh -c qemu:///system COMMAND`. Blocks that must stop at their first failure start with `( set -euo pipefail` or are saved as scripts with that line, so the failure stops them without closing your terminal. To see where a script fails silently, run it with `bash -x SCRIPT`. Placeholders are in CAPITALS and introduced before use; most addresses and UUIDs are derived from the running lab.
 
 If a check fails, compare versions, permissions and logs before changing one thing. Never weaken host protections to force a pass, or change an unrelated VM, pool or network to match a lab.
 
@@ -1085,15 +1085,15 @@ sudo qemu-img create -f qcow2 $P/hotplug.qcow2 1G
 sudo virsh -c qemu:///system attach-disk profile-probe $P/hotplug.qcow2 vdb --targetbus virtio --subdriver qcow2 --live --print-xml
 ```
 
-libvirt reports state changes as **events**. Record them in the background (`&`). `sudo true` asks for your password now, because the background `sudo -n` never asks; `$!` is the listener's process ID; `timeout 600` ends it if you forget:
+libvirt reports state changes as **events**. Record them in the background (`&`). `sudo true` asks for your password now, because the background `sudo -n` never asks; `$!` is the listener's process ID; `timeout 1h` ends it if you forget:
 
 ```bash
 sudo true
-timeout 600 sudo -n virsh -c qemu:///system event profile-probe --event lifecycle --loop > ~/kvm-course/ch02/events.txt &
+timeout 1h sudo -n virsh -c qemu:///system event profile-probe --event lifecycle --loop > ~/kvm-course/ch02/events.txt &
 EVENTS=$!
 ```
 
-Attach with `--live` only: the disk is in the running VM but not in the saved definition (`--inactive`). Then restart the VM. A booting guest may ignore a shutdown request, so `trust.sh` first waits until it answers. Each block stops at its first failure:
+Attach with `--live` only: the disk is in the running VM but not in the saved definition (`--inactive`). Then shut the VM down and start it again. A booting guest may ignore a shutdown request, so `trust.sh` first waits until it answers. Each block stops at its first failure:
 
 ```bash
 (
@@ -1114,7 +1114,7 @@ fi
 )
 ```
 
-Attach with `--live --config`, restart, and see that the disk stays. Then detach it from both:
+Attach with `--live --config`, restart, and see that the disk stays. Then, once the guest answers (unplugging needs its help), detach it from both:
 
 ```bash
 (
@@ -1125,6 +1125,7 @@ bash ~/kvm-course/bin/trust.sh profile-probe
 bash ~/kvm-course/bin/stop-guest.sh profile-probe
 sudo virsh -c qemu:///system start profile-probe
 sudo virsh -c qemu:///system domblklist profile-probe | grep -w vdb
+bash ~/kvm-course/bin/trust.sh profile-probe
 sudo virsh -c qemu:///system detach-disk profile-probe vdb --live --config
 )
 ```
@@ -1153,7 +1154,7 @@ event 'lifecycle' for domain 'profile-probe': Defined Updated
 
 **If it fails.** `No more available PCI slots`: Q35 needs a free PCIe root port per hotplugged device. No events: the listener could not use `sudo -n`; run `sudo true` and restart it.
 
-**Clean up.** The disk is detached; the chapter Clean up deletes its file.
+**Clean up.** The detach request was sent. Live unplug can finish after the command reports success; the chapter Clean up stops profile-probe before deleting the disk file.
 
 #### 2.5 Compare connections
 
@@ -1184,7 +1185,7 @@ daniel   /usr/bin/virtqemud --timeout=120
 
 **If it fails.** A session error such as `Failed to connect socket`: run it again and read the message. Never add yourself to the `libvirt` group to make the system connection work without `sudo` (chapter 0.3).
 
-**Clean up.** No VM was created; with `--timeout=120`, the session daemon exits after two minutes without clients or running VMs. Your first session connection creates two small directories, `~/.config/libvirt` and `~/.cache/libvirt`. Appendix B leaves them, because they may predate the course; if you had neither before and keep no session VMs, you may delete them.
+**Clean up.** With `--timeout=120`, the session daemon exits after two minutes without clients or running VMs. Your first session connection creates two small directories, `~/.config/libvirt` and `~/.cache/libvirt`. Appendix B leaves them, because they may predate the course; if you had neither before and keep no session VMs, you may delete them.
 
 **Chapter pass.** From your own output, explain which XML the next start uses, why the transient VM vanished, why the `--live` disk was lost, and which daemon owns linux-01. Section 10.3 makes lifecycle calls through libvirt's Python API.
 
@@ -1234,7 +1235,7 @@ linux-01
 
 **Check.** The last lines are `status: done` and `linux-01`.
 
-**If it fails.** `No such file or directory`: save the 1.7 scripts. `exists and is not a course guest`: a VM of yours is called linux-01; rename it. Otherwise read the `STOP:` line or the cloud-init or SSH message it printed.
+**If it fails.** `No such file or directory`: save the 1.7 scripts. `exists and is not a course guest`: a VM of yours is called linux-01; leave it alone and do not run the course on this host (chapter 1.4). Otherwise read the `STOP:` line or the cloud-init or SSH message it printed.
 
 **Clean up.** Keep linux-01.
 
@@ -1608,7 +1609,7 @@ linux-01
 
 **Check.** The last lines are `status: done` and `linux-01`.
 
-**If it fails.** `No such file or directory`: save the 1.7 scripts. `exists and is not a course guest`: a VM of yours is called linux-01; rename it. Otherwise read the `STOP:` line or the cloud-init or SSH message it printed.
+**If it fails.** `No such file or directory`: save the 1.7 scripts. `exists and is not a course guest`: a VM of yours is called linux-01; leave it alone and do not run the course on this host (chapter 1.4). Otherwise read the `STOP:` line or the cloud-init or SSH message it printed.
 
 **Clean up.** Keep linux-01.
 
@@ -1713,7 +1714,7 @@ written-in-4.2
 
 **Goal.** Show that an overlay cannot start without its base, while a flattened copy can.
 
-**Commands.** `qemu-img convert` reads the whole chain and writes one standalone file. Stop clone-01 and flatten its disk into `restore-01.qcow2`. A qcow2 file stores only the parts of the disk that hold data, so the copy needs room for the guest's data, not for its 20-GiB virtual size; here it took 759 MiB:
+**Commands.** `qemu-img convert` reads the whole chain and writes one standalone file. Stop clone-01 and flatten its disk into `restore-01.qcow2`. The copy keeps the disk's current data from the whole chain, which can include blocks left by deleted files. QEMU can omit zero-filled regions, but qcow2 metadata also takes space. This copy took 759 MiB; a fuller disk can require its entire 20-GiB virtual size plus metadata:
 
 ```bash
 (
@@ -1954,7 +1955,7 @@ linux-01
 
 **Check.** The last lines are `status: done` and `linux-01`.
 
-**If it fails.** `No such file or directory`: save the 1.7 scripts. `exists and is not a course guest`: a VM of yours is called linux-01; rename it. Otherwise read the message it printed.
+**If it fails.** `No such file or directory`: save the 1.7 scripts. `exists and is not a course guest`: a VM of yours is called linux-01; leave it alone and do not run the course on this host (chapter 1.4). Otherwise read the message it printed.
 
 **Clean up.** Keep linux-01.
 
@@ -2261,7 +2262,7 @@ Read libvirt's [QEMU driver](https://libvirt.org/drvqemu.html), [ACL](https://li
 
 **Goal.** Start linux-01.
 
-**Commands.** If you removed the course, save the 1.7 scripts again first. `LC_ALL=C` keeps command output in English for the later checks. `new-guest.sh` starts linux-01, or builds it:
+**Commands.** If you removed the course, save the 1.7 scripts again first. `LC_ALL=C` keeps output in English for later checks. `new-guest.sh` starts linux-01, or builds it:
 
 ```bash
 export LC_ALL=C
@@ -2271,7 +2272,7 @@ mkdir -p ~/kvm-course/ch06
 
 **Expected output.** The last lines are `status: done` and `linux-01`.
 
-**If it fails.** `No such file`: save the 1.7 scripts. `STOP: linux-01 exists and is not a course guest`: rename your own VM of that name.
+**If it fails.** `No such file`: save the 1.7 scripts. `STOP: linux-01 exists and is not a course guest`: that VM is yours; leave it alone and do not run the course on this host (chapter 1.4).
 
 **Clean up.** Keep linux-01 running.
 
@@ -2279,7 +2280,7 @@ mkdir -p ~/kvm-course/ch06
 
 **Goal.** Find who controls linux-01's socket, QEMU process, disk, console and guest users.
 
-**Commands.** **Discretionary access control (DAC)** means Unix owners and modes; **SELinux** adds rules that even root obeys. **sVirt** gives each course QEMU process the type `svirt_t` and its writable disk `svirt_image_t`, with matching **MCS (Multi-Category Security) categories**, such as `c18,c616`. With Fedora's default `qemu:///system` configuration these processes run as `qemu`; their distinct categories separate the guests' private disks:
+**Commands.** **Discretionary access control (DAC)** means Unix owners and modes; **SELinux** adds rules that even root obeys. **sVirt** gives each course QEMU process the type `svirt_t` and its writable disk `svirt_image_t`, with matching **MCS (Multi-Category Security) categories**, such as `c18,c616`. By Fedora's default these processes run as `qemu`; their distinct categories separate the guests' private disks:
 
 ```bash
 sudo virsh -c qemu:///system dominfo linux-01 | grep '^Security label'
@@ -2296,7 +2297,7 @@ grep -E "<interface |<serial |<log |<channel " ~/kvm-course/ch06/linux-01.xml
 if grep '<graphics' ~/kvm-course/ch06/linux-01.xml; then echo 'UNEXPECTED: linux-01 has a screen'; false; fi
 ```
 
-Every local user may connect to both libvirt sockets; **polkit**, the system's authorization service, decides what they may do. The `-ro` socket only reads; read-write use needs the polkit action `org.libvirt.unix.manage`. Root has it, and Fedora's rule `/usr/share/polkit-1/rules.d/50-libvirt.rules` gives it to every member of the `libvirt` group without a password: that membership is effectively root. In the guest, `fedora` is in **wheel**, Fedora's administrator group, with passwordless sudo from cloud-init:
+Every local user may connect to both libvirt sockets; **polkit**, the authorization service, decides what they may do. The `-ro` socket only reads; read-write use needs the polkit action `org.libvirt.unix.manage`. Root has it, and Fedora's rule `/usr/share/polkit-1/rules.d/50-libvirt.rules` gives it to every member of the `libvirt` group without a password: that membership is effectively root. In the guest, `fedora` is in **wheel**, Fedora's administrator group, with passwordless sudo from cloud-init:
 
 ```bash
 ls -lZ /run/libvirt/virtqemud-sock /run/libvirt/virtqemud-sock-ro
@@ -2304,7 +2305,7 @@ getent group libvirt
 ssh -F ~/kvm-course/ssh/config linux-01 'set -e; id; getenforce'
 ```
 
-**Expected output.** Trimmed; categories and the group number differ. The course adds no one to the `libvirt` group (chapter 0.3), so after the last colon you see only accounts that were already members, such as the validation account `daniel`, or nothing:
+**Expected output.** Trimmed; categories and the group number differ. The course adds no one to the `libvirt` group (chapter 0.3): after the last colon you see only existing members, such as the validation account `daniel`, or nothing:
 
 ```text
 Security label: system_u:system_r:svirt_t:s0:c18,c616 (enforcing)
@@ -2325,14 +2326,14 @@ Enforcing
 
 **Goal.** Log in on the serial console with a password and administer a guest whose network is down.
 
-**Commands.** On the disposable profile-probe, create the account `recovery`: `-m` makes its home, `-G wheel` allows sudo with its own password. `ssh_pwauth: false` (chapter 1) keeps SSH password login off; setting this password enables console login without enabling SSH password login:
+**Commands.** Create `recovery` on disposable profile-probe: `-m` makes its home; `-G wheel` allows sudo with its own password. `ssh_pwauth: false` (chapter 1) keeps SSH password login off while you enable console login:
 
 ```bash
 bash ~/kvm-course/bin/new-guest.sh profile-probe
 ssh -F ~/kvm-course/ssh/config profile-probe 'set -e; sudo useradd -m -G wheel recovery; id recovery'
 ```
 
-Set a temporary password of your own. `ssh -t` gives `passwd` a terminal; it asks twice and shows nothing as you type. Type:
+Set a temporary password of your own. `ssh -t` gives `passwd` a terminal; it asks twice and echoes nothing. Type:
 
 ```console
 $ ssh -t -F ~/kvm-course/ssh/config profile-probe 'sudo passwd recovery'
@@ -2350,7 +2351,7 @@ else
 fi
 ```
 
-The console needs no network. Log in as `recovery`, prove administrator rights with `sudo -v`, and look at the card with `ip -br link`. `exit` logs out; `Ctrl+]` leaves the console. Type:
+The console needs no network. Log in as `recovery`, prove admin rights with `sudo -v`, and look at the card with `ip -br link`. `exit` logs out; `Ctrl+]` leaves the console. Type:
 
 ```console
 $ sudo virsh -c qemu:///system console profile-probe
@@ -2400,7 +2401,7 @@ active
 (
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
-if sudo test -e $P/denied.img; then echo 'STOP: denied.img is left from an earlier try; run the chapter Clean up first'; false; fi
+if sudo test -e $P/denied.img; then echo 'STOP: denied.img is left from an earlier try; see If it fails'; false; fi
 sudo qemu-img create -f raw $P/denied.img 16M
 sudo chmod 0644 $P/denied.img
 sudo chcon -t user_home_t $P/denied.img
@@ -2408,7 +2409,7 @@ sudo ls -lZ $P/denied.img
 )
 ```
 
-libvirt normally relabels a disk when it attaches it. `relabel='no'` in the source keeps the wrong label:
+libvirt normally relabels a disk at attach. `relabel='no'` in the source keeps the wrong label:
 
 ```bash
 cat > ~/kvm-course/ch06/denied.xml <<'XML'
@@ -2423,7 +2424,7 @@ cat > ~/kvm-course/ch06/denied.xml <<'XML'
 XML
 ```
 
-An **AVC** (Access Vector Cache) message records an SELinux decision. Attach the disk, then find the refusal for this QEMU process and file:
+An **AVC** (Access Vector Cache) message records an SELinux decision. Attach the disk, then find this QEMU process's refusal for the file:
 
 ```bash
 pid=$(sudo cat /run/libvirt/qemu/profile-probe.pid)
@@ -2436,7 +2437,7 @@ sudo ausearch -m AVC,USER_AVC -ts recent -p "$pid" -f denied.img | tee ~/kvm-cou
 grep -E 'denied.*scontext=[^ ]*:svirt_t:.*tcontext=[^ ]*:user_home_t:.*permissive=0' ~/kvm-course/ch06/denial.txt
 ```
 
-`permissive=0` means SELinux enforced it. `restorecon` restores the default type; without `relabel='no'`, libvirt labels the disk at attach:
+`permissive=0` means SELinux enforced it. `restorecon` restores the default type; without `relabel='no'`, libvirt labels the disk at attach, and a read-only disk gets the shared type `virt_content_t` instead of the VM's categories. Delete the file only once `domblklist` drops `vdc`; the guest finishes an unplug later:
 
 ```bash
 (
@@ -2447,11 +2448,10 @@ sudo restorecon -v $P/denied.img
 sudo virsh -c qemu:///system attach-device profile-probe ~/kvm-course/ch06/fixed.xml --live
 sudo ls -lZ $P/denied.img
 sudo virsh -c qemu:///system detach-disk profile-probe vdc --live
+timeout 60 bash -ec 'while :; do disks=$(sudo virsh -c qemu:///system domblklist profile-probe); grep -qw vdc <<< "$disks" || break; sleep 1; done'
 sudo rm $P/denied.img
 )
 ```
-
-Read-only disks get the shared type `virt_content_t`, writable ones the VM's categories.
 
 **Expected output.** Trimmed; numbers differ:
 
@@ -2463,9 +2463,9 @@ Device attached successfully
 -rw-r--r--. 1 qemu qemu system_u:object_r:virt_content_t:s0 … denied.img
 ```
 
-**Check.** The AVC names `svirt_t`, `user_home_t` and `permissive=0`; after the label repair the same disk attaches, and SELinux stayed enforcing.
+**Check.** The AVC names `svirt_t`, `user_home_t` and `permissive=0`; after the label repair the disk attaches, with SELinux enforcing.
 
-**If it fails.** No AVC: check the path and mode, and that `auditd` runs; some denials are never logged, so a missing AVC does not prove that SELinux allowed the access. Attached at once: check `relabel='no'` and `getenforce`.
+**If it fails.** Leftover `denied.img`: if `domblklist profile-probe` lists `vdc`, run the repair block's detach and wait lines; stop if either fails. Once a successful listing has no `vdc`, run `sudo rm -f /var/lib/libvirt/images/kvm-course/denied.img` and retry. No AVC: check path, mode and `auditd`; no AVC does not prove access was allowed. Attached at once: check `relabel='no'` and `getenforce`.
 
 **Clean up.** The test disk is gone.
 
@@ -2473,7 +2473,7 @@ Device attached successfully
 
 **Goal.** Compare a socket-wide grant with per-VM access control.
 
-**Commands.** Work inside host-b, a disposable nested host (chapter 0.2), so no rule touches your workstation. Install libvirt there (`install_weak_deps=False` skips optional packages; the download is still about 200 MiB), define two paused 128 MiB guests without disks, and add the user `kc-reader`, which cannot log in; `runuser` runs commands as it:
+**Commands.** Work in host-b, a disposable nested host (chapter 0.2), so no rule touches your workstation. Install libvirt there (`install_weak_deps=False` skips optional packages; still a 200 MiB download), define two paused 128 MiB guests without disks, and add the user `kc-reader`, which cannot log in; `runuser` runs commands as it:
 
 ```bash
 bash ~/kvm-course/bin/new-guest.sh host-b
@@ -2519,7 +2519,7 @@ sudo virsh -c qemu:///system start acl-b --paused
 GUEST
 ```
 
-The **access control driver** checks each API call against polkit actions `org.libvirt.api.*`. Turn it on and add rule 48, which polkit reads before rule 49 because rule files run in name order. It handles only kc-reader's API calls: it refuses drivers other than QEMU, allows connecting and reading every VM, allows start and stop only for acl-a's UUID, and refuses everything else. Rule 49 still lets kc-reader open the socket. Unquoted `RULE` lets the shell fill in `$uuid`; the pauses let polkit load rules:
+The **access control driver** checks each API call against polkit actions `org.libvirt.api.*`. Turn it on and add rule 48; polkit reads rule files in name order, so 48 comes before 49. For kc-reader's API calls on the QEMU driver, it allows connecting, reading every VM, and start and stop for acl-a's UUID alone; it refuses everything else. Rule 49 still lets kc-reader open the socket. Unquoted `RULE` lets the shell fill in `$uuid`; pauses let polkit load rules:
 
 ```bash
 ssh -F ~/kvm-course/ssh/config host-b 'bash -se' <<'GUEST'
@@ -2563,20 +2563,20 @@ Domain 'acl-a' started
 
 **Check.** No grant: refused. Socket grant: any VM. Access control: acl-b readable but not stoppable; acl-a still controlled.
 
-**If it fails.** `journalctl -u polkit` in host-b shows rule errors. acl-a or acl-b does not start: check nesting (chapter 0.2). Never add grants on your workstation.
+**If it fails.** `journalctl -u polkit` in host-b shows rule errors. acl-a or acl-b does not start: check nesting (chapter 0.2). To repeat 6.4, first run `bash ~/kvm-course/bin/remove-guest.sh host-b`, then start again from its first block. Never add grants on your workstation.
 
-**Clean up.** The chapter Clean up deletes host-b with its packages, rules and user.
+**Clean up.** The chapter Clean up deletes host-b and all it holds.
 
 #### 6.5 Audit secret paths
 
 **Goal.** Find who can read the course's credentials and what the guest agent may do, printing no secret.
 
-**Commands.** Only you may read the private SSH key. The seed is an unencrypted ISO, so modes decide who reads its user-data; `namei -l` shows each directory's mode on a path. The guest agent runs requests as root in the guest; `guest-exec` runs any command:
+**Commands.** Only you may read the private SSH key. The seed ISO is unencrypted, so modes decide who reads its user-data; `namei -l` shows each directory's mode on a path. The guest agent runs requests as root; `guest-exec` runs any command:
 
 ```bash
 stat -c '%a %U:%G %n' ~/kvm-course/ssh ~/kvm-course/ssh/id_ed25519
-test "$(stat -c %a ~/kvm-course/ssh)" = 700
-test "$(stat -c %a ~/kvm-course/ssh/id_ed25519)" = 600
+if [ "$(stat -c %a ~/kvm-course/ssh)" != 700 ]; then echo 'UNEXPECTED: ssh dir not 700'; false; fi
+if [ "$(stat -c %a ~/kvm-course/ssh/id_ed25519)" != 600 ]; then echo 'UNEXPECTED: private key not 600'; false; fi
 namei -l ~/kvm-course/linux-01/user-data
 sudo namei -l /var/lib/libvirt/images/kvm-course/linux-01-seed.iso
 sudo virsh -c qemu:///system qemu-agent-command linux-01 '{"execute":"guest-info"}' |
@@ -2598,7 +2598,7 @@ drwxr-xr-x root root kvm-course
 {"enabled":true,"name":"guest-exec-status","success-response":true}
 ```
 
-**Check.** The key is `600` in a `700` directory and your home (`drwx------`) hides user-data, but every local user can read the seed ISO: never put passwords or private keys in user-data. With `guest-exec` enabled, permission to issue guest-agent commands gives root command execution inside this guest.
+**Check.** The key is `600` in a `700` directory and your home (`drwx------`) hides user-data, but every local user can read the seed ISO: never put passwords or private keys in user-data. With `guest-exec` enabled, permission to send guest-agent commands means root inside this guest.
 
 **If it fails.** Wrong modes: fix them with `chmod`. No agent answer: check the channel (6.1) and `qemu-guest-agent`. `guest-exec` disabled in `/etc/sysconfig/qemu-ga` is safer, not an error.
 
@@ -2645,7 +2645,7 @@ status: done
 linux-01
 ```
 
-**If it fails.** `No such file`: save the 1.7 scripts. `STOP: linux-01 exists and is not a course guest`: rename your own VM called linux-01.
+**If it fails.** `No such file`: save the 1.7 scripts. `STOP: linux-01 exists and is not a course guest`: a VM of yours is called linux-01; leave it alone and do not run the course on this host (chapter 1.4).
 
 **Clean up.** Keep linux-01 running.
 
@@ -2812,14 +2812,15 @@ sudo virsh -c qemu:///system backup-begin linux-01 ~/kvm-course/ch07/full.xml --
 sudo virsh -c qemu:///system qemu-agent-command linux-01 '{"execute":"guest-fsfreeze-status"}'
 ```
 
-`Backup started` means only that the job began. `domjobinfo` shows `Job type: None` once no job runs; `--completed` then tells how the last job ended, and `--anystats` includes failed jobs. `tee` saves the result for inspection. Continue only if this block succeeds:
+`Backup started` means only that the job began. `domjobinfo` shows `Job type: None` once no job runs. Then `--completed` shows how the last job ended, `--anystats` adds the details of a failed job, and `--keep-completed` keeps that result so you can ask again. `tee` saves it for inspection, and `sha256sum` records the backup's checksum for the restore. Continue only if this block succeeds:
 
 ```bash
 (
 set -euo pipefail
 timeout 300 bash -c 'until sudo virsh -c qemu:///system domjobinfo linux-01 | grep -q "Job type: *None"; do sleep 2; done'
-sudo virsh -c qemu:///system domjobinfo linux-01 --completed --anystats | tee ~/kvm-course/ch07/job.txt
+sudo virsh -c qemu:///system domjobinfo linux-01 --completed --keep-completed --anystats | tee ~/kvm-course/ch07/job.txt
 grep 'Job type: *Completed' ~/kvm-course/ch07/job.txt
+sudo sha256sum /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2 > ~/kvm-course/ch07/full.sha256
 sudo virsh -c qemu:///system checkpoint-list linux-01
 )
 ```
@@ -2873,7 +2874,7 @@ cat > ~/kvm-course/ch07/inc.xml <<'EOF'
 EOF
 ```
 
-Take it the same way as the full one, wait for successful completion, and compare the sizes of the two backups. Continue to the loss-and-restore drill only if both subshells succeed:
+Take it the same way as the full one, wait for successful completion, record its checksum, and compare the sizes of the two backups. Continue to the loss-and-restore drill only if both subshells succeed:
 
 ```bash
 (
@@ -2885,13 +2886,14 @@ sudo virsh -c qemu:///system backup-begin linux-01 ~/kvm-course/ch07/inc.xml
 (
 set -euo pipefail
 timeout 300 bash -c 'until sudo virsh -c qemu:///system domjobinfo linux-01 | grep -q "Job type: *None"; do sleep 2; done'
-sudo virsh -c qemu:///system domjobinfo linux-01 --completed --anystats | tee ~/kvm-course/ch07/job.txt
+sudo virsh -c qemu:///system domjobinfo linux-01 --completed --keep-completed --anystats | tee ~/kvm-course/ch07/job.txt
 grep 'Job type: *Completed' ~/kvm-course/ch07/job.txt
+sudo sha256sum /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2 > ~/kvm-course/ch07/inc.sha256
 sudo du -h /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2 /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
 )
 ```
 
-Simulate the loss again, then restore. The incremental file is not a disk on its own. `qemu-img rebase -u` writes the full backup's path into its header as its backing file (`-u` changes only the header and copies no data), so the two files read as one chain, and `convert` flattens that chain into linux-01's disk. The restored disk carries no bitmap, so the checkpoint no longer matches it: `checkpoint-delete --metadata` drops libvirt's record, and the next backup must again be a full one.
+Simulate the loss again, then restore. First check both backups against their recorded checksums (never restore a damaged backup, 7.3). The incremental file is not a disk on its own. `qemu-img rebase -u` writes the full backup's path into its header as its backing file (`-u` changes only the header and copies no data), so the two files read as one chain, and `convert` flattens that chain into linux-01's disk. The restored disk carries no bitmap, so the checkpoint no longer matches it: `checkpoint-delete --metadata` drops libvirt's record, and the next backup must again be a full one.
 
 ```bash
 ssh -F ~/kvm-course/ssh/config linux-01 'rm -r data'
@@ -2899,6 +2901,7 @@ ssh -F ~/kvm-course/ssh/config linux-01 'rm -r data'
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
 bash ~/kvm-course/bin/stop-guest.sh linux-01
+sudo sha256sum -c ~/kvm-course/ch07/full.sha256 ~/kvm-course/ch07/inc.sha256
 sudo qemu-img rebase -u -F qcow2 -b $P/linux-01-full.qcow2 $P/linux-01-inc.qcow2
 sudo qemu-img info --backing-chain $P/linux-01-inc.qcow2 | grep -E '^(image|backing file):'
 sudo qemu-img convert -O qcow2 $P/linux-01-inc.qcow2 $P/linux-01.qcow2
@@ -2919,6 +2922,8 @@ ssh -F ~/kvm-course/ssh/config linux-01 'set -e; sha256sum -c; test ! -e data/b.
 File processed:   16.062 MiB
 780M	/var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
 17M	/var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
+/var/lib/libvirt/images/kvm-course/linux-01-full.qcow2: OK
+/var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2: OK
 image: /var/lib/libvirt/images/kvm-course/linux-01-inc.qcow2
 backing file: /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
 image: /var/lib/libvirt/images/kvm-course/linux-01-full.qcow2
@@ -2929,9 +2934,9 @@ data/d.bin: OK
 expected: b.bin stays deleted
 ```
 
-**Check.** The incremental file is a small fraction of the full one. The restored guest holds the newest `a.bin`, `c.bin` and `d.bin`, and `b.bin` stays deleted.
+**Check.** Both backups print `OK` before the restore, and the incremental file is a small fraction of the full one. The restored guest holds the newest `a.bin`, `c.bin` and `d.bin`, and `b.bin` stays deleted.
 
-**If it fails.** An incremental is usable only on top of the exact full it followed: rebased onto another full, it gives a wrong disk without any error, so keep each incremental with its full. `backup-begin` fails with a checkpoint or bitmap error, such as `missing or broken bitmap`: the record of changed blocks is gone, so take a new full backup with a new checkpoint (7.4).
+**If it fails.** `FAILED` for a backup on the first run: it changed after you recorded it; do not restore it. If the restore block stopped after its `rebase` line, do not run the whole block again: `rebase -u` changed the incremental's header and checksum. Fix the cause, set `P=/var/lib/libvirt/images/kvm-course`, then rerun the remaining commands one at a time, starting with the failed command and ending with `new-guest.sh`. Stop if any command fails. An incremental is usable only on top of the exact full it followed: rebased onto another full, it gives a wrong disk without any error, so keep each incremental with its full. `backup-begin` fails with a checkpoint or bitmap error, such as `missing or broken bitmap`: the record of changed blocks is gone, so take a new full backup with a new checkpoint (7.4).
 
 **Clean up.** Nothing more; the chapter Clean up removes the backups.
 
@@ -3151,7 +3156,7 @@ EOF
 )
 ```
 
-Define, start and autostart kc-lab on both hosts; autostart brings it back after a reboot. `hypervisor-cpu-compare --error` takes the `<cpu>` element from linux-01's definition and fails unless the host can provide that CPU:
+Define, start and autostart kc-lab on both hosts. Autostart lets libvirt's network daemon start kc-lab automatically when it first starts after a reboot. `hypervisor-cpu-compare --error` takes the `<cpu>` element from linux-01's definition and fails unless the host can provide that CPU:
 
 ```bash
 (
@@ -3336,7 +3341,7 @@ data.bin: OK
 
 #### 8.5 Drain a host for maintenance
 
-**Goal.** Empty host-a, reboot it as the maintenance step, check that it comes back ready by itself, and move linux-01 back.
+**Goal.** Empty host-a, reboot it as the maintenance step, check its storage and network, and move linux-01 back.
 
 **Commands.** **Draining** a host means moving every VM off it before maintenance such as installing updates and rebooting. Here the maintenance is a reboot of the nested host-a; never reboot your workstation. Migrate each running VM to host-b; an empty `list --all` then means host-a is drained:
 
@@ -3368,7 +3373,7 @@ test "$before" != "$after"
 )
 ```
 
-A host is back in service when its storage and networks return without help. Check the mount from `/etc/fstab` and the autostarted network, then move linux-01 back:
+After the reboot, check the mount from `/etc/fstab` and kc-lab before moving linux-01 back. `net-info` can start libvirt's network daemon through its socket; the daemon then starts kc-lab because you enabled autostart:
 
 ```bash
 (
@@ -3394,7 +3399,7 @@ boot ID: c5d107c2-5e32-4dc9-9e0b-0155f2789c5e
 data.bin: OK
 ```
 
-**Check.** host-a was empty before its reboot, its boot ID changed, the share and kc-lab came back by themselves, and linux-01 runs on host-a again with the same boot ID as in 8.4 and `data.bin: OK`.
+**Check.** host-a was empty before its reboot, its boot ID changed, the share is mounted, kc-lab is active with autostart enabled, and linux-01 runs on host-a again with the same boot ID as in 8.4 and `data.bin: OK`.
 
 **If it fails.** host-a does not come back: read its console with `sudo virsh -c qemu:///system console host-a` (leave with `Ctrl+]`). The share is missing: check the `/etc/fstab` line in host-a. kc-lab is inactive: `virsh -c "$A" net-autostart kc-lab` was skipped. The drain stops at `test -z`: `virsh -c "$A" list --all` names a VM that was not running; move it as in 8.3.
 
@@ -3473,7 +3478,7 @@ data.bin: OK
 
 **Check.** The running job showed disk progress; linux-01 runs on host-b with the boot ID it had after the restart in this section and `data.bin: OK`; no disk of linux-01 is left on host-a.
 
-**If it fails.** `Cannot access storage file` or a size error on host-b: the empty image is missing, at another path, or of another size. `Migration without shared storage is unsafe`: `--copy-storage-all` is missing.
+**If it fails.** `no storage pool with matching target path` or a size error on host-b: the empty image is missing, at another path, or of another size. `Migration without shared storage is unsafe`: `--copy-storage-all` is missing.
 
 **Clean up.** linux-01 runs on host-b from host-b's local disk.
 
@@ -3535,12 +3540,12 @@ sync'
 
 **Goal.** Start a timeline, and know what "healthy" looks like before anything breaks.
 
-**Commands.** Start the timeline: `virsh event` (chapter 2.4) writes every lifecycle event of linux-01, with a timestamp, to a file in the background. 9.5 stops it (`timeout 1800` would after 30 minutes); `EVENTS=$!` saves its process ID. The `domstate` line lets `sudo` ask for your password now; the background `sudo -n` cannot ask:
+**Commands.** Start the timeline: `virsh event` (chapter 2.4) writes every lifecycle event of linux-01, with a timestamp, to a file in the background. 9.5 stops it (`timeout 4h` would after 4 hours); `EVENTS=$!` saves its process ID. The `domstate` line lets `sudo` ask for your password now; the background `sudo -n` cannot ask:
 
 ```bash
 mkdir -p ~/kvm-course/ch09
 sudo virsh -c qemu:///system domstate linux-01
-timeout 1800 sudo -n virsh -c qemu:///system event linux-01 --event lifecycle --loop --timestamp > ~/kvm-course/ch09/events.txt &
+timeout 4h sudo -n virsh -c qemu:///system event linux-01 --event lifecycle --loop --timestamp > ~/kvm-course/ch09/events.txt &
 EVENTS=$!
 ```
 
@@ -3589,7 +3594,7 @@ No errors found
 
 **Goal.** Find out why linux-01 stops answering while its QEMU process still runs, and bring it back without a reboot.
 
-**Commands.** Inject the fault: `virsh suspend` pauses linux-01's virtual CPUs, while QEMU keeps its memory. In real incidents a guest is paused by an operator or, after a disk error such as a full host filesystem, by QEMU itself (state `paused (ioerror)`, **not validated here**). The impact: SSH times out:
+**Commands.** Inject the fault: `virsh suspend` pauses linux-01's virtual CPUs, while QEMU keeps its memory. In real incidents a guest is paused by an operator or, after a disk error such as a full host filesystem, by QEMU itself (state `paused (I/O error)`, **not validated here**). The impact: SSH times out:
 
 ```bash
 (
@@ -3639,7 +3644,7 @@ data.bin: OK
 
 **Check.** The state was `paused (user)`, `cpu.time` hardly changed, and after `resume` the boot ID is unchanged and `data.bin: OK`.
 
-**If it fails.** The reason is `ioerror`: `sudo virsh -c qemu:///system domblkerror linux-01` names the disk and the error; fix that (for example, free space) before you resume.
+**If it fails.** The reason is `I/O error`: `sudo virsh -c qemu:///system domblkerror linux-01` names the disk and the error; fix that (for example, free space) before you resume.
 
 **Clean up.** linux-01 runs again.
 
@@ -5436,7 +5441,7 @@ bash ~/kvm-course/bin/new-guest.sh linux-01
 
 A **smoke check** is a quick, representative health check to run after any change, not every chapter's full test. **Exercise:** before you read the reference solution, write one check for each layer of `linux-01`, and note the chapter that taught you how to check it.
 
-**Reference solution.** `smoke.sh NAME` runs eight checks, each one command or pipeline; with `pipefail`, a pipeline fails when any part fails. `-U` lets `qemu-img info` read a running guest's locked disk (chapter 4.1). `check` runs a check and prints `PASS`, or `FAIL` followed by the check's last line of output, which usually names the error. The script exits non-zero if any check failed.
+**Reference solution.** `smoke.sh NAME` runs eight checks, each one command or pipeline; with `pipefail`, a pipeline fails when any part fails. `-U` (force share) lets `qemu-img info` read a running guest's disk despite the lock from chapter 4.1; it only reads. `check` runs a check and prints `PASS`, or `FAIL` followed by the check's last line of output, which usually names the error. The script exits non-zero if any check failed.
 
 ```bash
 cat > ~/kvm-course/bin/smoke.sh <<'BASH'
@@ -5595,40 +5600,13 @@ Status on **2 October 2026**:
 
 Nested hosts share the workstation's CPU, power and storage. Their exercises (chapter 6.4's access control, chapter 8's migration and disk locking) test mechanics; they do not prove recovery after losing a physical host. Chapter 7 restores guests on the workstation and keeps its backups on the same disk, so a copy on other media is not validated. Restore and migration times are observations, not guarantees.
 
-**Known deviation.** The desktop's software updater sometimes starts the Passim caching service by itself. The before-and-after comparisons tolerate that service.
+**Known deviations.** The desktop's software updater sometimes starts the Passim caching service by itself; the before-and-after comparisons tolerate that service. They also ignore the workstation's own Wi-Fi and docking-station state (the dock's network card and display driver), which changed during validation and which no lab touches.
 
 **Keeping the course correct.**
 - For each chapter, keep four facts: the last execution date, the software and image versions, the observed result, and any deviation with its resolution.
 - After changing the kernel, QEMU, libvirt, the firmware or the image, repeat the affected chapters.
 - Run Appendix A before diagnosing a later lab.
 - Have a second reader repeat the early chapters without help, and fix every step that needed help.
-
-#### Status of this edition
-
-Generated 2026-10-02 04:25 on the Fedora 44 validation host. "Validated" means every command block in the unit was executed in a run that passed and returned the host to its original state. "Accepted" means three independent reviewers drawn from Codex A, Codex B and Claude reviewers (never the unit's author) each scored it 10/10 for correctness and for simplicity.
-
-| Unit | Validated on Fedora 44 | Accepted (10/10 from all three reviewers) |
-|---|---|---|
-| Front matter | no runnable commands | yes |
-| Chapter 0 | yes | yes |
-| Chapter 1 | yes | yes |
-| Chapter 2 | yes | yes |
-| Chapter 3 | yes | yes |
-| Chapter 4 | yes | yes |
-| Chapter 5 | yes | yes |
-| Chapter 6 | yes | yes |
-| Chapter 7 | yes | yes |
-| Chapter 8 | yes | yes |
-| Chapter 9 | yes | yes |
-| Chapter 10 | yes | yes |
-| Chapter 11 | yes | yes |
-| Chapter 12 | yes | yes |
-| Chapter 13 | yes | yes |
-| Chapter 14 | yes | yes |
-| Validation status | no runnable commands | yes |
-| Appendix A | yes | yes |
-| Appendix B | yes | yes |
-| LPIC-3 mapping and library | no runnable commands | yes |
 
 ### Appendix A. Preflight and checkpoint C1
 

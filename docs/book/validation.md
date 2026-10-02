@@ -25,7 +25,7 @@ Status on **2 October 2026**:
 
 Nested hosts share the workstation's CPU, power and storage. Their exercises (chapter 6.4's access control, chapter 8's migration and disk locking) test mechanics; they do not prove recovery after losing a physical host. Chapter 7 restores guests on the workstation and keeps its backups on the same disk, so a copy on other media is not validated. Restore and migration times are observations, not guarantees.
 
-**Known deviation.** The desktop's software updater sometimes starts the Passim caching service by itself. The before-and-after comparisons tolerate that service.
+**Known deviations.** The desktop's software updater sometimes starts the Passim caching service by itself; the before-and-after comparisons tolerate that service. They also ignore the workstation's own Wi-Fi and docking-station state (the dock's network card and display driver), which changed during validation and which no lab touches.
 
 **Keeping the course correct.**
 - For each chapter, keep four facts: the last execution date, the software and image versions, the observed result, and any deviation with its resolution.

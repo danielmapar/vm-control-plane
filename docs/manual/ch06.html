@@ -31,16 +31,16 @@
 <p>Read libvirt&#x27;s <a href="https://libvirt.org/drvqemu.html" target="_blank" rel="noopener">QEMU driver</a>, <a href="https://libvirt.org/acl.html" target="_blank" rel="noopener">ACL</a> and <a href="https://libvirt.org/formatdomain.html#security-label" target="_blank" rel="noopener">label</a> pages. Keep SELinux enforcing.</p>
 <h2 id="s6-0" class="msec"><span class="sec-no">6.0</span> Starting point <a class="hlink" href="#s6-0" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch06-0" style="--hue:330">Day 5 lab</a></h2>
 <p><strong>Goal.</strong> Start linux-01.</p>
-<p><strong>Commands.</strong> If you removed the course, save the 1.7 scripts again first. <code>LC_ALL=C</code> keeps command output in English for the later checks. <code>new-guest.sh</code> starts linux-01, or builds it:</p>
+<p><strong>Commands.</strong> If you removed the course, save the 1.7 scripts again first. <code>LC_ALL=C</code> keeps output in English for later checks. <code>new-guest.sh</code> starts linux-01, or builds it:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">export LC_ALL=C
 bash ~/kvm-course/bin/new-guest.sh linux-01
 mkdir -p ~/kvm-course/ch06</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
 <p><strong>Expected output.</strong> The last lines are <code>status: done</code> and <code>linux-01</code>.</p>
-<p><strong>If it fails.</strong> <code>No such file</code>: save the 1.7 scripts. <code>STOP: linux-01 exists and is not a course guest</code>: rename your own VM of that name.</p>
+<p><strong>If it fails.</strong> <code>No such file</code>: save the 1.7 scripts. <code>STOP: linux-01 exists and is not a course guest</code>: that VM is yours; leave it alone and do not run the course on this host (<a class="xref" href="../manual/ch01.html#s1-4">chapter 1.4</a>).</p>
 <p><strong>Clean up.</strong> Keep linux-01 running.</p>
 <h2 id="s6-1" class="msec"><span class="sec-no">6.1</span> Map authority <a class="hlink" href="#s6-1" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch06-1" style="--hue:330">Day 5 lab</a></h2>
 <p><strong>Goal.</strong> Find who controls linux-01&#x27;s socket, QEMU process, disk, console and guest users.</p>
-<p><strong>Commands.</strong> <strong>Discretionary access control (DAC)</strong> means Unix owners and modes; <strong>SELinux</strong> adds rules that even root obeys. <strong>sVirt</strong> gives each course QEMU process the type <code>svirt_t</code> and its writable disk <code>svirt_image_t</code>, with matching <strong>MCS (Multi-Category Security) categories</strong>, such as <code>c18,c616</code>. With Fedora&#x27;s default <code>qemu:///system</code> configuration these processes run as <code>qemu</code>; their distinct categories separate the guests&#x27; private disks:</p>
+<p><strong>Commands.</strong> <strong>Discretionary access control (DAC)</strong> means Unix owners and modes; <strong>SELinux</strong> adds rules that even root obeys. <strong>sVirt</strong> gives each course QEMU process the type <code>svirt_t</code> and its writable disk <code>svirt_image_t</code>, with matching <strong>MCS (Multi-Category Security) categories</strong>, such as <code>c18,c616</code>. By Fedora&#x27;s default these processes run as <code>qemu</code>; their distinct categories separate the guests&#x27; private disks:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system dominfo linux-01 | grep &#x27;^Security label&#x27;
 pid=$(sudo cat /run/libvirt/qemu/linux-01.pid)
 ps -p &quot;$pid&quot; -o user,label,comm
@@ -49,11 +49,11 @@ sudo ls -lZ /var/lib/libvirt/images/kvm-course/linux-01.qcow2</code></pre><butto
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">sudo virsh -c qemu:///system dumpxml linux-01 &gt; ~/kvm-course/ch06/linux-01.xml
 grep -E &quot;&lt;interface |&lt;serial |&lt;log |&lt;channel &quot; ~/kvm-course/ch06/linux-01.xml
 if grep &#x27;&lt;graphics&#x27; ~/kvm-course/ch06/linux-01.xml; then echo &#x27;UNEXPECTED: linux-01 has a screen&#x27;; false; fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Every local user may connect to both libvirt sockets; <strong>polkit</strong>, the system&#x27;s authorization service, decides what they may do. The <code>-ro</code> socket only reads; read-write use needs the polkit action <code>org.libvirt.unix.manage</code>. Root has it, and Fedora&#x27;s rule <code>/usr/share/polkit-1/rules.d/50-libvirt.rules</code> gives it to every member of the <code>libvirt</code> group without a password: that membership is effectively root. In the guest, <code>fedora</code> is in <strong>wheel</strong>, Fedora&#x27;s administrator group, with passwordless sudo from cloud-init:</p>
+<p>Every local user may connect to both libvirt sockets; <strong>polkit</strong>, the authorization service, decides what they may do. The <code>-ro</code> socket only reads; read-write use needs the polkit action <code>org.libvirt.unix.manage</code>. Root has it, and Fedora&#x27;s rule <code>/usr/share/polkit-1/rules.d/50-libvirt.rules</code> gives it to every member of the <code>libvirt</code> group without a password: that membership is effectively root. In the guest, <code>fedora</code> is in <strong>wheel</strong>, Fedora&#x27;s administrator group, with passwordless sudo from cloud-init:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ls -lZ /run/libvirt/virtqemud-sock /run/libvirt/virtqemud-sock-ro
 getent group libvirt
 ssh -F ~/kvm-course/ssh/config linux-01 &#x27;set -e; id; getenforce&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p><strong>Expected output.</strong> Trimmed; categories and the group number differ. The course adds no one to the <code>libvirt</code> group (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>), so after the last colon you see only accounts that were already members, such as the validation account <code>daniel</code>, or nothing:</p>
+<p><strong>Expected output.</strong> Trimmed; categories and the group number differ. The course adds no one to the <code>libvirt</code> group (<a class="xref" href="../manual/ch00.html#s0-3">chapter 0.3</a>): after the last colon you see only existing members, such as the validation account <code>daniel</code>, or nothing:</p>
 <pre class="code code-text"><code class=" language-text">Security label: system_u:system_r:svirt_t:s0:c18,c616 (enforcing)
 qemu     system_u:system_r:svirt_t:s0:c18,c616 qemu-system-x86
 -rw-r--r--. 1 qemu qemu system_u:object_r:svirt_image_t:s0:c18,c616 … /var/lib/libvirt/images/kvm-course/linux-01.qcow2
@@ -65,10 +65,10 @@ Enforcing</code></pre>
 <p><strong>Clean up.</strong> Nothing changed.</p>
 <h2 id="s6-2" class="msec"><span class="sec-no">6.2</span> Recover through the serial console <a class="hlink" href="#s6-2" aria-label="Link to this section">#</a><a class="to-day" href="../day-05.html#lab-ch06-2" style="--hue:330">Day 5 lab</a></h2>
 <p><strong>Goal.</strong> Log in on the serial console with a password and administer a guest whose network is down.</p>
-<p><strong>Commands.</strong> On the disposable profile-probe, create the account <code>recovery</code>: <code>-m</code> makes its home, <code>-G wheel</code> allows sudo with its own password. <code>ssh_pwauth: false</code> (<a class="xref" href="../manual/ch01.html">chapter 1</a>) keeps SSH password login off; setting this password enables console login without enabling SSH password login:</p>
+<p><strong>Commands.</strong> Create <code>recovery</code> on disposable profile-probe: <code>-m</code> makes its home; <code>-G wheel</code> allows sudo with its own password. <code>ssh_pwauth: false</code> (<a class="xref" href="../manual/ch01.html">chapter 1</a>) keeps SSH password login off while you enable console login:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">bash ~/kvm-course/bin/new-guest.sh profile-probe
 ssh -F ~/kvm-course/ssh/config profile-probe &#x27;set -e; sudo useradd -m -G wheel recovery; id recovery&#x27;</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Set a temporary password of your own. <code>ssh -t</code> gives <code>passwd</code> a terminal; it asks twice and shows nothing as you type. Type:</p>
+<p>Set a temporary password of your own. <code>ssh -t</code> gives <code>passwd</code> a terminal; it asks twice and echoes nothing. Type:</p>
 <pre class="code code-console"><code class=" language-console">$ ssh -t -F ~/kvm-course/ssh/config profile-probe &#x27;sudo passwd recovery&#x27;</code></pre>
 <p>Unplug the virtual cable with <code>domif-setlink … down</code> (<a class="xref" href="../manual/ch03.html#s3-4">chapter 3.4</a>); SSH must fail:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">MAC=$(sudo virsh -c qemu:///system domiflist profile-probe | awk &#x27;$3==&quot;default&quot; {print $5}&#x27;)
@@ -78,7 +78,7 @@ if ssh -F ~/kvm-course/ssh/config -o ConnectTimeout=3 profile-probe true; then
 else
   echo &#x27;expected: SSH fails while the link is down&#x27;
 fi</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>The console needs no network. Log in as <code>recovery</code>, prove administrator rights with <code>sudo -v</code>, and look at the card with <code>ip -br link</code>. <code>exit</code> logs out; <code>Ctrl+]</code> leaves the console. Type:</p>
+<p>The console needs no network. Log in as <code>recovery</code>, prove admin rights with <code>sudo -v</code>, and look at the card with <code>ip -br link</code>. <code>exit</code> logs out; <code>Ctrl+]</code> leaves the console. Type:</p>
 <pre class="code code-console"><code class=" language-console">$ sudo virsh -c qemu:///system console profile-probe
 (press Enter)
 profile-probe login: recovery
@@ -109,13 +109,13 @@ active</code></pre>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
-if sudo test -e $P/denied.img; then echo &#x27;STOP: denied.img is left from an earlier try; run the chapter Clean up first&#x27;; false; fi
+if sudo test -e $P/denied.img; then echo &#x27;STOP: denied.img is left from an earlier try; see If it fails&#x27;; false; fi
 sudo qemu-img create -f raw $P/denied.img 16M
 sudo chmod 0644 $P/denied.img
 sudo chcon -t user_home_t $P/denied.img
 sudo ls -lZ $P/denied.img
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>libvirt normally relabels a disk when it attaches it. <code>relabel=&#x27;no&#x27;</code> in the source keeps the wrong label:</p>
+<p>libvirt normally relabels a disk at attach. <code>relabel=&#x27;no&#x27;</code> in the source keeps the wrong label:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">cat &gt; ~/kvm-course/ch06/denied.xml &lt;&lt;&#x27;XML&#x27;
 &lt;disk type=&#x27;file&#x27; device=&#x27;disk&#x27;&gt;
   &lt;driver name=&#x27;qemu&#x27; type=&#x27;raw&#x27;/&gt;
@@ -126,7 +126,7 @@ sudo ls -lZ $P/denied.img
   &lt;readonly/&gt;
 &lt;/disk&gt;
 XML</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>An <strong>AVC</strong> (Access Vector Cache) message records an SELinux decision. Attach the disk, then find the refusal for this QEMU process and file:</p>
+<p>An <strong>AVC</strong> (Access Vector Cache) message records an SELinux decision. Attach the disk, then find this QEMU process&#x27;s refusal for the file:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">pid=$(sudo cat /run/libvirt/qemu/profile-probe.pid)
 if sudo virsh -c qemu:///system attach-device profile-probe ~/kvm-course/ch06/denied.xml --live; then
   echo &#x27;UNEXPECTED: the wrongly labelled disk was attached&#x27;; false
@@ -135,7 +135,7 @@ else
 fi
 sudo ausearch -m AVC,USER_AVC -ts recent -p &quot;$pid&quot; -f denied.img | tee ~/kvm-course/ch06/denial.txt
 grep -E &#x27;denied.*scontext=[^ ]*:svirt_t:.*tcontext=[^ ]*:user_home_t:.*permissive=0&#x27; ~/kvm-course/ch06/denial.txt</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p><code>permissive=0</code> means SELinux enforced it. <code>restorecon</code> restores the default type; without <code>relabel=&#x27;no&#x27;</code>, libvirt labels the disk at attach:</p>
+<p><code>permissive=0</code> means SELinux enforced it. <code>restorecon</code> restores the default type; without <code>relabel=&#x27;no&#x27;</code>, libvirt labels the disk at attach, and a read-only disk gets the shared type <code>virt_content_t</code> instead of the VM&#x27;s categories. Delete the file only once <code>domblklist</code> drops <code>vdc</code>; the guest finishes an unplug later:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">(
 set -euo pipefail
 P=/var/lib/libvirt/images/kvm-course
@@ -144,21 +144,21 @@ sudo restorecon -v $P/denied.img
 sudo virsh -c qemu:///system attach-device profile-probe ~/kvm-course/ch06/fixed.xml --live
 sudo ls -lZ $P/denied.img
 sudo virsh -c qemu:///system detach-disk profile-probe vdc --live
+timeout 60 bash -ec &#x27;while :; do disks=$(sudo virsh -c qemu:///system domblklist profile-probe); grep -qw vdc &lt;&lt;&lt; &quot;$disks&quot; || break; sleep 1; done&#x27;
 sudo rm $P/denied.img
 )</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>Read-only disks get the shared type <code>virt_content_t</code>, writable ones the VM&#x27;s categories.</p>
 <p><strong>Expected output.</strong> Trimmed; numbers differ:</p>
 <pre class="code code-text"><code class=" language-text">expected: QEMU could not open the disk
 type=AVC … avc:  denied  { read } for  pid=93212 comm=&quot;qemu-system-x86&quot; name=&quot;denied.img&quot; … scontext=system_u:system_r:svirt_t:s0:c875,c967 tcontext=unconfined_u:object_r:user_home_t:s0 tclass=file permissive=0
 Relabeled … from unconfined_u:object_r:user_home_t:s0 to unconfined_u:object_r:virt_image_t:s0
 Device attached successfully
 -rw-r--r--. 1 qemu qemu system_u:object_r:virt_content_t:s0 … denied.img</code></pre>
-<p><strong>Check.</strong> The AVC names <code>svirt_t</code>, <code>user_home_t</code> and <code>permissive=0</code>; after the label repair the same disk attaches, and SELinux stayed enforcing.</p>
-<p><strong>If it fails.</strong> No AVC: check the path and mode, and that <code>auditd</code> runs; some denials are never logged, so a missing AVC does not prove that SELinux allowed the access. Attached at once: check <code>relabel=&#x27;no&#x27;</code> and <code>getenforce</code>.</p>
+<p><strong>Check.</strong> The AVC names <code>svirt_t</code>, <code>user_home_t</code> and <code>permissive=0</code>; after the label repair the disk attaches, with SELinux enforcing.</p>
+<p><strong>If it fails.</strong> Leftover <code>denied.img</code>: if <code>domblklist profile-probe</code> lists <code>vdc</code>, run the repair block&#x27;s detach and wait lines; stop if either fails. Once a successful listing has no <code>vdc</code>, run <code>sudo rm -f /var/lib/libvirt/images/kvm-course/denied.img</code> and retry. No AVC: check path, mode and <code>auditd</code>; no AVC does not prove access was allowed. Attached at once: check <code>relabel=&#x27;no&#x27;</code> and <code>getenforce</code>.</p>
 <p><strong>Clean up.</strong> The test disk is gone.</p>
 <h2 id="s6-4" class="msec"><span class="sec-no">6.4</span> Limit libvirt access <a class="hlink" href="#s6-4" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch06-4" style="--hue:145">Day 6 lab</a></h2>
 <p><strong>Goal.</strong> Compare a socket-wide grant with per-VM access control.</p>
-<p><strong>Commands.</strong> Work inside host-b, a disposable nested host (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>), so no rule touches your workstation. Install libvirt there (<code>install_weak_deps=False</code> skips optional packages; the download is still about 200 MiB), define two paused 128 MiB guests without disks, and add the user <code>kc-reader</code>, which cannot log in; <code>runuser</code> runs commands as it:</p>
+<p><strong>Commands.</strong> Work in host-b, a disposable nested host (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>), so no rule touches your workstation. Install libvirt there (<code>install_weak_deps=False</code> skips optional packages; still a 200 MiB download), define two paused 128 MiB guests without disks, and add the user <code>kc-reader</code>, which cannot log in; <code>runuser</code> runs commands as it:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">bash ~/kvm-course/bin/new-guest.sh host-b
 ssh -F ~/kvm-course/ssh/config host-b &#x27;bash -se&#x27; &lt;&lt;&#x27;GUEST&#x27;
 set -e
@@ -196,7 +196,7 @@ sleep 2
 sudo runuser -u kc-reader -- virsh -c qemu:///system destroy acl-b
 sudo virsh -c qemu:///system start acl-b --paused
 GUEST</code></pre><button type="button" class="copy" data-copy aria-label="Copy"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2"/><path d="M15.5 8.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h3.5"/></svg><span>Copy</span></button></div>
-<p>The <strong>access control driver</strong> checks each API call against polkit actions <code>org.libvirt.api.*</code>. Turn it on and add rule 48, which polkit reads before rule 49 because rule files run in name order. It handles only kc-reader&#x27;s API calls: it refuses drivers other than QEMU, allows connecting and reading every VM, allows start and stop only for acl-a&#x27;s UUID, and refuses everything else. Rule 49 still lets kc-reader open the socket. Unquoted <code>RULE</code> lets the shell fill in <code>$uuid</code>; the pauses let polkit load rules:</p>
+<p>The <strong>access control driver</strong> checks each API call against polkit actions <code>org.libvirt.api.*</code>. Turn it on and add rule 48; polkit reads rule files in name order, so 48 comes before 49. For kc-reader&#x27;s API calls on the QEMU driver, it allows connecting, reading every VM, and start and stop for acl-a&#x27;s UUID alone; it refuses everything else. Rule 49 still lets kc-reader open the socket. Unquoted <code>RULE</code> lets the shell fill in <code>$uuid</code>; pauses let polkit load rules:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">ssh -F ~/kvm-course/ssh/config host-b &#x27;bash -se&#x27; &lt;&lt;&#x27;GUEST&#x27;
 set -e
 printf &#x27;\naccess_drivers = [ &quot;polkit&quot; ]\n&#x27; | sudo tee -a /etc/libvirt/virtqemud.conf &gt;/dev/null
@@ -231,14 +231,14 @@ error: access denied: &#x27;QEMU&#x27; denied access
 Domain &#x27;acl-a&#x27; destroyed
 Domain &#x27;acl-a&#x27; started</code></pre>
 <p><strong>Check.</strong> No grant: refused. Socket grant: any VM. Access control: acl-b readable but not stoppable; acl-a still controlled.</p>
-<p><strong>If it fails.</strong> <code>journalctl -u polkit</code> in host-b shows rule errors. acl-a or acl-b does not start: check nesting (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>). Never add grants on your workstation.</p>
-<p><strong>Clean up.</strong> The chapter Clean up deletes host-b with its packages, rules and user.</p>
+<p><strong>If it fails.</strong> <code>journalctl -u polkit</code> in host-b shows rule errors. acl-a or acl-b does not start: check nesting (<a class="xref" href="../manual/ch00.html#s0-2">chapter 0.2</a>). To repeat 6.4, first run <code>bash ~/kvm-course/bin/remove-guest.sh host-b</code>, then start again from its first block. Never add grants on your workstation.</p>
+<p><strong>Clean up.</strong> The chapter Clean up deletes host-b and all it holds.</p>
 <h2 id="s6-5" class="msec"><span class="sec-no">6.5</span> Audit secret paths <a class="hlink" href="#s6-5" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch06-5" style="--hue:145">Day 6 lab</a></h2>
 <p><strong>Goal.</strong> Find who can read the course&#x27;s credentials and what the guest agent may do, printing no secret.</p>
-<p><strong>Commands.</strong> Only you may read the private SSH key. The seed is an unencrypted ISO, so modes decide who reads its user-data; <code>namei -l</code> shows each directory&#x27;s mode on a path. The guest agent runs requests as root in the guest; <code>guest-exec</code> runs any command:</p>
+<p><strong>Commands.</strong> Only you may read the private SSH key. The seed ISO is unencrypted, so modes decide who reads its user-data; <code>namei -l</code> shows each directory&#x27;s mode on a path. The guest agent runs requests as root; <code>guest-exec</code> runs any command:</p>
 <div class="codebox"><pre class="code code-bash"><code class="manual-code language-bash">stat -c &#x27;%a %U:%G %n&#x27; ~/kvm-course/ssh ~/kvm-course/ssh/id_ed25519
-test &quot;$(stat -c %a ~/kvm-course/ssh)&quot; = 700
-test &quot;$(stat -c %a ~/kvm-course/ssh/id_ed25519)&quot; = 600
+if [ &quot;$(stat -c %a ~/kvm-course/ssh)&quot; != 700 ]; then echo &#x27;UNEXPECTED: ssh dir not 700&#x27;; false; fi
+if [ &quot;$(stat -c %a ~/kvm-course/ssh/id_ed25519)&quot; != 600 ]; then echo &#x27;UNEXPECTED: private key not 600&#x27;; false; fi
 namei -l ~/kvm-course/linux-01/user-data
 sudo namei -l /var/lib/libvirt/images/kvm-course/linux-01-seed.iso
 sudo virsh -c qemu:///system qemu-agent-command linux-01 &#x27;{&quot;execute&quot;:&quot;guest-info&quot;}&#x27; |
@@ -254,7 +254,7 @@ drwxr-xr-x root root kvm-course
 -rw-r--r-- qemu qemu linux-01-seed.iso
 {&quot;enabled&quot;:true,&quot;name&quot;:&quot;guest-exec&quot;,&quot;success-response&quot;:true}
 {&quot;enabled&quot;:true,&quot;name&quot;:&quot;guest-exec-status&quot;,&quot;success-response&quot;:true}</code></pre>
-<p><strong>Check.</strong> The key is <code>600</code> in a <code>700</code> directory and your home (<code>drwx------</code>) hides user-data, but every local user can read the seed ISO: never put passwords or private keys in user-data. With <code>guest-exec</code> enabled, permission to issue guest-agent commands gives root command execution inside this guest.</p>
+<p><strong>Check.</strong> The key is <code>600</code> in a <code>700</code> directory and your home (<code>drwx------</code>) hides user-data, but every local user can read the seed ISO: never put passwords or private keys in user-data. With <code>guest-exec</code> enabled, permission to send guest-agent commands means root inside this guest.</p>
 <p><strong>If it fails.</strong> Wrong modes: fix them with <code>chmod</code>. No agent answer: check the channel (6.1) and <code>qemu-guest-agent</code>. <code>guest-exec</code> disabled in <code>/etc/sysconfig/qemu-ga</code> is safer, not an error.</p>
 <p><strong>Clean up.</strong> Nothing changed.</p>
 <h2 id="s6-cleanup" class="msec">Clean up <a class="hlink" href="#s6-cleanup" aria-label="Link to this section">#</a><a class="to-day" href="../day-06.html#lab-ch06-cleanup" style="--hue:145">Day 6 lab</a></h2>
